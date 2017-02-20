@@ -58,9 +58,9 @@ public class BenchmarkServiceProvider implements BenchmarkService {
                     .start());
 
             response.setResponseCode(0);
-        } catch (IOException e) {
+        } catch (Exception e) {
             response.setResponseCode(1);
-            response.setResponseMessage("Could not start RouplexTcpServer: Cause: + " + e.getMessage());
+            response.setResponseMessage("Could not start RouplexTcpServer: Cause: [" + e.getClass() + "] " + e.getMessage());
         }
 
         return response;

@@ -1,9 +1,5 @@
 package org.rouplex.service;
 
-import org.glassfish.jersey.server.monitoring.ApplicationEvent;
-import org.glassfish.jersey.server.monitoring.ApplicationEventListener;
-import org.glassfish.jersey.server.monitoring.RequestEvent;
-import org.glassfish.jersey.server.monitoring.RequestEventListener;
 import org.rouplex.platform.jersey.RouplexJerseyApplication;
 import org.rouplex.platform.tcp.RouplexTcpServer;
 import org.rouplex.service.benchmarkservice.BenchmarkServiceProvider;
@@ -21,7 +17,7 @@ import java.io.IOException;
  * only in the constructor that we can bind (or add) resources to it, the jersey API does not allow for anything else.
  */
 @ApplicationPath("/rouplex")
-public class SecurityServiceApplication extends RouplexJerseyApplication implements ApplicationEventListener, Closeable {
+public class SecurityServiceApplication extends RouplexJerseyApplication implements Closeable { // todo ApplicationEventListener
 
     public SecurityServiceApplication(@Context ServletContext servletContext) {
         super(servletContext);
@@ -40,22 +36,23 @@ public class SecurityServiceApplication extends RouplexJerseyApplication impleme
         }
     }
 
-    @Override
-    public void onEvent(ApplicationEvent event) {
-        switch (event.getType()) {
-            case INITIALIZATION_FINISHED:
-                System.out.println("Application "
-                        + event.getResourceConfig().getApplicationName()
-                        + " was initialized.");
-                break;
-            case DESTROY_FINISHED:
-                close();
-                break;
-        }
-    }
-
-    @Override
-    public RequestEventListener onRequest(RequestEvent requestEvent) {
-        return null;
-    }
+// todo check app lifecycle
+//    @Override
+//    public void onEvent(ApplicationEvent event) {
+//        switch (event.getType()) {
+//            case INITIALIZATION_FINISHED:
+//                System.out.println("Application "
+//                        + event.getResourceConfig().getApplicationName()
+//                        + " was initialized.");
+//                break;
+//            case DESTROY_FINISHED:
+//                close();
+//                break;
+//        }
+//    }
+//
+//    @Override
+//    public RequestEventListener onRequest(RequestEvent requestEvent) {
+//        return null;
+//    }
 }
