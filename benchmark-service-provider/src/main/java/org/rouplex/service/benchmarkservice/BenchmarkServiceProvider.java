@@ -68,7 +68,7 @@ public class BenchmarkServiceProvider implements BenchmarkService {
     public StopTcpServerResponse stopTcpServer(StopTcpServerRequest request) throws Exception {
         RouplexTcpServer rouplexTcpServer = rouplexTcpServers.remove(request.getPort());
         if (rouplexTcpServer == null) {
-            throw new IOException("There is no RouplexTcpServer is serving using port " + request.getPort());
+            throw new IOException("There is no RouplexTcpServer listening at port " + request.getPort());
         }
 
         rouplexTcpServer.close();
