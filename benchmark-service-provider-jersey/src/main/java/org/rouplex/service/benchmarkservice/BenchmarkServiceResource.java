@@ -46,12 +46,12 @@ public class BenchmarkServiceResource extends ResourceConfig implements Benchmar
     @ApiResponses(value = {
             @ApiResponse(code = 200, message = "Success"),
             @ApiResponse(code = 400, message = "Invalid request")})
-    public StartTcpServerResponse startTcpServer(StartTcpServerRequest request) {
+    public StartTcpServerResponse startTcpServer(StartTcpServerRequest request) throws Exception {
         return getBenchmarkServiceServer().startTcpServer(request);
     }
 
     @Override
-    public StopTcpServerResponse stopTcpServer(StopTcpServerRequest request) {
+    public StopTcpServerResponse stopTcpServer(StopTcpServerRequest request) throws Exception {
         return getBenchmarkServiceServer().stopTcpServer(request);
     }
 

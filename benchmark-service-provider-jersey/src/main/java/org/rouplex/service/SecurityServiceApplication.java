@@ -22,7 +22,7 @@ public class SecurityServiceApplication extends RouplexJerseyApplication impleme
     public SecurityServiceApplication(@Context ServletContext servletContext) {
         super(servletContext);
 
-        bindResource(BenchmarkServiceResource.class, true);
+        bindRouplexResource(BenchmarkServiceResource.class, true);
     }
 
     @Override

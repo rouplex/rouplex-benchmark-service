@@ -11,6 +11,7 @@ import org.rouplex.service.benchmarkservice.tcp.StopTcpServerResponse;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.util.*;
 
@@ -39,51 +40,40 @@ public class BenchmarkServiceProvider implements BenchmarkService {
     }
 
     @Override
-    public StartTcpServerResponse startTcpServer(StartTcpServerRequest request) {
-        StartTcpServerResponse response = new StartTcpServerResponse();
-
-        try {
-            if (rouplexTcpServers.get(request.getPort()) != null) {
-                throw new IOException("Another RouplexTcpServer is already serving using port " + request.getPort());
-            }
-
-            rouplexTcpServers.put(request.getPort(), new RouplexTcpServer()
-                    .withLocalAddress(request.getHostname(), request.getPort())
-                    .withServiceProvider(new SyncReplyService<byte[], ByteBuffer>() {
-                        @Override
-                        public ByteBuffer serviceRequest(byte[] request) {
-                            return ByteBuffer.wrap(request); // echo
-                        }
-                    })
-                    .start());
-
-            response.setResponseCode(0);
-        } catch (Exception e) {
-            response.setResponseCode(1);
-            response.setResponseMessage("Could not start RouplexTcpServer: Cause: [" + e.getClass() + "] " + e.getMessage());
+    public StartTcpServerResponse startTcpServer(StartTcpServerRequest request) throws Exception {
+        if (rouplexTcpServers.get(request.getPort()) != null) {
+            throw new IOException("Another RouplexTcpServer is already serving using port " + request.getPort());
         }
 
+        RouplexTcpServer rouplexTcpServer = new RouplexTcpServer()
+                .withLocalAddress(request.getHostname(), request.getPort())
+                .withServiceProvider(new SyncReplyService<byte[], ByteBuffer>() {
+                    @Override
+                    public ByteBuffer serviceRequest(byte[] request) {
+                        return ByteBuffer.wrap(request); // echo
+                    }
+                })
+                .start();
+
+        InetSocketAddress inetSocketAddress = (InetSocketAddress) rouplexTcpServer.getLocalAddress();
+        rouplexTcpServers.put(inetSocketAddress.getPort(), rouplexTcpServer);
+
+        StartTcpServerResponse response = new StartTcpServerResponse();
+        response.setHostname(inetSocketAddress.getHostName());
+        response.setPort(inetSocketAddress.getPort());
         return response;
     }
 
     @Override
-    public StopTcpServerResponse stopTcpServer(StopTcpServerRequest request) {
-        StopTcpServerResponse response = new StopTcpServerResponse();
-
-        try {
-            RouplexTcpServer rouplexTcpServer = rouplexTcpServers.remove(request.getPort());
-            if (rouplexTcpServer == null) {
-                throw new IOException("There is no RouplexTcpServer is serving using port " + request.getPort());
-            }
-
-            rouplexTcpServer.close();
-            response.setResponseCode(0);
-        } catch (IOException e) {
-            response.setResponseCode(1);
-            response.setResponseMessage("Could not start RouplexTcpServer: Cause: + " + e.getMessage());
+    public StopTcpServerResponse stopTcpServer(StopTcpServerRequest request) throws Exception {
+        RouplexTcpServer rouplexTcpServer = rouplexTcpServers.remove(request.getPort());
+        if (rouplexTcpServer == null) {
+            throw new IOException("There is no RouplexTcpServer is serving using port " + request.getPort());
         }
 
-        return response;
+        rouplexTcpServer.close();
+
+        return new StopTcpServerResponse();
     }
 
     private PingResponse buildHttpRequestResponse(String payload) {

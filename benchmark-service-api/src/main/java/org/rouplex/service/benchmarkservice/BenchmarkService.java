@@ -21,9 +21,9 @@ public interface BenchmarkService {
 
     @POST
     @Path("/tcp/server/start")
-    StartTcpServerResponse startTcpServer(StartTcpServerRequest request);
+    StartTcpServerResponse startTcpServer(StartTcpServerRequest request) throws Exception;
 
     @POST
     @Path("/tcp/server/stop")
-    StopTcpServerResponse stopTcpServer(StopTcpServerRequest request);
+    StopTcpServerResponse stopTcpServer(StopTcpServerRequest request) throws Exception;
 }

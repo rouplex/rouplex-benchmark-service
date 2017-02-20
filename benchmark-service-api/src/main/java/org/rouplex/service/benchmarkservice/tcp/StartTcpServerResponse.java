@@ -4,22 +4,22 @@ package org.rouplex.service.benchmarkservice.tcp;
  * @author Andi Mullaraj (andimullaraj at gmail.com)
  */
 public class StartTcpServerResponse {
-    int responseCode;
-    String responseMessage;
+    String hostname;
+    int port;
 
-    public int getResponseCode() {
-        return responseCode;
+    public String getHostname() {
+        return hostname;
     }
 
-    public void setResponseCode(int responseCode) {
-        this.responseCode = responseCode;
+    public void setHostname(String hostname) {
+        this.hostname = hostname;
     }
 
-    public String getResponseMessage() {
-        return responseMessage;
+    public int getPort() {
+        return port;
     }
 
-    public void setResponseMessage(String responseMessage) {
-        this.responseMessage = responseMessage;
+    public void setPort(int port) {
+        this.port = port;
     }
 }
