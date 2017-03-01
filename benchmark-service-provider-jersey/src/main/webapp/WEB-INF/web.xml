@@ -14,11 +14,11 @@
     </filter-mapping>
 
     <!--<servlet>-->
-        <!--<servlet-name>org.rouplex.SecurityServiceApplication</servlet-name>-->
+        <!--<servlet-name>org.rouplex.BenchmarkServiceApplication</servlet-name>-->
     <!--</servlet>-->
 
     <!--<servlet-mapping>-->
-        <!--<servlet-name>org.rouplex.SecurityServiceApplication</servlet-name>-->
+        <!--<servlet-name>org.rouplex.BenchmarkServiceApplication</servlet-name>-->
         <!--<url-pattern>/rouplex/*</url-pattern>-->
     <!--</servlet-mapping>-->
 </web-app>

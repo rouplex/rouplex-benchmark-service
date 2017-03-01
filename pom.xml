@@ -35,6 +35,8 @@
                         <goals>
                             <goal>analyze-only</goal>
                         </goals>
+
+
                         <configuration>
                             <failOnWarning>false</failOnWarning>
                         </configuration>

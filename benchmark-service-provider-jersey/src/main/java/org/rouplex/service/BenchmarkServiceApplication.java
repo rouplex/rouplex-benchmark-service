@@ -1,15 +1,12 @@
 package org.rouplex.service;
 
 import org.rouplex.platform.jersey.RouplexJerseyApplication;
-import org.rouplex.platform.tcp.RouplexTcpServer;
-import org.rouplex.service.benchmarkservice.BenchmarkServiceProvider;
 import org.rouplex.service.benchmarkservice.BenchmarkServiceResource;
 
 import javax.servlet.ServletContext;
 import javax.ws.rs.ApplicationPath;
 import javax.ws.rs.core.Context;
 import java.io.Closeable;
-import java.io.IOException;
 
 /**
  * This is the webapp, or the main jersey {@link javax.ws.rs.core.Application} which binds all the jersey resources.
@@ -17,9 +14,9 @@ import java.io.IOException;
  * only in the constructor that we can bind (or add) resources to it, the jersey API does not allow for anything else.
  */
 @ApplicationPath("/rouplex")
-public class SecurityServiceApplication extends RouplexJerseyApplication implements Closeable { // todo ApplicationEventListener
+public class BenchmarkServiceApplication extends RouplexJerseyApplication implements Closeable { // todo ApplicationEventListener
 
-    public SecurityServiceApplication(@Context ServletContext servletContext) {
+    public BenchmarkServiceApplication(@Context ServletContext servletContext) {
         super(servletContext);
 
         bindRouplexResource(BenchmarkServiceResource.class, true);
@@ -27,13 +24,13 @@ public class SecurityServiceApplication extends RouplexJerseyApplication impleme
 
     @Override
     public void close() {
-        for (RouplexTcpServer rouplexTcpServer : BenchmarkServiceProvider.rouplexTcpServers.values()) {
-            try {
-                rouplexTcpServer.close();
-            } catch (IOException ioe) {
-                // log it
-            }
-        }
+//        for (RouplexTcpServer rouplexTcpServer : BenchmarkServiceProvider.benchmarkTcpServers.values()) {
+//            try {
+//                rouplexTcpServer.close();
+//            } catch (IOException ioe) {
+//                // log it
+//            }
+//        }
     }
 
 // todo check app lifecycle
