@@ -16,7 +16,6 @@
     <packaging>jar</packaging>
 
     <dependencies>
-
         <!-- nio ssl made easy -->
         <dependency>
             <groupId>org.rouplex</groupId>
@@ -64,6 +63,13 @@
             <groupId>org.apache.tomcat</groupId>
             <artifactId>tomcat-servlet-api</artifactId>
             <version>8.5.5</version>
+        </dependency>
+
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>4.12</version>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 </project>

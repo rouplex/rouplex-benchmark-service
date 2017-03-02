@@ -25,6 +25,7 @@ import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
     static BenchmarkServiceProvider benchmarkServiceProvider;
@@ -39,11 +40,11 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
         }
     }
 
-    final RouplexTcpBinder classicRouplexTcpBinder;
-    final RouplexTcpBinder niosslRouplexTcpBinder;
-    final Map<String, RouplexTcpServer> rouplexTcpServers = new HashMap<String, RouplexTcpServer>();
-    final Set<RouplexTcpClient> rouplexTcpClients = new HashSet<RouplexTcpClient>();
+    final RouplexTcpBinder classicTcpBinder;
+    final RouplexTcpBinder niosslTcpBinder;
+    Map<String, Closeable> closeables = new HashMap<>();
     final ScheduledExecutorService scheduledExecutor = Executors.newSingleThreadScheduledExecutor();
+    final AtomicInteger incrementalId = new AtomicInteger();
     final Random random = new Random();
 
     final MetricRegistry benchmarkerMetrics = new MetricRegistry();
@@ -53,34 +54,38 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
             .convertDurationsTo(TimeUnit.MILLISECONDS)
             .build();
 
+    final NotificationListener<RouplexTcpClient> notificationListener = new NotificationListener<RouplexTcpClient>() {
+        @Override
+        public void onEvent(RouplexTcpClient rouplexTcpClient) {
+            if (rouplexTcpClient.getRouplexTcpServer() == null) {
+                new EchoClient(rouplexTcpClient);
+            } else {
+                try {
+                    new EchoResponder(rouplexTcpClient);
+                } catch (IOException ioe) {
+
+                }
+            }
+        }
+    };
+
     BenchmarkServiceProvider() throws IOException {
-        classicRouplexTcpBinder = new RouplexTcpBinder(Selector.open(), null);
-        niosslRouplexTcpBinder = new RouplexTcpBinder(SSLSelector.open(), null);
-        jmxReporter.start();
+        addCloseable(classicTcpBinder = new RouplexTcpBinder(Selector.open(), null))
+                .setTcpClientAddedListener(notificationListener);
+
+        addCloseable(niosslTcpBinder = new RouplexTcpBinder(SSLSelector.open(), null))
+                .setTcpClientAddedListener(notificationListener);
+
+        addCloseable(jmxReporter).start();
     }
 
     @Override
     public StartTcpServerResponse startTcpServer(StartTcpServerRequest request) throws Exception {
-        RouplexTcpBinder tcpBinder = request.isUseSharedBinder() ? request.isUseNiossl()
-                ? niosslRouplexTcpBinder : classicRouplexTcpBinder : null;
+        EchoServer echoServer = new EchoServer(request);
+        InetSocketAddress inetSocketAddress = (InetSocketAddress) echoServer.rouplexTcpServer.getLocalAddress();
 
-        RouplexTcpServer rouplexTcpServer = RouplexTcpServer.newBuilder()
-                .withLocalAddress(request.getHostname(), request.getPort())
-                .withRouplexTcpBinder(tcpBinder)
-                .withSecure(request.isSsl(), null)
-                .build();
-
-        InetSocketAddress inetSocketAddress = (InetSocketAddress) rouplexTcpServer.getLocalAddress();
-        final String hostPort = String.format("%s:%s", inetSocketAddress.getHostName().replace('.', '-'), inetSocketAddress.getPort());
-        rouplexTcpServers.put(hostPort, rouplexTcpServer);
-
-        String tag = String.format("%s.%s", request.isUseNiossl() ? "Niossl" : "Classic", request.isSsl() ? "Ssl" : "Plain");
-        rouplexTcpServer.getRouplexTcpBinder().setTcpClientAddedListener(new NotificationListener<RouplexTcpClient>() {
-            @Override
-            public void onEvent(RouplexTcpClient rouplexTcpClient) {
-                new EchoServer(rouplexTcpClient, hostPort, tag);
-            }
-        });
+        String hostPort = String.format("%s:%s", inetSocketAddress.getHostName().replace('.', '-'), inetSocketAddress.getPort());
+        addCloseable(hostPort, echoServer);
 
         StartTcpServerResponse response = new StartTcpServerResponse();
         response.setHostname(inetSocketAddress.getHostName());
@@ -91,49 +96,26 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
     @Override
     public StopTcpServerResponse stopTcpServer(StopTcpServerRequest request) throws Exception {
         String hostPort = String.format("%s:%s", request.getHostname().replace('.', '-'), request.getPort());
-        RouplexTcpServer rouplexTcpServer = rouplexTcpServers.remove(hostPort);
-        if (rouplexTcpServer == null) {
-            throw new IOException("There is no RouplexTcpServer listening at " + hostPort);
+        if (!closeAndRemove(hostPort)) {
+            throw new IOException("There is no EchoServer listening at " + hostPort);
         }
 
-        rouplexTcpServer.close();
         return new StopTcpServerResponse();
     }
 
     @Override
     public StartTcpClientsResponse startTcpClients(final StartTcpClientsRequest request) throws Exception {
-//        //request = new StartTcpClientsRequest(); // careful to take this out
-////        request.hostname = "10.0.0.159";
-////        request.port = 9999;
-////        request.clientCount = 100;
-//
-//        request.minClientLifeMillis = 10000000;
-//        request.minDelayMillisBeforeCreatingClient = 10;
-//        request.minDelayMillisBetweenSends = 10;
-//        request.minPayloadSize = 10000;
-//
-//        request.maxClientLifeMillis = 10000001;
-//        request.maxDelayMillisBeforeCreatingClient = 1001;
-//        request.maxDelayMillisBetweenSends = 101;
-//        request.maxPayloadSize = 10001;
-
         RouplexTcpBinder tcpBinder;
         if (request.isUseSharedBinder()) {
-            tcpBinder = request.isUseNiossl() ? niosslRouplexTcpBinder : classicRouplexTcpBinder;
+            tcpBinder = request.isUseNiossl() ? niosslTcpBinder : classicTcpBinder;
         } else {
             tcpBinder = new RouplexTcpBinder(request.isUseNiossl() ? SSLSelector.open() : Selector.open());
+            addCloseable(tcpBinder).setTcpClientAddedListener(notificationListener);
         }
 
-        String tag = String.format("%s.%s", request.isUseNiossl() ? "Niossl" : "Classic", request.isSsl() ? "Ssl" : "Plain");
-        final Meter createdClients = benchmarkerMetrics.meter(MetricRegistry.name(tag, EchoServer.class.getSimpleName(), "created", "client"));
-        final Meter failedCreationClients = benchmarkerMetrics.meter(MetricRegistry.name(tag, EchoServer.class.getSimpleName(), "uncreated", "client"));
-        tcpBinder.setTcpClientAddedListener(new NotificationListener<RouplexTcpClient>() {
-            @Override
-            public void onEvent(RouplexTcpClient rouplexTcpClient) {
-                rouplexTcpClients.add(rouplexTcpClient);
-                new EchoClient(rouplexTcpClient, request, tag);
-            }
-        });
+        String tag = String.format("%s.%s", request.isUseNiossl() ? "N" : "C", request.isSsl() ? "S" : "P");
+        final Meter createdClients = benchmarkerMetrics.meter(MetricRegistry.name(tag, EchoResponder.class.getSimpleName(), "created", "client"));
+        final Meter failedCreationClients = benchmarkerMetrics.meter(MetricRegistry.name(tag, EchoResponder.class.getSimpleName(), "uncreated", "client"));
 
         for (int cc = 0; cc < request.clientCount; cc++) {
             long startClientMillis = request.minDelayMillisBeforeCreatingClient +
@@ -143,11 +125,13 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
                 @Override
                 public void run() {
                     try {
-                        RouplexTcpClient.newBuilder()
+                        addCloseable(RouplexTcpClient.newBuilder()
                                 .withRouplexTcpBinder(tcpBinder)
                                 .withRemoteAddress(request.getHostname(), request.getPort())
                                 .withSecure(request.isSsl(), null)
-                                .build();
+                                .withAttachment(request)
+                                .build());
+
                         createdClients.mark();
                     } catch (Exception e) {
                         failedCreationClients.mark();
@@ -189,7 +173,32 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
         return response;
     }
 
-    class EchoServer {
+    class EchoServer implements Closeable {
+        final RouplexTcpServer rouplexTcpServer;
+
+        EchoServer(StartTcpServerRequest request) throws Exception {
+            RouplexTcpBinder tcpBinder = request.isUseSharedBinder() ? request.isUseNiossl()
+                    ? niosslTcpBinder : classicTcpBinder : null;
+
+            rouplexTcpServer = RouplexTcpServer.newBuilder()
+                    .withLocalAddress(request.getHostname(), request.getPort())
+                    .withRouplexTcpBinder(tcpBinder)
+                    .withSecure(request.isSsl(), null)
+                    .withAttachment(this)
+                    .build();
+
+            if (tcpBinder == null) {
+                rouplexTcpServer.getRouplexTcpBinder().setTcpClientAddedListener(notificationListener);
+            }
+        }
+
+        @Override
+        public void close() throws IOException {
+            rouplexTcpServer.close();
+        }
+    }
+
+    class EchoResponder {
         final SendChannel<ByteBuffer> sendChannel;
         final Throttle receiveThrottle;
 
@@ -204,15 +213,21 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
 
         ByteBuffer sendBuffer;
 
-        EchoServer(RouplexTcpClient rouplexTcpClient, String hostPort, String tag) {
+        EchoResponder(RouplexTcpClient rouplexTcpClient) throws IOException {
+            StartTcpServerRequest request = (StartTcpServerRequest) rouplexTcpClient.getAttachment();
+            String tag = String.format("%s.%s", request.isUseNiossl() ? "N" : "C", request.isSsl() ? "S" : "P");
+
+            InetSocketAddress inetSocketAddress = (InetSocketAddress) rouplexTcpClient.getRouplexTcpServer().getLocalAddress();
+            final String hostPort = String.format("%s:%s", inetSocketAddress.getHostName().replace('.', '-'), inetSocketAddress.getPort());
+
             String clientId = "";//rouplexTcpClient.hashCode() + "";
-            addedClients = benchmarkerMetrics.meter(MetricRegistry.name(tag, EchoServer.class.getSimpleName(), hostPort, "connected", "client"));
-            removedClients = benchmarkerMetrics.meter(MetricRegistry.name(tag, EchoServer.class.getSimpleName(), hostPort, "disconnected", "client"));
-            receivedBytes = benchmarkerMetrics.meter(MetricRegistry.name(tag, EchoServer.class.getSimpleName(), hostPort, "received", "client"));
-            sentBytes = benchmarkerMetrics.meter(MetricRegistry.name(tag, EchoServer.class.getSimpleName(), hostPort, "sent", "client"));
-            inSizes = benchmarkerMetrics.histogram(MetricRegistry.name(tag, EchoServer.class.getSimpleName(), hostPort, "inSizes", "client"));
-            outSizes = benchmarkerMetrics.histogram(MetricRegistry.name(tag, EchoServer.class.getSimpleName(), hostPort, "outSizes", "client"));
-            pauseTime = benchmarkerMetrics.timer(MetricRegistry.name(tag, EchoServer.class.getSimpleName(), hostPort, "pauseTime", "client"));
+            addedClients = benchmarkerMetrics.meter(MetricRegistry.name(tag, EchoResponder.class.getSimpleName(), hostPort, "connected", "client"));
+            removedClients = benchmarkerMetrics.meter(MetricRegistry.name(tag, EchoResponder.class.getSimpleName(), hostPort, "disconnected", "client"));
+            receivedBytes = benchmarkerMetrics.meter(MetricRegistry.name(tag, EchoResponder.class.getSimpleName(), hostPort, "received", "client"));
+            sentBytes = benchmarkerMetrics.meter(MetricRegistry.name(tag, EchoResponder.class.getSimpleName(), hostPort, "sent", "client"));
+            inSizes = benchmarkerMetrics.histogram(MetricRegistry.name(tag, EchoResponder.class.getSimpleName(), hostPort, "inSizes", "client"));
+            outSizes = benchmarkerMetrics.histogram(MetricRegistry.name(tag, EchoResponder.class.getSimpleName(), hostPort, "outSizes", "client"));
+            pauseTime = benchmarkerMetrics.timer(MetricRegistry.name(tag, EchoResponder.class.getSimpleName(), hostPort, "pauseTime", "client"));
 
             addedClients.mark();
 
@@ -255,8 +270,11 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
     }
 
     public class EchoClient {
+        final RouplexTcpClient rouplexTcpClient;
         final StartTcpClientsRequest request;
+        final int clientId;
         final SendChannel<ByteBuffer> sendChannel;
+        final List<byte[]> receivedBuffers = new ArrayList<>();
         final Throttle receiveThrottle;
 
         final List<ByteBuffer> sendBuffers = new ArrayList<>();
@@ -276,21 +294,12 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
         final Timer pauseTime;
         Timer.Context pauseTimer;
 
-        EchoClient(RouplexTcpClient rouplexTcpClient, StartTcpClientsRequest request, String tag) {
-            this.request = request;
+        EchoClient(RouplexTcpClient rouplexTcpClient) {
+            this.rouplexTcpClient = rouplexTcpClient;
+            this.request = (StartTcpClientsRequest) rouplexTcpClient.getAttachment();
+            this.clientId = incrementalId.incrementAndGet();
+
             this.maxSendBufferSize = request.maxPayloadSize * 10;
-
-            String clientId = "";//rouplexTcpClient.hashCode() + "";
-            addedClients = benchmarkerMetrics.meter(MetricRegistry.name(tag, EchoClient.class.getSimpleName(), clientId, "connected"));
-            removedClients = benchmarkerMetrics.meter(MetricRegistry.name(tag, EchoClient.class.getSimpleName(), clientId, "disconnected"));
-            sentBytes = benchmarkerMetrics.meter(MetricRegistry.name(tag, EchoClient.class.getSimpleName(), clientId, "sent"));
-            sendBufferSize = benchmarkerMetrics.histogram(MetricRegistry.name(tag, EchoClient.class.getSimpleName(), clientId, "sendBufferSize"));
-            discardedSendBytes = benchmarkerMetrics.meter(MetricRegistry.name(tag, EchoClient.class.getSimpleName(), clientId, "discardedSendBytes"));
-            receivedBytes = benchmarkerMetrics.meter(MetricRegistry.name(tag, EchoClient.class.getSimpleName(), clientId, "received"));
-            sizeCheckFailures = benchmarkerMetrics.meter(MetricRegistry.name(EchoClient.class.getSimpleName(), "sizeCheckFailures"));
-            pauseTime = benchmarkerMetrics.timer(MetricRegistry.name(tag, EchoClient.class.getSimpleName(), "pauseTime"));
-
-            addedClients.mark();
 
             sendChannel = rouplexTcpClient.hookSendChannel(new Throttle() {
                 @Override
@@ -303,13 +312,16 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
             receiveThrottle = rouplexTcpClient.hookReceiveChannel(new ReceiveChannel<byte[]>() {
                 @Override
                 public boolean receive(byte[] payload) {
-                    if (payload != null) {
-                        received += payload.length;
-                        receivedBytes.mark(payload.length);
-                    } else {
-                        removedClients.mark();
-                        if (received != sent) {
-                            sizeCheckFailures.mark();
+                    receivedBuffers.add(payload);
+                    synchronized (sendChannel) {
+                        if (payload != null) {
+                            received += payload.length;
+                            receivedBytes.mark(payload.length);
+                        } else {
+                            removedClients.mark();
+                            if (received != sent) {
+                                sizeCheckFailures.mark();
+                            }
                         }
                     }
 
@@ -317,9 +329,22 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
                 }
             });
 
+            String clientTag = "";//rouplexTcpClient.hashCode() + "";
+            String tag = String.format("%s.%s", request.isUseNiossl() ? "N" : "C", request.isSsl() ? "S" : "P");
+
+            addedClients = benchmarkerMetrics.meter(MetricRegistry.name(tag, EchoClient.class.getSimpleName(), clientTag, "connected"));
+            removedClients = benchmarkerMetrics.meter(MetricRegistry.name(tag, EchoClient.class.getSimpleName(), clientTag, "disconnected"));
+            sentBytes = benchmarkerMetrics.meter(MetricRegistry.name(tag, EchoClient.class.getSimpleName(), clientTag, "sent"));
+            sendBufferSize = benchmarkerMetrics.histogram(MetricRegistry.name(tag, EchoClient.class.getSimpleName(), clientTag, "sendBufferSize"));
+            discardedSendBytes = benchmarkerMetrics.meter(MetricRegistry.name(tag, EchoClient.class.getSimpleName(), clientTag, "discardedSendBytes"));
+            receivedBytes = benchmarkerMetrics.meter(MetricRegistry.name(tag, EchoClient.class.getSimpleName(), clientTag, "received"));
+            sizeCheckFailures = benchmarkerMetrics.meter(MetricRegistry.name(EchoClient.class.getSimpleName(), "sizeCheckFailures"));
+            pauseTime = benchmarkerMetrics.timer(MetricRegistry.name(tag, EchoClient.class.getSimpleName(), "pauseTime"));
+
             closeTimestamp = System.currentTimeMillis() + request.minClientLifeMillis +
                     random.nextInt(request.maxClientLifeMillis - request.minClientLifeMillis);
 
+            addedClients.mark();
             keepSendingThenClose();
         }
 
@@ -346,7 +371,9 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
 
                         if (payloadSize > 0) {
                             synchronized (sendBuffers) {
-                                sendBuffers.add(ByteBuffer.allocate(payloadSize));
+                                ByteBuffer bb = ByteBuffer.allocate(payloadSize);
+                                bb.array()[0] = (byte) clientId;
+                                sendBuffers.add(bb);
                                 currentSendBufferSize += payloadSize;
                             }
 
@@ -380,11 +407,11 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
                     int position = sendBuffer.position();
                     result = sendChannel.send(sendBuffer);
                     payloadSize = sendBuffer.position() - position;
-                    sent += payloadSize;
                     sentBytes.mark(payloadSize);
                 }
 
                 synchronized (sendBuffers) {
+                    sent += payloadSize;
                     currentSendBufferSize -= payloadSize;
                     if (result) {
                         sendBuffers.remove(0);
@@ -397,27 +424,50 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
         }
     }
 
+    protected <T extends Closeable> T addCloseable(T t) {
+        return addCloseable(UUID.randomUUID().toString(), t);
+    }
+
+    protected boolean closeAndRemove(String closeableId) throws IOException {
+        Closeable closeable = closeables.remove(closeableId);
+        if (closeable == null) {
+            return false;
+        }
+
+        closeable.close();
+        return true;
+    }
+
+    protected <T extends Closeable> T addCloseable(String id, T t) {
+        synchronized (scheduledExecutor) {
+            if (isClosed()) {
+                throw new IllegalStateException("Already closed.");
+            }
+
+            closeables.put(id, t);
+            return t;
+        }
+    }
+
     @Override
     public void close() throws IOException {
-        for (Map.Entry<String, RouplexTcpServer> entry : rouplexTcpServers.entrySet()) {
-            try {
-                entry.getValue().close();
-            } catch (IOException e) {
-                e.printStackTrace();
+        synchronized (scheduledExecutor) {
+            for (Closeable closeable : closeables.values()) {
+                try {
+                    closeable.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
             }
-        }
 
-        for (RouplexTcpClient client : rouplexTcpClients) {
-            try {
-                client.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+            closeables = null;
+            scheduledExecutor.shutdownNow();
         }
+    }
 
-        scheduledExecutor.shutdownNow();
-        classicRouplexTcpBinder.close();
-        niosslRouplexTcpBinder.close();
-        jmxReporter.close();
+    public boolean isClosed() {
+        synchronized (scheduledExecutor) {
+            return closeables == null;
+        }
     }
 }
