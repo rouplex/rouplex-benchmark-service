@@ -36,12 +36,30 @@
                             <goal>analyze-only</goal>
                         </goals>
 
-
                         <configuration>
                             <failOnWarning>false</failOnWarning>
                         </configuration>
                     </execution>
                 </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>2.19.1</version>
+                <configuration>
+                    <!--<jvm>${java.executable}</jvm>-->
+                    <forkCount>5</forkCount>
+                    <reuseForks>true</reuseForks>
+                    <systemPropertyVariables>
+                        <java.util.logging.config.file>${project.basedir}/src/test/resources/logging.properties
+                        </java.util.logging.config.file>
+                        <javax.net.ssl.keyStore>${project.basedir}/src/test/resources/server-keystore
+                        </javax.net.ssl.keyStore>
+                        <javax.net.ssl.keyStorePassword>kotplot</javax.net.ssl.keyStorePassword>
+                        <java.protocol.handler.pkgs>com.sun.net.ssl.internal.www.protocol</java.protocol.handler.pkgs>
+                    </systemPropertyVariables>
+                </configuration>
             </plugin>
         </plugins>
     </build>
