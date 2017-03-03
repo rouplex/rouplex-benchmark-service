@@ -43,22 +43,6 @@ public class SSLSelectorWithMixSslAndPlainChannelsTest {
         startTcpClientsRequest.setMaxPayloadSize(10001);
         StartTcpClientsResponse startTcpClientsResponse = bmService.startTcpClients(startTcpClientsRequest);
 
-        int maxDurationMillis = startTcpClientsRequest.getMaxDelayMillisBeforeCreatingClient() + startTcpClientsRequest.getMaxClientLifeMillis();
-        GetSnapshotMetricsResponse getSnapshotMetricsResponse = null;
-
-        for (int i = 0; i < maxDurationMillis / 1000 + 5; i++) {
-            Thread.sleep(1000);
-            getSnapshotMetricsResponse = bmService.getSnapshotMetricsResponse(new GetSnapshotMetricsRequest());
-          //  System.out.println(gson.toJson(getSnapshotMetricsResponse));
-
-            SnapMeter failures = getSnapshotMetricsResponse.getMeters().get(MetricRegistry.name(BenchmarkServiceProvider.EchoRequester.class.getSimpleName(), "sizeCheckFailures"));
-            if (failures != null) {
-                System.out.println("F " + failures.getCount());
-                Assert.assertEquals(0, failures.getCount());
-            }
-        }
-
-        System.out.println(gson.toJson(getSnapshotMetricsResponse));
         String responderPrefix = String.format("%s.%s.%s.%s:%s",
                 startTcpServerRequest.isUseNiossl() ? "N" : "C",
                 startTcpServerRequest.isSsl() ? "S" : "P",
@@ -71,10 +55,37 @@ public class SSLSelectorWithMixSslAndPlainChannelsTest {
                 startTcpServerRequest.isSsl() ? "S" : "P",
                 BenchmarkServiceProvider.EchoRequester.class.getSimpleName());
 
-        long actualDisconnectedClients = getSnapshotMetricsResponse.getMeters().get(clientPrefix + ".disconnected").getCount();
-        Assert.assertEquals(startTcpClientsRequest.getClientCount(), actualDisconnectedClients);
+        int maxDurationMillis = startTcpClientsRequest.getMaxDelayMillisBeforeCreatingClient() + startTcpClientsRequest.getMaxClientLifeMillis();
+        boolean successRequesters = false;
+        boolean successResponders = false;
 
-        long actualDisconnectedResponders = getSnapshotMetricsResponse.getMeters().get(responderPrefix + ".disconnected").getCount();
-        Assert.assertEquals(startTcpClientsRequest.getClientCount(), actualDisconnectedResponders);
+        for (int i = 0; i < maxDurationMillis / 1000 + 5; i++) {
+            Thread.sleep(1000);
+            GetSnapshotMetricsResponse getSnapshotMetricsResponse = bmService.getSnapshotMetricsResponse(new GetSnapshotMetricsRequest());
+//            System.out.println(gson.toJson(getSnapshotMetricsResponse));
+
+            SnapMeter failures = getSnapshotMetricsResponse.getMeters().get(MetricRegistry.name(clientPrefix, "sizeCheckFailures"));
+            if (failures != null) {
+                System.out.println("F " + failures.getCount());
+                Assert.assertEquals(0, failures.getCount());
+            }
+
+            SnapMeter actualDisconnectedRequesters = getSnapshotMetricsResponse.getMeters().get(clientPrefix + ".disconnected");
+            if (actualDisconnectedRequesters != null) {
+                successRequesters = startTcpClientsRequest.getClientCount() == actualDisconnectedRequesters.getCount();
+            }
+
+            SnapMeter actualDisconnectedResponders = getSnapshotMetricsResponse.getMeters().get(responderPrefix + ".disconnected");
+            if (actualDisconnectedResponders != null) {
+                successResponders = startTcpClientsRequest.getClientCount() == actualDisconnectedResponders.getCount();
+            }
+
+            if (successRequesters && successResponders) {
+                break;
+            }
+        }
+
+        Assert.assertTrue(successRequesters);
+        Assert.assertTrue(successResponders);
     }
 }
