@@ -35,18 +35,18 @@ public class SSLSelectorWithMixSslAndPlainChannelsTest {
         startTcpClientsRequest.setClientCount(100);
         startTcpClientsRequest.setMinDelayMillisBeforeCreatingClient(10);
         startTcpClientsRequest.setMaxDelayMillisBeforeCreatingClient(1000);
-        startTcpClientsRequest.setMinClientLifeMillis(1000);
-        startTcpClientsRequest.setMaxClientLifeMillis(1001);
+        startTcpClientsRequest.setMinClientLifeMillis(10000);
+        startTcpClientsRequest.setMaxClientLifeMillis(10001);
         startTcpClientsRequest.setMinDelayMillisBetweenSends(100);
         startTcpClientsRequest.setMaxDelayMillisBetweenSends(101);
-        startTcpClientsRequest.setMinPayloadSize(1000);
-        startTcpClientsRequest.setMaxPayloadSize(1001);
+        startTcpClientsRequest.setMinPayloadSize(10000);
+        startTcpClientsRequest.setMaxPayloadSize(10001);
         StartTcpClientsResponse startTcpClientsResponse = bmService.startTcpClients(startTcpClientsRequest);
 
         int maxDurationMillis = startTcpClientsRequest.getMaxDelayMillisBeforeCreatingClient() + startTcpClientsRequest.getMaxClientLifeMillis();
         GetSnapshotMetricsResponse getSnapshotMetricsResponse = null;
 
-        for (int i = 0; i < maxDurationMillis / 1000 + 1; i++) {
+        for (int i = 0; i < maxDurationMillis / 1000 + 5; i++) {
             Thread.sleep(1000);
             getSnapshotMetricsResponse = bmService.getSnapshotMetricsResponse(new GetSnapshotMetricsRequest());
           //  System.out.println(gson.toJson(getSnapshotMetricsResponse));

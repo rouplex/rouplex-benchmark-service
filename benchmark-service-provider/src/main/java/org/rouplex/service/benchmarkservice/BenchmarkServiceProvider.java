@@ -58,10 +58,10 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
         @Override
         public void onEvent(RouplexTcpClient rouplexTcpClient) {
             if (rouplexTcpClient.getRouplexTcpServer() == null) {
-                ((EchoRequester) rouplexTcpClient.getAttachment()).addedClients.mark();
+                ((EchoRequester) rouplexTcpClient.getAttachment()).requesterMetrics.connected.mark();
             } else {
                 try {
-                    (new EchoResponder(rouplexTcpClient)).addedClients.mark();
+                    (new EchoResponder(rouplexTcpClient)).responderMetrics.connected.mark();
                 } catch (IOException ioe) {
                 }
             }
@@ -72,9 +72,9 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
         @Override
         public void onEvent(RouplexTcpClient rouplexTcpClient) {
             if (rouplexTcpClient.getRouplexTcpServer() == null) {
-                ((EchoRequester) rouplexTcpClient.getAttachment()).removedClients.mark();
+                ((EchoRequester) rouplexTcpClient.getAttachment()).requesterMetrics.disconnected.mark();
             } else {
-                ((EchoResponder) rouplexTcpClient.getAttachment()).removedClients.mark();
+                ((EchoResponder) rouplexTcpClient.getAttachment()).responderMetrics.disconnected.mark();
             }
         }
     };
@@ -207,14 +207,7 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
         final SendChannel<ByteBuffer> sendChannel;
         final Throttle receiveThrottle;
 
-        final Meter addedClients;
-        final Meter removedClients;
-        final Meter receivedBytes;
-        final Meter sentBytes;
-        final Histogram inSizes;
-        final Histogram outSizes;
-        final Meter sendFailures;
-        final Timer pauseTime;
+        final EchoMetrics responderMetrics;
         Timer.Context pauseTimer;
 
         ByteBuffer sendBuffer;
@@ -231,14 +224,7 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
                     inetSocketAddress.getHostName().replace('.', '-'),
                     inetSocketAddress.getPort());
 
-            addedClients = benchmarkerMetrics.meter(MetricRegistry.name(responderPrefix, "connected"));
-            removedClients = benchmarkerMetrics.meter(MetricRegistry.name(responderPrefix, "disconnected"));
-            receivedBytes = benchmarkerMetrics.meter(MetricRegistry.name(responderPrefix, "received"));
-            sentBytes = benchmarkerMetrics.meter(MetricRegistry.name(responderPrefix, "sent"));
-            inSizes = benchmarkerMetrics.histogram(MetricRegistry.name(responderPrefix, "inSizes"));
-            outSizes = benchmarkerMetrics.histogram(MetricRegistry.name(responderPrefix, "outSizes"));
-            sendFailures = benchmarkerMetrics.meter(MetricRegistry.name(responderPrefix, "sendFailures"));
-            pauseTime = benchmarkerMetrics.timer(MetricRegistry.name(responderPrefix, "pauseTime"));
+            responderMetrics = new EchoMetrics(responderPrefix);
 
             sendChannel = rouplexTcpClient.hookSendChannel(new Throttle() {
                 @Override
@@ -253,9 +239,10 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
                 public boolean receive(byte[] payload) {
                     if (payload == null) {
                         sendBuffer = null;
+                        responderMetrics.receivedEos.mark();
                     } else {
-                        inSizes.update(payload.length);
-                        receivedBytes.mark(payload.length);
+                        responderMetrics.receivedSizes.update(payload.length);
+                        responderMetrics.receivedBytes.mark(payload.length);
                         sendBuffer = ByteBuffer.wrap(payload);
                     }
 
@@ -266,22 +253,24 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
 
         private boolean send() {
             try {
-                if (sendBuffer == null) {
-                    return sendChannel.send(null);
-                }
-
-                int position = sendBuffer.position();
+                int position = sendBuffer == null ? 0 : sendBuffer.position();
                 boolean sent = sendChannel.send(sendBuffer); // echo
-                int sentSize = sendBuffer.position() - position;
-                sentBytes.mark(sentSize);
-                outSizes.update(sentSize);
 
-                if (!sent) {
-                    pauseTimer = pauseTime.time();
+                if (sent) {
+                    if (sendBuffer == null) {
+                        responderMetrics.sentEos.mark();
+                    } else {
+                        int sentSize = sendBuffer.position() - position;
+                        responderMetrics.sentBytes.mark(sentSize);
+                        responderMetrics.sentSizes.update(sentSize);
+                    }
+                } else {
+                    pauseTimer = responderMetrics.sendPauseTime.time();
                 }
+
                 return sent;
             } catch (IOException ioe) {
-                sendFailures.mark();
+                responderMetrics.sendFailures.mark();
                 return false;
             }
         }
@@ -302,36 +291,16 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
         long received;
         long closeTimestamp;
 
-        final Meter createdRequesters;
-        final Meter uncreatedRequesters;
-        final Meter addedClients;
-        final Meter removedClients;
-        final Meter receivedBytes;
-        final Meter sentBytes;
-        final Histogram sendBufferFilled;
-        final Meter discardedSendBytes;
-        final Meter sizeCheckFailures;
-        final Meter sendFailures;
-        final Timer pauseTime;
+        final EchoMetrics requesterMetrics;
         Timer.Context pauseTimer;
 
         EchoRequester(StartTcpClientsRequest request, RouplexTcpBinder tcpBinder) throws IOException {
-            String responderPrefix = String.format("%s.%s.%s",
+            String requesterPrefix = String.format("%s.%s.%s",
                     request.isUseNiossl() ? "N" : "C",
                     request.isSsl() ? "S" : "P",
                     EchoRequester.class.getSimpleName());
 
-            createdRequesters = benchmarkerMetrics.meter(MetricRegistry.name(responderPrefix, "created"));
-            uncreatedRequesters = benchmarkerMetrics.meter(MetricRegistry.name(responderPrefix, "uncreated"));
-            addedClients = benchmarkerMetrics.meter(MetricRegistry.name(responderPrefix, "connected"));
-            removedClients = benchmarkerMetrics.meter(MetricRegistry.name(responderPrefix, "disconnected"));
-            sentBytes = benchmarkerMetrics.meter(MetricRegistry.name(responderPrefix, "sent"));
-            sendBufferFilled = benchmarkerMetrics.histogram(MetricRegistry.name(responderPrefix, "sendBufferFilled"));
-            discardedSendBytes = benchmarkerMetrics.meter(MetricRegistry.name(responderPrefix, "discardedSendBytes"));
-            receivedBytes = benchmarkerMetrics.meter(MetricRegistry.name(responderPrefix, "received"));
-            sizeCheckFailures = benchmarkerMetrics.meter(MetricRegistry.name(responderPrefix, "sizeCheckFailures"));
-            sendFailures = benchmarkerMetrics.meter(MetricRegistry.name(responderPrefix, "sendFailures"));
-            pauseTime = benchmarkerMetrics.timer(MetricRegistry.name(responderPrefix, "pauseTime"));
+            requesterMetrics = new EchoMetrics(requesterPrefix);
 
             try {
                 this.request = request;
@@ -361,10 +330,11 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
                         synchronized (sendChannel) {
                             if (payload != null) {
                                 received += payload.length;
-                                receivedBytes.mark(payload.length);
+                                requesterMetrics.receivedBytes.mark(payload.length);
                             } else {
+                                requesterMetrics.receivedEos.mark();
                                 if (received != sent) {
-                                    sizeCheckFailures.mark();
+                                    requesterMetrics.sizeCheckFailures.mark();
                                 }
                             }
                         }
@@ -376,10 +346,10 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
                 closeTimestamp = System.currentTimeMillis() + request.minClientLifeMillis +
                         random.nextInt(request.maxClientLifeMillis - request.minClientLifeMillis);
 
-                createdRequesters.mark();
+                requesterMetrics.created.mark();
                 keepSendingThenClose();
             } catch (IOException ioe) {
-                uncreatedRequesters.mark();
+                requesterMetrics.uncreated.mark();
                 throw ioe;
             }
         }
@@ -392,22 +362,24 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
                 send();
             } else {
                 int payloadSize = request.minPayloadSize + random.nextInt(request.maxPayloadSize - request.minPayloadSize);
-                int remaining = maxSendBufferSize - currentSendBufferSize;
-                int discarded = payloadSize - remaining;
-                if (discarded > 0) {
-                    discardedSendBytes.mark(discarded);
-                    payloadSize = remaining;
-                }
+                synchronized (sendBuffers) {
+                    int remaining = maxSendBufferSize - currentSendBufferSize;
+                    int discarded = payloadSize - remaining;
+                    if (discarded > 0) {
+                        requesterMetrics.discardedSendBytes.mark(discarded);
+                        payloadSize = remaining;
+                    }
 
-                if (payloadSize > 0) {
-                    synchronized (sendBuffers) {
+                    if (payloadSize > 0) {
                         ByteBuffer bb = ByteBuffer.allocate(payloadSize);
                         bb.array()[0] = (byte) clientId;
                         sendBuffers.add(bb);
                         currentSendBufferSize += payloadSize;
+                        requesterMetrics.sendBufferFilled.update(currentSendBufferSize);
                     }
+                }
 
-                    sendBufferFilled.update(currentSendBufferSize);
+                if (payloadSize > 0) {
                     send();
                 }
 
@@ -446,16 +418,21 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
                         int position = sendBuffer.position();
                         result = sendChannel.send(sendBuffer);
                         payloadSize = sendBuffer.position() - position;
-                        sentBytes.mark(payloadSize);
                     }
 
                     synchronized (sendBuffers) {
                         sent += payloadSize;
                         currentSendBufferSize -= payloadSize;
                         if (result) {
+                            if (sendBuffer == null) {
+                                requesterMetrics.sentEos.mark();
+                            } else {
+                                requesterMetrics.sentSizes.update(payloadSize);
+                                requesterMetrics.sentBytes.mark(payloadSize);
+                            }
                             sendBuffers.remove(0);
                         } else {
-                            pauseTimer = pauseTime.time();
+                            pauseTimer = requesterMetrics.sendPauseTime.time();
                             break;
                         }
                     }
@@ -463,7 +440,7 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
 
                 return true;
             } catch (IOException ioe) {
-                sendFailures.mark();
+                requesterMetrics.sendFailures.mark();
                 return false;
             }
         }
@@ -471,6 +448,48 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
         @Override
         public void close() throws IOException {
             rouplexTcpClient.close();
+        }
+    }
+
+    class EchoMetrics {
+        final Meter created;
+        final Meter uncreated;
+        final Meter connected;
+        final Meter disconnected;
+
+        final Meter sentBytes;
+        final Meter sentEos;
+        final Meter sendFailures;
+        final Histogram sentSizes;
+        final Histogram sendBufferFilled;
+        final Meter discardedSendBytes;
+        final Timer sendPauseTime;
+
+        final Meter receivedBytes;
+        final Meter receivedEos;
+        final Histogram receivedSizes;
+
+        final Meter sizeCheckFailures;
+
+        EchoMetrics(String prefix) {
+            created = benchmarkerMetrics.meter(MetricRegistry.name(prefix, "created"));
+            uncreated = benchmarkerMetrics.meter(MetricRegistry.name(prefix, "uncreated"));
+            connected = benchmarkerMetrics.meter(MetricRegistry.name(prefix, "connected"));
+            disconnected = benchmarkerMetrics.meter(MetricRegistry.name(prefix, "disconnected"));
+
+            sentBytes = benchmarkerMetrics.meter(MetricRegistry.name(prefix, "sentBytes"));
+            sentEos = benchmarkerMetrics.meter(MetricRegistry.name(prefix, "sentEos"));
+            sendFailures = benchmarkerMetrics.meter(MetricRegistry.name(prefix, "sendFailures"));
+            sentSizes = benchmarkerMetrics.histogram(MetricRegistry.name(prefix, "sentSizes"));
+            sendBufferFilled = benchmarkerMetrics.histogram(MetricRegistry.name(prefix, "sendBufferFilled"));
+            discardedSendBytes = benchmarkerMetrics.meter(MetricRegistry.name(prefix, "discardedSendBytes"));
+            sendPauseTime = benchmarkerMetrics.timer(MetricRegistry.name(prefix, "sendPauseTime"));
+
+            receivedBytes = benchmarkerMetrics.meter(MetricRegistry.name(prefix, "receivedBytes"));
+            receivedEos = benchmarkerMetrics.meter(MetricRegistry.name(prefix, "receivedEos"));
+            receivedSizes = benchmarkerMetrics.histogram(MetricRegistry.name(prefix, "receivedSizes"));
+
+            sizeCheckFailures = benchmarkerMetrics.meter(MetricRegistry.name(prefix, "sizeCheckFailures"));
         }
     }
 
