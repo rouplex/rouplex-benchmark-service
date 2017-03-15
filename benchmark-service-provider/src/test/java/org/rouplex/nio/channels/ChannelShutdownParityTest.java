@@ -1,5 +1,6 @@
 package org.rouplex.nio.channels;
 
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -24,7 +25,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -34,7 +35,7 @@ import java.util.concurrent.atomic.AtomicReference;
 public class ChannelShutdownParityTest {
     @Parameterized.Parameters
     public static Collection<Object[]> data() throws IOException {
-        return Arrays.asList(new Object[][]{{true}});
+        return Arrays.asList(new Object[][]{{true}, {false}});
     }
 
     boolean secure;
@@ -48,7 +49,6 @@ public class ChannelShutdownParityTest {
 
     @Before
     public void startServer() throws Exception {
-        setSystemProperties();
         BenchmarkService bmService = BenchmarkServiceProvider.get();
 
         StartTcpServerRequest startTcpServerRequest = new StartTcpServerRequest();
@@ -61,178 +61,76 @@ public class ChannelShutdownParityTest {
         hostname = startTcpServerResponse.getHostname();
     }
 
-    private static void setSystemProperties() {
-//        System.setProperty("javax.net.ssl.keyStore", "src/test/resources/server-keystore");
-//        System.setProperty("javax.net.ssl.keyStorePassword", "kotplot");
-//        System.setProperty("java.protocol.handler.pkgs", "com.sun.net.ssl.internal.www.protocol");
-//        System.setProperty("javax.net.debug", "ssl");
-    }
-
     @Test
-    public void verifyShutdownOutputInvokedDuringConcurrentWriteDoesNotThrow() throws Exception {
+    public void verifyChannelWriteThrowsIfShutdownOutputIsInvokedConcurrently() throws Exception {
         final SocketChannel socketChannel = secure ? SSLSocketChannel.open(buildRelaxedSSLContext()) : SocketChannel.open();
         final StringBuilder sb = new StringBuilder();
-        final AtomicBoolean finishedWrites = new AtomicBoolean();
 
-        if (socketChannel.connect(new InetSocketAddress(hostname, port))) {
-            socketChannel.configureBlocking(false);
+        AtomicReference<Object> result = new AtomicReference<>();
+        AtomicInteger loopCount = new AtomicInteger();
 
-            es.submit(new Runnable() {
-                @Override
-                public void run() {
-                    try {
-                        for (int i = 0; i < 100; i++) {
-                            synchronized (finishedWrites) {
-                                sb.append("SW: " + System.currentTimeMillis()).append("\n");
-                            }
-                            socketChannel.write(ByteBuffer.allocate(100000));
-                            synchronized (finishedWrites) {
-                                sb.append("EW: " + System.currentTimeMillis()).append("\n");
-                            }
+        final Object lock = new Object();
+
+        socketChannel.connect(new InetSocketAddress(hostname, port));
+        socketChannel.configureBlocking(false);
+
+        es.submit(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    for (int i = 0; i < 1000; i++) {
+                        synchronized (lock) {
+                            sb.append("StartWrite: ").append(System.currentTimeMillis()).append("\n");
+                            loopCount.set(i);
+                            lock.notifyAll();
                         }
-                    } catch (IOException e) {
-                        synchronized (finishedWrites) {
-                            sb.append("EEEE: " + System.currentTimeMillis()).append(e.getClass()).append("\n");
+                        socketChannel.write(ByteBuffer.allocate(100000));
+                        synchronized (lock) {
+                            sb.append("FinishWrite: ").append(System.currentTimeMillis()).append("\n");
                         }
                     }
 
-                    finishedWrites.set(true);
-                    synchronized (finishedWrites) {
-                        finishedWrites.notifyAll();
+                    synchronized (lock) {
+                        sb.append("FinishLoop: ").append(System.currentTimeMillis()).append("\n");
+                        result.set("No Exception");
+                        lock.notifyAll();
+                    }
+                } catch (IOException e) {
+                    synchronized (lock) {
+                        sb.append("ErrorWrite: ").append(System.currentTimeMillis()).append(e.getClass()).append("\n");
+                        result.set(e);
+                        lock.notifyAll();
                     }
                 }
-            });
-
-            Thread.sleep(10);
-            synchronized (finishedWrites) {
-                sb.append("SHUTDOWN: " + System.currentTimeMillis()).append("\n");
             }
+        });
 
-            socketChannel.shutdownOutput(); // if we are lucky we will invoke this during a write
+        synchronized (lock) {
+            while (loopCount.get() < 10) {
+                lock.wait();
 
-            synchronized (finishedWrites) {
-                while (!finishedWrites.get()) {
-                    finishedWrites.wait();
+                if (result.get() != null) {
+                    throw (Exception) result.get();
                 }
+            }
+            sb.append("Shutdown Start: Loop: ").append(loopCount).append(" Time: ").append(System.currentTimeMillis()).append("\n");
+        }
+
+        socketChannel.shutdownOutput(); // if we are lucky we will invoke this during a write
+
+        synchronized (lock) {
+            sb.append("Shutdown Finish: Loop: ").append(loopCount).append(" Time: ").append(System.currentTimeMillis()).append("\n");
+        }
+
+        synchronized (lock) {
+            while (result.get() == null) {
+                lock.wait();
             }
         }
 
-        synchronized (finishedWrites) {
-            System.out.println(sb);
-        }
-    }
-
-    @Test
-    public void verifySynchronizedWriteInvokedDuringConcurrentShutdownOutputDoesNotThrowAsynchronousCloseException() throws Exception {
-        final SocketChannel socketChannel = secure ? SSLSocketChannel.open(buildRelaxedSSLContext()) : SocketChannel.open();
-        final StringBuilder sb = new StringBuilder();
-        final AtomicReference<IOException> ioe = new AtomicReference<>();
-        final AtomicBoolean finishedWrites = new AtomicBoolean();
-
-        if (socketChannel.connect(new InetSocketAddress(hostname, port))) {
-            socketChannel.configureBlocking(false);
-
-            es.submit(new Runnable() {
-                @Override
-                public void run() {
-                    try {
-                        for (int i = 0; i < 100; i++) {
-                            synchronized (finishedWrites) {
-                                sb.append("WW: " + System.currentTimeMillis()).append("\n");
-                                socketChannel.write(ByteBuffer.wrap("sdfsdsdfsddfs".getBytes()));
-                            }
-                        }
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                        ioe.set(e);
-                    }
-
-                    finishedWrites.set(true);
-                    synchronized (finishedWrites) {
-                        finishedWrites.notifyAll();
-                    }
-                }
-            });
-
-            //Thread.sleep(1);
-            synchronized (finishedWrites) {
-                sb.append("SD: " + System.currentTimeMillis()).append("\n");
-                socketChannel.shutdownOutput();
-
-                while (!finishedWrites.get()) {
-                    finishedWrites.wait();
-                }
-            }
-
-            if (ioe.get() != null) {
-                if (!(ioe.get() instanceof ClosedChannelException)) {
-                    throw ioe.get();
-                }
-            }
-        }
-
-        synchronized (finishedWrites) {
-            System.out.println(sb);
-        }
-    }
-
-    @Test(expected = AsynchronousCloseException.class)
-    public void verifyConcurrentWriteInvokedDuringConcurrentShutdownOutputThrowsAsynchronousCloseException() throws Exception {
-        for (int i = 0; i < 100; i++) { // we might get a ClosedChannelException as well, which is fine too ... loop
-            final SocketChannel socketChannel = secure ? SSLSocketChannel.open(buildRelaxedSSLContext()) : SocketChannel.open();
-            final StringBuilder sb = new StringBuilder();
-            final AtomicReference<IOException> ioe = new AtomicReference<>();
-            final AtomicBoolean finishedWrites = new AtomicBoolean();
-
-            if (socketChannel.connect(new InetSocketAddress(hostname, port))) {
-                socketChannel.configureBlocking(false);
-
-                es.submit(new Runnable() {
-                    @Override
-                    public void run() {
-                        try {
-                            for (int i = 0; i < 100; i++) {
-                                synchronized (finishedWrites) {
-                                    sb.append("WW: " + System.currentTimeMillis()).append("\n");
-                                }
-
-                                socketChannel.write(ByteBuffer.wrap("sdfsdsdfsddfs".getBytes()));
-                            }
-                        } catch (IOException e) {
-                            // e.printStackTrace();
-                            ioe.set(e);
-                        }
-
-                        finishedWrites.set(true);
-                        synchronized (finishedWrites) {
-                            finishedWrites.notifyAll();
-                        }
-                    }
-                });
-
-                Thread.sleep(1);
-                synchronized (finishedWrites) {
-                    sb.append("SD: " + System.currentTimeMillis()).append("\n");
-                }
-                socketChannel.shutdownOutput();
-
-                synchronized (finishedWrites) {
-                    while (!finishedWrites.get()) {
-                        finishedWrites.wait();
-                    }
-                }
-
-                if (ioe.get() == null || !(ioe.get() instanceof AsynchronousCloseException)) {
-                    continue;
-                }
-
-                throw ioe.get();
-            }
-
-            synchronized (finishedWrites) {
-                System.out.println(sb);
-            }
-        }
+        Object value = result.get();
+        Assert.assertTrue(value instanceof ClosedChannelException || value instanceof AsynchronousCloseException);
+        System.out.println(sb);
     }
 
     public static SSLContext buildRelaxedSSLContext() throws Exception {

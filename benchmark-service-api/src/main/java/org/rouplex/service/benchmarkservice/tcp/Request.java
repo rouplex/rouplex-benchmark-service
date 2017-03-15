@@ -9,6 +9,7 @@ public class Request {
     int port;
     boolean ssl;
     boolean useSharedBinder = true;
+    boolean mergeClientMetrics;
 
     public String getHostname() {
         return hostname;
@@ -48,5 +49,13 @@ public class Request {
 
     public void setUseSharedBinder(boolean useSharedBinder) {
         this.useSharedBinder = useSharedBinder;
+    }
+
+    public boolean isMergeClientMetrics() {
+        return mergeClientMetrics;
+    }
+
+    public void setMergeClientMetrics(boolean mergeClientMetrics) {
+        this.mergeClientMetrics = mergeClientMetrics;
     }
 }
