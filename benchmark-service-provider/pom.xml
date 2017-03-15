@@ -16,13 +16,6 @@
     <packaging>jar</packaging>
 
     <dependencies>
-        <!-- nio ssl made easy -->
-        <dependency>
-            <groupId>org.rouplex</groupId>
-            <artifactId>niossl</artifactId>
-            <version>1.8.0-SNAPSHOT</version>
-        </dependency>
-
         <!-- Metrics collection made easy -->
         <dependency>
             <groupId>io.dropwizard.metrics</groupId>
