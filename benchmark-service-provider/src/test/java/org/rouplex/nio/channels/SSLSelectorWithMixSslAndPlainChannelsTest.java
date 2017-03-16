@@ -24,13 +24,19 @@ public class SSLSelectorWithMixSslAndPlainChannelsTest {
     public void testConnectSendAndReceive() throws Exception {
         BenchmarkService bmService = BenchmarkServiceProvider.get();
 
-        boolean aggregateMetrics = true;
+        MetricsAggregation metricsAggregation = new MetricsAggregation();
+        metricsAggregation.setAggregateServerAddresses(true);
+        metricsAggregation.setAggregateServerPorts(true);
+        metricsAggregation.setAggregateClientAddresses(true);
+        metricsAggregation.setAggregateClientPorts(true);
+        metricsAggregation.setAggregateClientCounters(true);
+
         StartTcpServerRequest startTcpServerRequest = new StartTcpServerRequest();
         startTcpServerRequest.setUseNiossl(true);
         startTcpServerRequest.setHostname(null); // any local address
         startTcpServerRequest.setPort(0); // any port
         startTcpServerRequest.setSsl(true);
-        startTcpServerRequest.getMetricsAggregation().setAggregateClientCounters(aggregateMetrics);
+        startTcpServerRequest.setMetricsAggregation(metricsAggregation);
         StartTcpServerResponse startTcpServerResponse = bmService.startTcpServer(startTcpServerRequest);
 
         StartTcpClientsRequest startTcpClientsRequest = new StartTcpClientsRequest();
@@ -47,17 +53,19 @@ public class SSLSelectorWithMixSslAndPlainChannelsTest {
         startTcpClientsRequest.setMaxDelayMillisBetweenSends(101);
         startTcpClientsRequest.setMinPayloadSize(1000);
         startTcpClientsRequest.setMaxPayloadSize(1001);
-        startTcpClientsRequest.getMetricsAggregation().setAggregateClientCounters(aggregateMetrics);
+        startTcpClientsRequest.setMetricsAggregation(metricsAggregation);
         StartTcpClientsResponse startTcpClientsResponse = bmService.startTcpClients(startTcpClientsRequest);
 
-        String responderPrefix = String.format("%s.%s.%s.%s:%s",
+        String responderPrefix = "N.S.EchoResponder.A:A::A:A";
+        String.format("%s.%s.%s.%s:%s",
                 startTcpServerRequest.isUseNiossl() ? "N" : "C",
                 startTcpServerRequest.isSsl() ? "S" : "P",
                 BenchmarkServiceProvider.EchoResponder.class.getSimpleName(),
                 startTcpServerResponse.getHostname().replace('.', '-'),
                 startTcpServerResponse.getPort());
 
-        String clientPrefix = String.format("%s.%s.%s",
+        String requesterPrefix = "N.S.EchoRequester.A:A";
+        String.format("%s.%s.%s",
                 startTcpServerRequest.isUseNiossl() ? "N" : "C",
                 startTcpServerRequest.isSsl() ? "S" : "P",
                 BenchmarkServiceProvider.EchoRequester.class.getSimpleName());
@@ -78,7 +86,7 @@ public class SSLSelectorWithMixSslAndPlainChannelsTest {
                 break;
             }
 
-            SnapMeter disconnectedRequesters = getSnapshotMetricsResponse.getMeters().get(clientPrefix + ".disconnected");
+            SnapMeter disconnectedRequesters = getSnapshotMetricsResponse.getMeters().get(requesterPrefix + ".disconnected");
             if (disconnectedRequesters != null) {
                 allRequestersDisconnected = startTcpClientsRequest.getClientCount() == disconnectedRequesters.getCount();
                 System.out.println("Requester disconnects: " + disconnectedRequesters.getCount());
@@ -101,18 +109,18 @@ public class SSLSelectorWithMixSslAndPlainChannelsTest {
         Assert.assertTrue(allRequestersDisconnected);
         Assert.assertTrue(allRespondersDisconnected);
 
-        if (aggregateMetrics) {
+        if (metricsAggregation.isAggregateClientCounters()) {
             SnapMeter requesterSentBytes = lastGetSnapshotMetricsResponse.getMeters().get(
-                    String.format("%s.%s", clientPrefix, "sentBytes"));
+                    String.format("N.S.EchoRequester.A:A::A:A.A.sentBytes"));
 
             SnapMeter responderReceivedBytes = lastGetSnapshotMetricsResponse.getMeters().get(
-                    String.format("%s.%s", responderPrefix, "receivedBytes"));
+                    String.format("N.S.EchoResponder.A:A::A:A.A.receivedBytes"));
 
             Assert.assertEquals(requesterSentBytes.getCount(), responderReceivedBytes.getCount());
         } else {
             for (int cc = 1; cc <= startTcpClientsRequest.getClientCount(); cc++) {
                 SnapMeter requesterSentBytes = lastGetSnapshotMetricsResponse.getMeters().get(
-                        String.format("%s.%s.%s", clientPrefix, cc, "sentBytes"));
+                        String.format("%s.%s.%s", requesterPrefix, cc, "sentBytes"));
 
                 SnapMeter responderReceivedBytes = lastGetSnapshotMetricsResponse.getMeters().get(
                         String.format("%s.%s.%s", responderPrefix, cc, "receivedBytes"));
