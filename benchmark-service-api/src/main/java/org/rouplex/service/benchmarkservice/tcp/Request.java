@@ -9,7 +9,7 @@ public class Request {
     int port;
     boolean ssl;
     boolean useSharedBinder = true;
-    boolean mergeClientMetrics;
+    MetricsAggregation metricsAggregation = new MetricsAggregation();
 
     public String getHostname() {
         return hostname;
@@ -51,11 +51,11 @@ public class Request {
         this.useSharedBinder = useSharedBinder;
     }
 
-    public boolean isMergeClientMetrics() {
-        return mergeClientMetrics;
+    public MetricsAggregation getMetricsAggregation() {
+        return metricsAggregation;
     }
 
-    public void setMergeClientMetrics(boolean mergeClientMetrics) {
-        this.mergeClientMetrics = mergeClientMetrics;
+    public void setMetricsAggregation(MetricsAggregation metricsAggregation) {
+        this.metricsAggregation = metricsAggregation;
     }
 }

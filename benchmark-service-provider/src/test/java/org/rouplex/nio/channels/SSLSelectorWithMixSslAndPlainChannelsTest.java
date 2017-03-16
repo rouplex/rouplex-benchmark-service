@@ -24,13 +24,13 @@ public class SSLSelectorWithMixSslAndPlainChannelsTest {
     public void testConnectSendAndReceive() throws Exception {
         BenchmarkService bmService = BenchmarkServiceProvider.get();
 
-        boolean mergeMetrics = true;
+        boolean aggregateMetrics = true;
         StartTcpServerRequest startTcpServerRequest = new StartTcpServerRequest();
         startTcpServerRequest.setUseNiossl(true);
         startTcpServerRequest.setHostname(null); // any local address
         startTcpServerRequest.setPort(0); // any port
         startTcpServerRequest.setSsl(true);
-        startTcpServerRequest.setMergeClientMetrics(mergeMetrics);
+        startTcpServerRequest.getMetricsAggregation().setAggregateClientCounters(aggregateMetrics);
         StartTcpServerResponse startTcpServerResponse = bmService.startTcpServer(startTcpServerRequest);
 
         StartTcpClientsRequest startTcpClientsRequest = new StartTcpClientsRequest();
@@ -47,7 +47,7 @@ public class SSLSelectorWithMixSslAndPlainChannelsTest {
         startTcpClientsRequest.setMaxDelayMillisBetweenSends(101);
         startTcpClientsRequest.setMinPayloadSize(1000);
         startTcpClientsRequest.setMaxPayloadSize(1001);
-        startTcpClientsRequest.setMergeClientMetrics(mergeMetrics);
+        startTcpClientsRequest.getMetricsAggregation().setAggregateClientCounters(aggregateMetrics);
         StartTcpClientsResponse startTcpClientsResponse = bmService.startTcpClients(startTcpClientsRequest);
 
         String responderPrefix = String.format("%s.%s.%s.%s:%s",
@@ -101,7 +101,7 @@ public class SSLSelectorWithMixSslAndPlainChannelsTest {
         Assert.assertTrue(allRequestersDisconnected);
         Assert.assertTrue(allRespondersDisconnected);
 
-        if (mergeMetrics) {
+        if (aggregateMetrics) {
             SnapMeter requesterSentBytes = lastGetSnapshotMetricsResponse.getMeters().get(
                     String.format("%s.%s", clientPrefix, "sentBytes"));
 

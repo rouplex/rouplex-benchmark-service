@@ -19,6 +19,7 @@ import org.rouplex.service.benchmarkservice.tcp.metric.SnapTimer;
 import java.io.Closeable;
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.Selector;
 import java.util.*;
@@ -29,7 +30,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
 
 public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
-    private static Logger logger = Logger.getLogger(BenchmarkServiceProvider.class.getName());
+    private static Logger logger = Logger.getLogger(BenchmarkServiceProvider.class.getSimpleName());
 
     static BenchmarkServiceProvider benchmarkServiceProvider;
 
@@ -61,10 +62,10 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
         @Override
         public void onEvent(RouplexTcpClient rouplexTcpClient) {
             if (rouplexTcpClient.getRouplexTcpServer() == null) {
-                ((EchoRequester) rouplexTcpClient.getAttachment()).requesterMetrics.connected.mark();
+                ((EchoRequester) rouplexTcpClient.getAttachment()).echoReporter.connected();
             } else {
                 try {
-                    (new EchoResponder(rouplexTcpClient)).responderMetrics.connected.mark();
+                    (new EchoResponder(rouplexTcpClient)).echoReporter.connected();
                 } catch (IOException ioe) {
                     benchmarkerMetrics.meter(MetricRegistry.name("EEE", ioe.getMessage()));
                 }
@@ -76,9 +77,9 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
         @Override
         public void onEvent(RouplexTcpClient rouplexTcpClient) {
             if (rouplexTcpClient.getRouplexTcpServer() == null) {
-                ((EchoRequester) rouplexTcpClient.getAttachment()).requesterMetrics.disconnected.mark();
+                ((EchoRequester) rouplexTcpClient.getAttachment()).echoReporter.disconnected();
             } else {
-                ((EchoResponder) rouplexTcpClient.getAttachment()).responderMetrics.disconnected.mark();
+                ((EchoResponder) rouplexTcpClient.getAttachment()).echoReporter.disconnected();
             }
         }
     };
@@ -107,6 +108,7 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
         addCloseable(hostPort, echoServer);
 
         StartTcpServerResponse response = new StartTcpServerResponse();
+        response.setHostaddress(inetSocketAddress.getAddress().getHostAddress());
         response.setHostname(inetSocketAddress.getHostName());
         response.setPort(inetSocketAddress.getPort());
         return response;
@@ -143,16 +145,15 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
         for (int cc = 0; cc < request.clientCount; cc++) {
             long startClientMillis = request.minDelayMillisBeforeCreatingClient + random.nextInt(
                     request.maxDelayMillisBeforeCreatingClient - request.minDelayMillisBeforeCreatingClient);
-            logger.info(String.format("Scheduled new client to start in %s milliseconds.", startClientMillis));
+            logger.info(String.format("Scheduled creation of EchoRequester in %s milliseconds.", startClientMillis));
 
             scheduledExecutor.schedule(new Runnable() {
                 @Override
                 public void run() {
                     try {
                         new EchoRequester(request, tcpBinder);
-                    } catch (IOException ioe) {
-                        logger.warning(String.format("Client failed to start. Cause: %s: %s",
-                                ioe.getClass(), ioe.getMessage()));
+                    } catch (Exception e) {
+                        // already dealt with
                     }
                 }
             }, startClientMillis, TimeUnit.MILLISECONDS);
@@ -195,16 +196,28 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
         final RouplexTcpServer rouplexTcpServer;
 
         EchoServer(StartTcpServerRequest request, RouplexTcpBinder tcpBinder) throws Exception {
-            rouplexTcpServer = RouplexTcpServer.newBuilder()
-                    .withLocalAddress(request.getHostname(), request.getPort())
-                    .withRouplexTcpBinder(tcpBinder)
-                    .withSecure(request.isSsl(), null)
-                    .withAttachment(request)
-                    .build();
+            logger.info(String.format("Creating EchoServer at %s:%s", request.getHostname(), request.getPort()));
 
-            if (tcpBinder == null) {
-                rouplexTcpServer.getRouplexTcpBinder().setRouplexTcpClientConnectedListener(clientConnectedListener);
-                rouplexTcpServer.getRouplexTcpBinder().setRouplexTcpClientClosedListener(clientClosedListener);
+            try {
+                rouplexTcpServer = RouplexTcpServer.newBuilder()
+                        .withLocalAddress(request.getHostname(), request.getPort())
+                        .withRouplexTcpBinder(tcpBinder)
+                        .withSecure(request.isSsl(), null)
+                        .withBacklog(request.getBacklog())
+                        .withAttachment(request)
+                        .build();
+
+                if (tcpBinder == null) {
+                    rouplexTcpServer.getRouplexTcpBinder().setRouplexTcpClientConnectedListener(clientConnectedListener);
+                    rouplexTcpServer.getRouplexTcpBinder().setRouplexTcpClientClosedListener(clientClosedListener);
+                }
+
+                logger.info(String.format("Created EchoServer at %s",
+                        getFormattedAddress(rouplexTcpServer.getLocalAddress())));
+            } catch (Exception e) {
+                logger.warning(String.format("Failed creating EchoServer at %s:%s. Cause: %s. %s",
+                        request.getHostname(), request.getPort(), e.getClass(), e.getMessage()));
+                throw e;
             }
         }
 
@@ -218,7 +231,7 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
         final SendChannel<ByteBuffer> sendChannel;
         final Throttle receiveThrottle;
 
-        final EchoMetrics responderMetrics;
+        final EchoReporter echoReporter;
         Timer.Context pauseTimer;
 
         ByteBuffer sendBuffer;
@@ -226,18 +239,9 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
 
         EchoResponder(final RouplexTcpClient rouplexTcpClient) throws IOException {
             rouplexTcpClient.setAttachment(this);
-            StartTcpServerRequest request = (StartTcpServerRequest) rouplexTcpClient.getRouplexTcpServer().getAttachment();
-            InetSocketAddress inetSocketAddress = (InetSocketAddress) rouplexTcpClient.getRouplexTcpServer().getLocalAddress();
 
-            String responderPrefix = String.format("%s.%s.%s.%s:%s",
-                    request.isUseNiossl() ? "N" : "C",
-                    request.isSsl() ? "S" : "P",
-                    EchoResponder.class.getSimpleName(),
-                    inetSocketAddress.getHostName().replace('.', '-'),
-                    inetSocketAddress.getPort());
-
-            responderMetrics = new EchoMetrics();
-            responderMetrics.setPrefix(responderPrefix);
+            echoReporter = new EchoReporter(rouplexTcpClient);
+            echoReporter.created();
 
             sendChannel = rouplexTcpClient.hookSendChannel(new Throttle() {
                 @Override
@@ -251,20 +255,20 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
                 @Override
                 public boolean receive(byte[] payload) {
                     if (payload == null) {
-                        responderMetrics.receivedDisconnect.mark();
+                        echoReporter.receivedDisconnect.mark();
                         return true;
                     }
 
                     if (payload.length == 0) {
-                        responderMetrics.receivedEos.mark();
+                        echoReporter.receivedEos.mark();
                     } else {
                         if (clientId == null) {
-                            clientId = (int) payload[0];
-                            responderMetrics.setClientId(request.isMergeClientMetrics() ? "" : "." + clientId);
+                            clientId = deserializeClientId(payload);
+                            echoReporter.setClientId(clientId);
                         }
 
-                        responderMetrics.receivedSizes.update(payload.length);
-                        responderMetrics.receivedBytes.mark(payload.length);
+                        echoReporter.receivedSizes.update(payload.length);
+                        echoReporter.receivedBytes.mark(payload.length);
                     }
 
                     sendBuffer = ByteBuffer.wrap(payload);
@@ -279,26 +283,26 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
                 sendChannel.send(sendBuffer); // echo as many as possible
 
                 if (sendBuffer.hasRemaining()) {
-                    pauseTimer = responderMetrics.sendPauseTime.time();
+                    pauseTimer = echoReporter.sendPauseTime.time();
                 } else {
                     if (sendBuffer.capacity() == 0) {
-                        responderMetrics.sentEos.mark();
+                        echoReporter.sentEos.mark();
                     } else {
                         int sentSize = sendBuffer.position() - position;
-                        responderMetrics.sentBytes.mark(sentSize);
-                        responderMetrics.sentSizes.update(sentSize);
+                        echoReporter.sentBytes.mark(sentSize);
+                        echoReporter.sentSizes.update(sentSize);
                     }
                 }
 
                 return !sendBuffer.hasRemaining();
             } catch (IOException ioe) {
-                responderMetrics.sendFailures.mark();
+                echoReporter.sendFailures.mark();
                 return false;
             }
         }
     }
 
-    public class EchoRequester implements Closeable {
+    public class EchoRequester {
         final RouplexTcpClient rouplexTcpClient;
         final StartTcpClientsRequest request;
         final int clientId;
@@ -310,17 +314,12 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
         int currentSendBufferSize;
         long closeTimestamp;
 
-        final EchoMetrics requesterMetrics;
+        final EchoReporter echoReporter;
         Timer.Context pauseTimer;
 
         EchoRequester(StartTcpClientsRequest request, RouplexTcpBinder tcpBinder) throws IOException {
-            String requesterPrefix = String.format("%s.%s.%s",
-                    request.isUseNiossl() ? "N" : "C",
-                    request.isSsl() ? "S" : "P",
-                    EchoRequester.class.getSimpleName());
-
-            requesterMetrics = new EchoMetrics();
-            requesterMetrics.setPrefix(requesterPrefix);
+            echoReporter = new EchoReporter(request);
+            echoReporter.creating();
 
             try {
                 this.request = request;
@@ -331,10 +330,13 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
                         .withAttachment(this)
                         .build();
 
+                echoReporter.setClientAddress(rouplexTcpClient.getLocalAddress());
                 this.clientId = incrementalId.incrementAndGet();
-                requesterMetrics.setClientId(request.isMergeClientMetrics() ? "" : "." + clientId);
+                echoReporter.setClientId(clientId);
 
                 this.maxSendBufferSize = request.maxPayloadSize * 1;
+                closeTimestamp = System.currentTimeMillis() + request.minClientLifeMillis +
+                        random.nextInt(request.maxClientLifeMillis - request.minClientLifeMillis);
 
                 sendChannel = rouplexTcpClient.hookSendChannel(new Throttle() {
                     @Override
@@ -348,26 +350,24 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
                     @Override
                     public boolean receive(byte[] payload) {
                         if (payload == null) {
-                            requesterMetrics.receivedDisconnect.mark();
+                            echoReporter.receivedDisconnect.mark();
                         } else if (payload.length == 0) {
-                            requesterMetrics.receivedEos.mark();
+                            echoReporter.receivedEos.mark();
                         } else {
-                            requesterMetrics.receivedBytes.mark(payload.length);
-                            requesterMetrics.receivedSizes.update(payload.length);
+                            echoReporter.receivedBytes.mark(payload.length);
+                            echoReporter.receivedSizes.update(payload.length);
                         }
 
                         return true;
                     }
                 }, true);
 
-                closeTimestamp = System.currentTimeMillis() + request.minClientLifeMillis +
-                        random.nextInt(request.maxClientLifeMillis - request.minClientLifeMillis);
+                echoReporter.created();
 
-                requesterMetrics.created.mark();
                 keepSendingThenClose();
             } catch (Exception e) {
                 // IOException | RuntimeException (UnresolvedAddressException)
-                requesterMetrics.uncreated.mark();
+                echoReporter.uncreated();
                 throw e;
             }
         }
@@ -384,16 +384,16 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
                     int remaining = maxSendBufferSize - currentSendBufferSize;
                     int discarded = payloadSize - remaining;
                     if (discarded > 0) {
-                        requesterMetrics.discardedSendBytes.mark(discarded);
+                        echoReporter.discardedSendBytes.mark(discarded);
                         payloadSize = remaining;
                     }
 
                     if (payloadSize > 0) {
                         ByteBuffer bb = ByteBuffer.allocate(payloadSize);
-                        bb.array()[0] = (byte) clientId;
+                        serializeClientId(clientId, bb.array());
                         sendBuffers.add(bb);
                         currentSendBufferSize += payloadSize;
-                        requesterMetrics.sendBufferFilled.update(currentSendBufferSize);
+                        echoReporter.sendBufferFilled.update(currentSendBufferSize);
                     }
                 }
 
@@ -430,31 +430,29 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
 
                         currentSendBufferSize -= payloadSize;
                         if (sendBuffer.hasRemaining()) {
-                            pauseTimer = requesterMetrics.sendPauseTime.time();
+                            pauseTimer = echoReporter.sendPauseTime.time();
                             break;
                         } else {
                             if (sendBuffer.capacity() == 0) {
-                                requesterMetrics.sentEos.mark();
+                                echoReporter.sentEos.mark();
                             } else {
-                                requesterMetrics.sentSizes.update(payloadSize);
-                                requesterMetrics.sentBytes.mark(payloadSize);
+                                echoReporter.sentSizes.update(payloadSize);
+                                echoReporter.sentBytes.mark(payloadSize);
                             }
                             sendBuffers.remove(0);
                         }
                     }
                 }
             } catch (IOException ioe) {
-                requesterMetrics.sendFailures.mark();
+                echoReporter.sendFailures.mark();
             }
-        }
-
-        @Override
-        public void close() throws IOException {
-            rouplexTcpClient.close();
         }
     }
 
-    class EchoMetrics {
+    class EchoReporter {
+        final Request request;
+
+        Meter creating;
         Meter created;
         Meter uncreated;
         Meter connected;
@@ -473,33 +471,124 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
         Meter receivedDisconnect;
         Histogram receivedSizes;
 
-        String prefix;
-        String clientId;
+        String aggregatedId;
+        String completeId;
 
-        void setPrefix(String prefix) {
-            this.prefix = prefix;
+        EchoReporter(Request request) throws IOException {
+            this.request = request;
+            MetricsAggregation ma = request.getMetricsAggregation();
 
-            created = benchmarkerMetrics.meter(MetricRegistry.name(prefix, "created"));
-            uncreated = benchmarkerMetrics.meter(MetricRegistry.name(prefix, "uncreated"));
-            connected = benchmarkerMetrics.meter(MetricRegistry.name(prefix, "connected"));
-            disconnected = benchmarkerMetrics.meter(MetricRegistry.name(prefix, "disconnected"));
+            String remoteSa = request.getHostname().replace('.', '-');
+            String aggregatedRemoteSa = ma.isAggregateServerAddresses() ? "A" : remoteSa;
+            String aggregatedRemoteSp = ma.isAggregateServerPorts() ? "A" : "" + request.getPort();
+
+            completeId = String.format("%s.%s.%s.%s:%s",
+                    request.isUseNiossl() ? "N" : "C",
+                    request.isSsl() ? "S" : "P",
+                    EchoRequester.class.getSimpleName(),
+                    remoteSa, request.getPort());
+
+            aggregatedId = String.format("%s.%s.%s.%s:%s",
+                    request.isUseNiossl() ? "N" : "C",
+                    request.isSsl() ? "S" : "P",
+                    EchoRequester.class.getSimpleName(),
+                    aggregatedRemoteSa, aggregatedRemoteSp);
+
+            init();
         }
 
-        void setClientId(String clientId) {
-            this.clientId = clientId;
+        EchoReporter(RouplexTcpClient rouplexTcpClient) throws IOException {
+            request = (Request) rouplexTcpClient.getRouplexTcpServer().getAttachment();
+            MetricsAggregation ma = request.getMetricsAggregation();
 
-            sentBytes = benchmarkerMetrics.meter(MetricRegistry.name(prefix + clientId, "sentBytes"));
-            sentEos = benchmarkerMetrics.meter(MetricRegistry.name(prefix + clientId, "sentEos"));
-            sendFailures = benchmarkerMetrics.meter(MetricRegistry.name(prefix + clientId, "sendFailures"));
-            sentSizes = benchmarkerMetrics.histogram(MetricRegistry.name(prefix + clientId, "sentSizes"));
-            sendBufferFilled = benchmarkerMetrics.histogram(MetricRegistry.name(prefix + clientId, "sendBufferFilled"));
-            discardedSendBytes = benchmarkerMetrics.meter(MetricRegistry.name(prefix + clientId, "discardedSendBytes"));
-            sendPauseTime = benchmarkerMetrics.timer(MetricRegistry.name(prefix + clientId, "sendPauseTime"));
+            InetSocketAddress localIsa = (InetSocketAddress) rouplexTcpClient.getLocalAddress();
+            String localSa = localIsa.getAddress().getHostAddress().replace('.', '-');
+            String aggregatedLocalSa = ma.isAggregateServerAddresses() ? "A" : localSa;
+            String aggregatedLocalSp = ma.isAggregateServerPorts() ? "A" : "" + localIsa.getPort();
 
-            receivedBytes = benchmarkerMetrics.meter(MetricRegistry.name(prefix + clientId, "receivedBytes"));
-            receivedEos = benchmarkerMetrics.meter(MetricRegistry.name(prefix + clientId, "receivedEos"));
-            receivedDisconnect = benchmarkerMetrics.meter(MetricRegistry.name(prefix + clientId, "receivedDisconnect"));
-            receivedSizes = benchmarkerMetrics.histogram(MetricRegistry.name(prefix + clientId, "receivedSizes"));
+            InetSocketAddress remoteIsa = (InetSocketAddress) rouplexTcpClient.getRemoteAddress();
+            String remoteSa = remoteIsa.getAddress().getHostAddress().replace('.', '-');
+            String aggregatedRemoteSa = ma.isAggregateServerAddresses() ? "A" : remoteSa;
+            String aggregatedRemoteSp = ma.isAggregateServerPorts() ? "A" : "" + remoteIsa.getPort();
+
+            completeId = String.format("%s.%s.%s.%s:%s::%s:%s",
+                    request.isUseNiossl() ? "N" : "C",
+                    request.isSsl() ? "S" : "P",
+                    EchoResponder.class.getSimpleName(),
+                    localSa, localIsa.getPort(),
+                    remoteSa, remoteIsa.getPort());
+
+            aggregatedId = String.format("%s.%s.%s.%s:%s::%s:%s",
+                    request.isUseNiossl() ? "N" : "C",
+                    request.isSsl() ? "S" : "P",
+                    EchoResponder.class.getSimpleName(),
+                    aggregatedLocalSa, aggregatedLocalSp,
+                    aggregatedRemoteSa, aggregatedRemoteSp);
+
+            init();
+        }
+
+        private void init() {
+            creating = benchmarkerMetrics.meter(MetricRegistry.name(aggregatedId, "creating"));
+            created = benchmarkerMetrics.meter(MetricRegistry.name(aggregatedId, "created"));
+            uncreated = benchmarkerMetrics.meter(MetricRegistry.name(aggregatedId, "uncreated"));
+            connected = benchmarkerMetrics.meter(MetricRegistry.name(aggregatedId, "connected"));
+            disconnected = benchmarkerMetrics.meter(MetricRegistry.name(aggregatedId, "disconnected"));
+        }
+
+        void setClientAddress(SocketAddress socketAddress) {
+            MetricsAggregation ma = request.getMetricsAggregation();
+            InetSocketAddress localIsa = (InetSocketAddress) socketAddress;
+            String localSa = localIsa.getAddress().getHostAddress().replace('.', '-');
+            String aggregatedLocalSa = ma.isAggregateServerAddresses() ? "A" : localSa;
+            String aggregatedLocalSp = ma.isAggregateServerPorts() ? "A" : "" + localIsa.getPort();
+
+            aggregatedId += "::" + aggregatedLocalSa + ":" + aggregatedLocalSp;
+            completeId += "::" + localSa + ":" + localIsa.getPort();
+        }
+
+        void setClientId(int clientId) {
+            String hexClientId = String.format("%04X", clientId);
+            completeId += "." + hexClientId;
+            aggregatedId += request.getMetricsAggregation().isAggregateClientCounters() ? ".A" : "." + hexClientId;
+
+            sentBytes = benchmarkerMetrics.meter(MetricRegistry.name(aggregatedId, "sentBytes"));
+            sentEos = benchmarkerMetrics.meter(MetricRegistry.name(aggregatedId, "sentEos"));
+            sendFailures = benchmarkerMetrics.meter(MetricRegistry.name(aggregatedId, "sendFailures"));
+            sentSizes = benchmarkerMetrics.histogram(MetricRegistry.name(aggregatedId, "sentSizes"));
+            sendBufferFilled = benchmarkerMetrics.histogram(MetricRegistry.name(aggregatedId, "sendBufferFilled"));
+            discardedSendBytes = benchmarkerMetrics.meter(MetricRegistry.name(aggregatedId, "discardedSendBytes"));
+            sendPauseTime = benchmarkerMetrics.timer(MetricRegistry.name(aggregatedId, "sendPauseTime"));
+
+            receivedBytes = benchmarkerMetrics.meter(MetricRegistry.name(aggregatedId, "receivedBytes"));
+            receivedEos = benchmarkerMetrics.meter(MetricRegistry.name(aggregatedId, "receivedEos"));
+            receivedDisconnect = benchmarkerMetrics.meter(MetricRegistry.name(aggregatedId, "receivedDisconnect"));
+            receivedSizes = benchmarkerMetrics.histogram(MetricRegistry.name(aggregatedId, "receivedSizes"));
+        }
+
+        void creating() {
+            creating.mark();
+            logger.info(String.format("Creating %s", completeId));
+        }
+
+        void created() {
+            created.mark();
+            logger.info(String.format("Created %s", completeId));
+        }
+
+        void uncreated() {
+            uncreated.mark();
+            logger.info(String.format("Uncreated %s", completeId));
+        }
+
+        void connected() {
+            connected.mark();
+            logger.info(String.format("Connected %s", completeId));
+        }
+
+        void disconnected() {
+            disconnected.mark();
+            logger.info(String.format("Disconnected %s", completeId));
         }
     }
 
@@ -548,5 +637,27 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
         synchronized (scheduledExecutor) {
             return closeables == null;
         }
+    }
+
+    private static String getFormattedAddress(SocketAddress socketAddress) {
+        InetSocketAddress isa = (InetSocketAddress) socketAddress;
+        return String.format("%s:%s", isa.getAddress().getHostAddress().replace('.', '-'), isa.getPort());
+    }
+
+    private static void serializeClientId(int clientId, byte[] buffer) {
+        for (int i = 3; i >= 0; i--) {
+            buffer[i] = (byte) (clientId & 0xFF);
+            clientId >>>= 8;
+        }
+    }
+
+    private static int deserializeClientId(byte[] buffer) {
+        int clientId = 0;
+        for (int i = 0; i < 4; i++) {
+            clientId <<= 8;
+            clientId |= buffer[i];
+        }
+
+        return clientId;
     }
 }
