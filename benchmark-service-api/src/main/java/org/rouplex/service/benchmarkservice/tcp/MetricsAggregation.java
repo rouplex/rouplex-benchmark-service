@@ -4,11 +4,12 @@ package org.rouplex.service.benchmarkservice.tcp;
  * @author Andi Mullaraj (andimullaraj at gmail.com)
  */
 public class MetricsAggregation {
+    boolean aggregateSslWithPlain;
     boolean aggregateServerAddresses;
     boolean aggregateServerPorts;
     boolean aggregateClientAddresses;
     boolean aggregateClientPorts;
-    boolean aggregateClientCounters;
+    boolean aggregateClientIds;
 
     public boolean isAggregateServerAddresses() {
         return aggregateServerAddresses;
@@ -42,11 +43,19 @@ public class MetricsAggregation {
         this.aggregateClientPorts = aggregateClientPorts;
     }
 
-    public boolean isAggregateClientCounters() {
-        return aggregateClientCounters;
+    public boolean isAggregateClientIds() {
+        return aggregateClientIds;
     }
 
-    public void setAggregateClientCounters(boolean aggregateClientCounters) {
-        this.aggregateClientCounters = aggregateClientCounters;
+    public void setAggregateClientIds(boolean aggregateClientIds) {
+        this.aggregateClientIds = aggregateClientIds;
+    }
+
+    public boolean isAggregateSslWithPlain() {
+        return aggregateSslWithPlain;
+    }
+
+    public void setAggregateSslWithPlain(boolean aggregateSslWithPlain) {
+        this.aggregateSslWithPlain = aggregateSslWithPlain;
     }
 }
