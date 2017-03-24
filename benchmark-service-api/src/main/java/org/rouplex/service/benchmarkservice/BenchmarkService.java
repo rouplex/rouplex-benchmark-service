@@ -5,7 +5,7 @@ import org.rouplex.service.benchmarkservice.tcp.*;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 
-@Path("/benchmark")
+@Path("/benchmark11")
 public interface BenchmarkService {
     @POST
     @Path("/tcp/server/start")

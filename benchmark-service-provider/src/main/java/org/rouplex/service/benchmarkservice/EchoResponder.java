@@ -29,7 +29,7 @@ public class EchoResponder {
         rouplexTcpClient.setAttachment(this);
 
         echoReporter = new EchoReporter(request, benchmarkServiceProvider.benchmarkerMetrics, EchoResponder.class);
-        echoReporter.created();
+        echoReporter.connected();
 
         sendChannel = rouplexTcpClient.hookSendChannel(new Throttle() {
             @Override

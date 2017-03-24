@@ -6,7 +6,7 @@
 
     <groupId>org.rouplex</groupId>
     <artifactId>rouplex-benchmark-service</artifactId>
-    <version>0.0-SNAPSHOT</version>
+    <version>1.0-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <properties>
@@ -35,7 +35,6 @@
                         <goals>
                             <goal>analyze-only</goal>
                         </goals>
-
                         <configuration>
                             <failOnWarning>false</failOnWarning>
                         </configuration>
@@ -48,7 +47,6 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>2.19.1</version>
                 <configuration>
-                    <!--<jvm>${java.executable}</jvm>-->
                     <forkCount>5</forkCount>
                     <reuseForks>true</reuseForks>
                     <systemPropertyVariables>
@@ -63,6 +61,15 @@
             </plugin>
         </plugins>
     </build>
+
+    <dependencies>
+        <!-- https://mvnrepository.com/artifact/org.aspectj/aspectjtools -->
+        <dependency>
+            <groupId>org.aspectj</groupId>
+            <artifactId>aspectjtools</artifactId>
+            <version>1.8.10</version>
+        </dependency>
+    </dependencies>
 
     <modules>
         <module>benchmark-service-api</module>

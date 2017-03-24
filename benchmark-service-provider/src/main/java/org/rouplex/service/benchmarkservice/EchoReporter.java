@@ -30,9 +30,8 @@ public class EchoReporter {
     String clientPort = "A";
     String clientId = "A";
 
-    Meter creating;
-    Meter created;
-    Meter uncreated;
+    Meter connecting;
+    Meter unconnected;
     Meter connected;
     Meter disconnected;
 
@@ -52,7 +51,7 @@ public class EchoReporter {
     String aggregatedId;
     String completeId;
 
-    public EchoReporter(Request request, MetricRegistry benchmarkerMetrics, Class<?> clazz) throws IOException {
+    public EchoReporter(Request request, MetricRegistry benchmarkerMetrics, Class<?> clazz) {
         this.request = request;
         this.benchmarkerMetrics = benchmarkerMetrics;
         actor = clazz.getSimpleName();
@@ -63,9 +62,8 @@ public class EchoReporter {
         updateId();
 
         if (benchmarkerMetrics != null) {
-            creating = benchmarkerMetrics.meter(MetricRegistry.name(aggregatedId, "creating"));
-            created = benchmarkerMetrics.meter(MetricRegistry.name(aggregatedId, "created"));
-            uncreated = benchmarkerMetrics.meter(MetricRegistry.name(aggregatedId, "uncreated"));
+            connecting = benchmarkerMetrics.meter(MetricRegistry.name(aggregatedId, "connecting"));
+            unconnected = benchmarkerMetrics.meter(MetricRegistry.name(aggregatedId, "unconnected"));
             connected = benchmarkerMetrics.meter(MetricRegistry.name(aggregatedId, "connected"));
             disconnected = benchmarkerMetrics.meter(MetricRegistry.name(aggregatedId, "disconnected"));
         }
@@ -82,7 +80,7 @@ public class EchoReporter {
     }
 
     public void setClientId(int clientId) {
-        this.clientId = getHex(clientId);
+        this.clientId = String.format("%010d", clientId);
         updateId();
 
         if (benchmarkerMetrics != null) {
@@ -101,19 +99,14 @@ public class EchoReporter {
         }
     }
 
-    void creating() {
-        creating.mark();
-        logger.info(String.format("Creating %s", completeId));
+    void connecting() {
+        connecting.mark();
+        logger.info(String.format("Connecting %s", completeId));
     }
 
-    void created() {
-        created.mark();
-        logger.info(String.format("Created %s", completeId));
-    }
-
-    void uncreated() {
-        uncreated.mark();
-        logger.info(String.format("Uncreated %s", completeId));
+    void unconnected() {
+        unconnected.mark();
+        logger.info(String.format("Unconnected %s", completeId));
     }
 
     void connected() {
@@ -128,7 +121,6 @@ public class EchoReporter {
 
     private void updateId() {
         String secureTag = request.isSsl() ? "S" : "P";
-
         completeId = String.format(format,
                 request.isUseNiossl() ? "N" : "C",
                 secureTag,
@@ -155,9 +147,5 @@ public class EchoReporter {
 
     public String getAggregatedId() {
         return aggregatedId;
-    }
-
-    public static String getHex(int value) {
-        return value < 0x10000 ? String.format("%04X", value) : String.format("%08X", value);
     }
 }

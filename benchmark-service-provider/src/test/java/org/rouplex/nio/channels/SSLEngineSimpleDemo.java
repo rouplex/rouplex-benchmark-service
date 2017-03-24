@@ -379,14 +379,15 @@ public class SSLEngineSimpleDemo {
         if (resultOnce) {
             resultOnce = false;
             System.out.println("The format of the SSLEngineResult is: \n" +
-                    "\t\"getStatus() / getHandshakeStatus()\" +\n" +
-                    "\t\"bytesConsumed() / bytesProduced()\"\n");
+                    "\t\"bytesConsumed() / bytesProduced()\" +\n" +
+                    "\t\"getStatus() / getHandshakeStatus()\"\n"
+            );
         }
         HandshakeStatus hsStatus = result.getHandshakeStatus();
         log(str +
-                result.getStatus() + "/" + hsStatus + ", " +
-                result.bytesConsumed() + "/" + result.bytesProduced() +
-                " bytes");
+                result.bytesConsumed() + "/" + result.bytesProduced() + " bytes, " +
+                result.getStatus() + "/" + hsStatus
+        );
         if (hsStatus == HandshakeStatus.FINISHED) {
             log("\t...ready for application data");
         }

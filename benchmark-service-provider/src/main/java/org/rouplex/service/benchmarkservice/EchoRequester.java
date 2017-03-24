@@ -4,7 +4,6 @@ import com.codahale.metrics.Timer;
 import org.rouplex.platform.rr.ReceiveChannel;
 import org.rouplex.platform.rr.SendChannel;
 import org.rouplex.platform.rr.Throttle;
-import org.rouplex.platform.tcp.RouplexTcpBinder;
 import org.rouplex.platform.tcp.RouplexTcpClient;
 import org.rouplex.service.benchmarkservice.tcp.StartTcpClientsRequest;
 
@@ -40,25 +39,18 @@ public class EchoRequester {
     int currentSendBufferSize;
     Timer.Context pauseTimer;
 
-    EchoRequester(BenchmarkServiceProvider benchmarkServiceProvider,
-            StartTcpClientsRequest request, RouplexTcpBinder tcpBinder) throws IOException {
-        this.request = request;
+    EchoRequester(BenchmarkServiceProvider benchmarkServiceProvider, RouplexTcpClient rouplexTcpClient) throws IOException {
+        this.request = (StartTcpClientsRequest) rouplexTcpClient.getAttachment();
+        rouplexTcpClient.setAttachment(this);
+
         scheduledExecutor = benchmarkServiceProvider.scheduledExecutor;
 
         echoReporter = new EchoReporter(request, benchmarkServiceProvider.benchmarkerMetrics, EchoRequester.class);
-        echoReporter.creating();
+        clientId = benchmarkServiceProvider.incrementalId.incrementAndGet();
+        echoReporter.setClientId(clientId);
 
         try {
-            RouplexTcpClient rouplexTcpClient = RouplexTcpClient.newBuilder()
-                    .withRouplexTcpBinder(tcpBinder)
-                    .withRemoteAddress(request.getHostname(), request.getPort())
-                    .withSecure(request.isSsl(), null)
-                    .withAttachment(this)
-                    .build();
-
             echoReporter.setTcpClient(rouplexTcpClient);
-            clientId = benchmarkServiceProvider.incrementalId.incrementAndGet();
-            echoReporter.setClientId(clientId);
 
             maxSendBufferSize = request.maxPayloadSize * 1;
             closeTimestamp = System.currentTimeMillis() + request.minClientLifeMillis +
@@ -88,12 +80,12 @@ public class EchoRequester {
                 }
             }, true);
 
-            echoReporter.created();
+            echoReporter.connected();
 
             keepSendingThenClose();
-        } catch (Exception e) {
-            // IOException | RuntimeException (UnresolvedAddressException)
-            echoReporter.uncreated();
+        } catch (RuntimeException e) {
+            // RuntimeException (UnresolvedAddressException)
+            echoReporter.unconnected();
             throw e;
         }
     }

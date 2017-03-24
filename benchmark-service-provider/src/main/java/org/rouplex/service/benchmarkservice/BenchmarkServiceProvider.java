@@ -2,7 +2,6 @@ package org.rouplex.service.benchmarkservice;
 
 import com.codahale.metrics.*;
 import com.codahale.metrics.Timer;
-import org.rouplex.nio.channels.spi.SSLSelector;
 import org.rouplex.platform.rr.NotificationListener;
 import org.rouplex.platform.tcp.RouplexTcpBinder;
 import org.rouplex.platform.tcp.RouplexTcpClient;
@@ -57,14 +56,14 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
     final NotificationListener<RouplexTcpClient> clientConnectedListener = new NotificationListener<RouplexTcpClient>() {
         @Override
         public void onEvent(RouplexTcpClient rouplexTcpClient) {
-            if (rouplexTcpClient.getRouplexTcpServer() == null) {
-                ((EchoRequester) rouplexTcpClient.getAttachment()).echoReporter.connected();
-            } else {
-                try {
-                    (new EchoResponder(BenchmarkServiceProvider.this, rouplexTcpClient)).echoReporter.connected();
-                } catch (IOException ioe) {
-                    benchmarkerMetrics.meter(MetricRegistry.name("EEE", ioe.getMessage()));
+            try {
+                if (rouplexTcpClient.getRouplexTcpServer() == null) {
+                    new EchoRequester(BenchmarkServiceProvider.this, rouplexTcpClient);
+                } else {
+                    new EchoResponder(BenchmarkServiceProvider.this, rouplexTcpClient);
                 }
+            } catch (IOException ioe) {
+                benchmarkerMetrics.meter(MetricRegistry.name("EEE", ioe.getMessage()));
             }
         }
     };
@@ -85,7 +84,7 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
         classicTcpBinder.setRouplexTcpClientConnectedListener(clientConnectedListener);
         classicTcpBinder.setRouplexTcpClientClosedListener(clientClosedListener);
 
-        niosslTcpBinder = addCloseable(new RouplexTcpBinder(SSLSelector.open(), null));
+        niosslTcpBinder = addCloseable(new RouplexTcpBinder());
         niosslTcpBinder.setRouplexTcpClientConnectedListener(clientConnectedListener);
         niosslTcpBinder.setRouplexTcpClientClosedListener(clientClosedListener);
 
@@ -94,20 +93,43 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
 
     @Override
     public StartTcpServerResponse startTcpServer(StartTcpServerRequest request) throws Exception {
+        logger.info(String.format("Creating EchoServer at %s:%s", request.getHostname(), request.getPort()));
+        RouplexTcpServer rouplexTcpServer;
         RouplexTcpBinder tcpBinder = request.isUseSharedBinder() ? request.isUseNiossl()
                 ? niosslTcpBinder : classicTcpBinder : null;
 
-        EchoServer echoServer = new EchoServer(request, tcpBinder);
-        InetSocketAddress inetSocketAddress = (InetSocketAddress) echoServer.rouplexTcpServer.getLocalAddress();
+        try {
+            rouplexTcpServer = RouplexTcpServer.newBuilder()
+                    .withLocalAddress(request.getHostname(), request.getPort())
+                    .withRouplexTcpBinder(tcpBinder)
+                    .withSecure(request.isSsl(), null)
+                    .withBacklog(request.getBacklog())
+                    .withAttachment(request)
+                    .build();
 
-        String hostPort = String.format("%s:%s", inetSocketAddress.getHostName().replace('.', '-'), inetSocketAddress.getPort());
-        addCloseable(hostPort, echoServer);
+            if (tcpBinder == null) {
+                rouplexTcpServer.getRouplexTcpBinder().setRouplexTcpClientConnectedListener(clientConnectedListener);
+                rouplexTcpServer.getRouplexTcpBinder().setRouplexTcpClientClosedListener(clientClosedListener);
+            }
 
-        StartTcpServerResponse response = new StartTcpServerResponse();
-        response.setHostaddress(inetSocketAddress.getAddress().getHostAddress());
-        response.setHostname(inetSocketAddress.getHostName());
-        response.setPort(inetSocketAddress.getPort());
-        return response;
+            InetSocketAddress isa = (InetSocketAddress) rouplexTcpServer.getLocalAddress();
+            logger.info(String.format("Created EchoServer at %s:%s",
+                    isa.getAddress().getHostAddress().replace('.', '-'), isa.getPort()));
+
+            InetSocketAddress inetSocketAddress = (InetSocketAddress) rouplexTcpServer.getLocalAddress();
+            String hostPort = String.format("%s:%s", inetSocketAddress.getHostName().replace('.', '-'), inetSocketAddress.getPort());
+            addCloseable(hostPort, rouplexTcpServer);
+
+            StartTcpServerResponse response = new StartTcpServerResponse();
+            response.setHostaddress(inetSocketAddress.getAddress().getHostAddress());
+            response.setHostname(inetSocketAddress.getHostName());
+            response.setPort(inetSocketAddress.getPort());
+            return response;
+        } catch (Exception e) {
+            logger.warning(String.format("Failed creating EchoServer at %s:%s. Cause: %s. %s",
+                    request.getHostname(), request.getPort(), e.getClass(), e.getMessage()));
+            throw e;
+        }
     }
 
     @Override
@@ -127,13 +149,16 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
             throw new IllegalArgumentException(String.format("Unresolved address %s", inetSocketAddress));
         }
 
+        logger.info(String.format("Creating %s EchoClients for server at %s:%s",
+                request.clientCount, request.getHostname(), request.getPort()));
+
         RouplexTcpBinder tcpBinder;
         if (request.isUseSharedBinder()) {
             tcpBinder = request.isUseNiossl() ? niosslTcpBinder : classicTcpBinder;
         } else {
             // differently from server, we create a tcpBinder for all the client batch. We expect a tcpBinder to handle
             // hundreds of thousands of clients (with one tcp connection each)
-            tcpBinder = addCloseable(new RouplexTcpBinder(request.isUseNiossl() ? SSLSelector.open() : Selector.open()));
+            tcpBinder = addCloseable(request.isUseNiossl() ? new RouplexTcpBinder() : new RouplexTcpBinder(Selector.open()));
             tcpBinder.setRouplexTcpClientConnectedListener(clientConnectedListener);
             tcpBinder.setRouplexTcpClientClosedListener(clientClosedListener);
         }
@@ -146,10 +171,18 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
             scheduledExecutor.schedule(new Runnable() {
                 @Override
                 public void run() {
+                    EchoReporter echoReporter = new EchoReporter(request, benchmarkerMetrics, EchoRequester.class);
+                    echoReporter.connecting();
+
                     try {
-                        new EchoRequester(BenchmarkServiceProvider.this, request, tcpBinder);
+                        RouplexTcpClient.newBuilder()
+                                .withRouplexTcpBinder(tcpBinder)
+                                .withRemoteAddress(request.getHostname(), request.getPort())
+                                .withSecure(request.isSsl(), null)
+                                .withAttachment(request)
+                                .buildAsync();
                     } catch (Exception e) {
-                        // already dealt with
+                        echoReporter.unconnected();
                     }
                 }
             }, startClientMillis, TimeUnit.MILLISECONDS);
@@ -186,42 +219,6 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
         response.setHistograms(histograms);
         response.setTimers(timers);
         return response;
-    }
-
-    class EchoServer implements Closeable {
-        final RouplexTcpServer rouplexTcpServer;
-
-        EchoServer(StartTcpServerRequest request, RouplexTcpBinder tcpBinder) throws Exception {
-            logger.info(String.format("Creating EchoServer at %s:%s", request.getHostname(), request.getPort()));
-
-            try {
-                rouplexTcpServer = RouplexTcpServer.newBuilder()
-                        .withLocalAddress(request.getHostname(), request.getPort())
-                        .withRouplexTcpBinder(tcpBinder)
-                        .withSecure(request.isSsl(), null)
-                        .withBacklog(request.getBacklog())
-                        .withAttachment(request)
-                        .build();
-
-                if (tcpBinder == null) {
-                    rouplexTcpServer.getRouplexTcpBinder().setRouplexTcpClientConnectedListener(clientConnectedListener);
-                    rouplexTcpServer.getRouplexTcpBinder().setRouplexTcpClientClosedListener(clientClosedListener);
-                }
-
-                InetSocketAddress isa = (InetSocketAddress) rouplexTcpServer.getLocalAddress();
-                logger.info(String.format("Created EchoServer at %s:%s",
-                        isa.getAddress().getHostAddress().replace('.', '-'), isa.getPort()));
-            } catch (Exception e) {
-                logger.warning(String.format("Failed creating EchoServer at %s:%s. Cause: %s. %s",
-                        request.getHostname(), request.getPort(), e.getClass(), e.getMessage()));
-                throw e;
-            }
-        }
-
-        @Override
-        public void close() throws IOException {
-            rouplexTcpServer.close();
-        }
     }
 
     protected <T extends Closeable> T addCloseable(T t) {

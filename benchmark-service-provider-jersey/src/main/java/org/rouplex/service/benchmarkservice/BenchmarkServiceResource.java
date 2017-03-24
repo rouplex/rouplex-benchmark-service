@@ -7,7 +7,7 @@ import io.swagger.annotations.ApiResponses;
 import org.glassfish.jersey.server.ResourceConfig;
 import org.rouplex.service.benchmarkservice.tcp.*;
 
-@Api(value = "/benchmark", description = "BenchmarkService resource")
+@Api(value = "/benchmark11", description = "BenchmarkService resource")
 public class BenchmarkServiceResource extends ResourceConfig implements BenchmarkService {
 
     @ApiOperation(value = "Start a RouplexTcpServer on this host at the specified local address:port")

@@ -12,19 +12,21 @@ import org.rouplex.service.benchmarkservice.tcp.metric.SnapMeter;
 
 import java.io.IOException;
 import java.util.*;
+import java.util.logging.Logger;
 
 /**
  * @author Andi Mullaraj (andimullaraj at gmail.com)
  */
 @RunWith(Parameterized.class)
 public class SSLSelectorWithMixSslAndPlainChannelsTest {
+    private static Logger logger = Logger.getLogger(SSLSelectorWithMixSslAndPlainChannelsTest.class.getSimpleName());
     static Gson gson = new GsonBuilder().setPrettyPrinting().create();
 
     @Parameterized.Parameters
     public static Collection<Object[]> data() throws IOException {
         List<Object[]> data = new ArrayList<Object[]>();
-        boolean[] secures = {false, true};
-        boolean[] aggregates = {false, true};
+        boolean[] secures = {true};
+        boolean[] aggregates = {true};
 
         for (boolean secure : secures) {
             for (boolean aggregate : aggregates) {
@@ -48,6 +50,7 @@ public class SSLSelectorWithMixSslAndPlainChannelsTest {
 
     @Test
     public void testConnectSendAndReceive() throws Exception {
+        logger.info("Starting test");
         BenchmarkService bmService = new BenchmarkServiceProvider();
 
         MetricsAggregation metricsAggregation = new MetricsAggregation();
@@ -63,29 +66,32 @@ public class SSLSelectorWithMixSslAndPlainChannelsTest {
         startTcpServerRequest.setPort(0); // any port
         startTcpServerRequest.setSsl(secure);
         startTcpServerRequest.setMetricsAggregation(metricsAggregation);
+        startTcpServerRequest.setBacklog(1000);
         StartTcpServerResponse startTcpServerResponse = bmService.startTcpServer(startTcpServerRequest);
 
         StartTcpClientsRequest startTcpClientsRequest = new StartTcpClientsRequest();
         startTcpClientsRequest.setUseNiossl(secure);
         startTcpClientsRequest.setHostname(startTcpServerResponse.getHostname());
         startTcpClientsRequest.setPort(startTcpServerResponse.getPort());
+//        startTcpClientsRequest.setHostname("www.rouplex-demo.com");
+//        startTcpClientsRequest.setPort(8888);
         startTcpClientsRequest.setSsl(secure);
-        startTcpClientsRequest.setClientCount(100);
+        startTcpClientsRequest.setClientCount(1000);
         startTcpClientsRequest.setMinDelayMillisBeforeCreatingClient(1);
         startTcpClientsRequest.setMaxDelayMillisBeforeCreatingClient(1001);
         startTcpClientsRequest.setMinClientLifeMillis(10000);
         startTcpClientsRequest.setMaxClientLifeMillis(10001);
         startTcpClientsRequest.setMinDelayMillisBetweenSends(100);
         startTcpClientsRequest.setMaxDelayMillisBetweenSends(101);
-        startTcpClientsRequest.setMinPayloadSize(1000);
-        startTcpClientsRequest.setMaxPayloadSize(1001);
+        startTcpClientsRequest.setMinPayloadSize(10000);
+        startTcpClientsRequest.setMaxPayloadSize(10001);
         startTcpClientsRequest.setMetricsAggregation(metricsAggregation);
         StartTcpClientsResponse startTcpClientsResponse = bmService.startTcpClients(startTcpClientsRequest);
 
         EchoReporter echoResponderReporter = new EchoReporter(startTcpServerRequest, null, EchoResponder.class);
         EchoReporter echoRequesterReporter = new EchoReporter(startTcpClientsRequest, null, EchoRequester.class);
 
-        int maxRoundtripMillis = 20000;
+        int maxRoundtripMillis = 10000;
         int maxRequestMillis = startTcpClientsRequest.getMaxDelayMillisBeforeCreatingClient() + startTcpClientsRequest.getMaxClientLifeMillis();
         int sleepDurationMillis = 2000;
 
@@ -121,7 +127,7 @@ public class SSLSelectorWithMixSslAndPlainChannelsTest {
             }
         }
 
-        System.out.println(gson.toJson(lastGetSnapshotMetricsResponse));
+        logger.info(gson.toJson(lastGetSnapshotMetricsResponse));
 
         Assert.assertTrue(allRequestersDisconnected);
         Assert.assertTrue(allRespondersDisconnected);
@@ -148,6 +154,8 @@ public class SSLSelectorWithMixSslAndPlainChannelsTest {
                 Assert.assertEquals(requesterSentBytes.getCount(), responderReceivedBytes.getCount());
             }
         }
+
+        logger.info("Finished test");
     }
 
     private boolean compare(GetSnapshotMetricsResponse response1, GetSnapshotMetricsResponse response2) {
