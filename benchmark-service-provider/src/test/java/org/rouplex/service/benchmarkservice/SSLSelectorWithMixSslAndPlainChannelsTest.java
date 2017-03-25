@@ -63,7 +63,7 @@ public class SSLSelectorWithMixSslAndPlainChannelsTest {
         StartTcpServerRequest startTcpServerRequest = new StartTcpServerRequest();
         startTcpServerRequest.setUseNiossl(secure);
         startTcpServerRequest.setHostname(null); // any local address
-        startTcpServerRequest.setPort(0); // any port
+        startTcpServerRequest.setPort(7777); // any port
         startTcpServerRequest.setSsl(secure);
         startTcpServerRequest.setMetricsAggregation(metricsAggregation);
         startTcpServerRequest.setBacklog(1000);
@@ -76,11 +76,11 @@ public class SSLSelectorWithMixSslAndPlainChannelsTest {
 //        startTcpClientsRequest.setHostname("www.rouplex-demo.com");
 //        startTcpClientsRequest.setPort(8888);
         startTcpClientsRequest.setSsl(secure);
-        startTcpClientsRequest.setClientCount(10);
+        startTcpClientsRequest.setClientCount(150);
         startTcpClientsRequest.setMinDelayMillisBeforeCreatingClient(1);
         startTcpClientsRequest.setMaxDelayMillisBeforeCreatingClient(1001);
-        startTcpClientsRequest.setMinClientLifeMillis(60000);
-        startTcpClientsRequest.setMaxClientLifeMillis(60001);
+        startTcpClientsRequest.setMinClientLifeMillis(10000);
+        startTcpClientsRequest.setMaxClientLifeMillis(10001);
         startTcpClientsRequest.setMinDelayMillisBetweenSends(100);
         startTcpClientsRequest.setMaxDelayMillisBetweenSends(101);
         startTcpClientsRequest.setMinPayloadSize(1000);
@@ -104,7 +104,7 @@ public class SSLSelectorWithMixSslAndPlainChannelsTest {
             GetSnapshotMetricsResponse getSnapshotMetricsResponse = bmService.getSnapshotMetricsResponse(new GetSnapshotMetricsRequest());
 
             if (compare(lastGetSnapshotMetricsResponse, getSnapshotMetricsResponse)) {
-              //  break;
+                break;
             }
 
             SnapMeter disconnectedRequesters = getSnapshotMetricsResponse
