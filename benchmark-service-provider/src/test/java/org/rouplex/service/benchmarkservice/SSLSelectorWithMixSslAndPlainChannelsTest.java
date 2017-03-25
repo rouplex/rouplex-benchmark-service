@@ -76,15 +76,15 @@ public class SSLSelectorWithMixSslAndPlainChannelsTest {
 //        startTcpClientsRequest.setHostname("www.rouplex-demo.com");
 //        startTcpClientsRequest.setPort(8888);
         startTcpClientsRequest.setSsl(secure);
-        startTcpClientsRequest.setClientCount(1000);
+        startTcpClientsRequest.setClientCount(10);
         startTcpClientsRequest.setMinDelayMillisBeforeCreatingClient(1);
         startTcpClientsRequest.setMaxDelayMillisBeforeCreatingClient(1001);
-        startTcpClientsRequest.setMinClientLifeMillis(10000);
-        startTcpClientsRequest.setMaxClientLifeMillis(10001);
+        startTcpClientsRequest.setMinClientLifeMillis(60000);
+        startTcpClientsRequest.setMaxClientLifeMillis(60001);
         startTcpClientsRequest.setMinDelayMillisBetweenSends(100);
         startTcpClientsRequest.setMaxDelayMillisBetweenSends(101);
-        startTcpClientsRequest.setMinPayloadSize(10000);
-        startTcpClientsRequest.setMaxPayloadSize(10001);
+        startTcpClientsRequest.setMinPayloadSize(1000);
+        startTcpClientsRequest.setMaxPayloadSize(1001);
         startTcpClientsRequest.setMetricsAggregation(metricsAggregation);
         StartTcpClientsResponse startTcpClientsResponse = bmService.startTcpClients(startTcpClientsRequest);
 

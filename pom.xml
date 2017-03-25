@@ -62,15 +62,6 @@
         </plugins>
     </build>
 
-    <dependencies>
-        <!-- https://mvnrepository.com/artifact/org.aspectj/aspectjtools -->
-        <dependency>
-            <groupId>org.aspectj</groupId>
-            <artifactId>aspectjtools</artifactId>
-            <version>1.8.10</version>
-        </dependency>
-    </dependencies>
-
     <modules>
         <module>benchmark-service-api</module>
         <module>benchmark-service-provider</module>

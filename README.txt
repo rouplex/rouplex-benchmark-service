@@ -42,29 +42,47 @@ Use something like this snippet to start a new echo server:
   "hostname": null,
   "port": 8888,
   "ssl": true,
-  "useSharedBinder": true,
-  "mergeClientMetrics": true
+  "useSharedBinder": false,
+  "metricsAggregation": {
+    "aggregateSslWithPlain": false,
+    "aggregateServerAddresses": true,
+    "aggregateServerPorts": true,
+    "aggregateClientAddresses": true,
+    "aggregateClientPorts": true,
+    "aggregateClientIds": true
+  },
+  "backlog": 1000
 }
 
 Use something like this snippet to start a 100 clients sending requests and collecting responses from echo server:
 
 {
   "useNiossl": true,
-  "hostname": **server_name_as_returned_by_start_server_command**,
+  "hostname": "172.30.0.168",
   "port": 8888,
   "ssl": true,
-  "useSharedBinder": true,
-  "mergeClientMetrics": true,
+  "useSharedBinder": false,
+  "metricsAggregation": {
+    "aggregateSslWithPlain": false,
+    "aggregateServerAddresses": true,
+    "aggregateServerPorts": true,
+    "aggregateClientAddresses": true,
+    "aggregateClientPorts": true,
+    "aggregateClientIds": true
+  },
   "clientCount": 100,
-  "minPayloadSize": 1,
-  "maxPayloadSize": 10000,
-  "minDelayMillisBetweenSends": 10,
-  "maxDelayMillisBetweenSends": 100,
-  "minDelayMillisBeforeCreatingClient": 10,
+  "minPayloadSize": 1000,
+  "maxPayloadSize": 1001,
+  "minDelayMillisBetweenSends": 100,
+  "maxDelayMillisBetweenSends": 101,
+  "minDelayMillisBeforeCreatingClient": 0,
   "maxDelayMillisBeforeCreatingClient": 1000,
-  "minClientLifeMillis": 10000,
-  "maxClientLifeMillis": 60000
+  "minClientLifeMillis": 60000,
+  "maxClientLifeMillis": 60001
 }
+
+If deciding to run locally (without deploying with a context path), point your browser at:
+http://localhost:8080/webjars/swagger-ui/2.2.5/index.html?url=http://localhost:8080/rouplex/swagger.json
 
 ## Configure Jmx ##
 One of the flaws of JMX is that it will pick an available second port at random, and if your target machine is behind a
