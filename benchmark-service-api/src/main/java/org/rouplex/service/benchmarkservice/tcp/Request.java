@@ -9,7 +9,18 @@ public class Request {
     int port;
     boolean ssl;
     boolean useSharedBinder = true;
+    int socketSendBufferSize;
+    int socketReceiveBufferSize;
+
     MetricsAggregation metricsAggregation = new MetricsAggregation();
+
+    public boolean isUseNiossl() {
+        return useNiossl;
+    }
+
+    public void setUseNiossl(boolean useNiossl) {
+        this.useNiossl = useNiossl;
+    }
 
     public String getHostname() {
         return hostname;
@@ -35,20 +46,28 @@ public class Request {
         this.ssl = ssl;
     }
 
-    public boolean isUseNiossl() {
-        return useNiossl;
-    }
-
-    public void setUseNiossl(boolean useNiossl) {
-        this.useNiossl = useNiossl;
-    }
-
     public boolean isUseSharedBinder() {
         return useSharedBinder;
     }
 
     public void setUseSharedBinder(boolean useSharedBinder) {
         this.useSharedBinder = useSharedBinder;
+    }
+
+    public int getSocketSendBufferSize() {
+        return socketSendBufferSize;
+    }
+
+    public void setSocketSendBufferSize(int socketSendBufferSize) {
+        this.socketSendBufferSize = socketSendBufferSize;
+    }
+
+    public int getSocketReceiveBufferSize() {
+        return socketReceiveBufferSize;
+    }
+
+    public void setSocketReceiveBufferSize(int socketReceiveBufferSize) {
+        this.socketReceiveBufferSize = socketReceiveBufferSize;
     }
 
     public MetricsAggregation getMetricsAggregation() {

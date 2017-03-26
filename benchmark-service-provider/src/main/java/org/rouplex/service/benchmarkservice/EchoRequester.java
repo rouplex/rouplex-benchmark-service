@@ -85,7 +85,7 @@ public class EchoRequester {
             keepSendingThenClose();
         } catch (RuntimeException e) {
             // RuntimeException (UnresolvedAddressException)
-            echoReporter.unconnected();
+            echoReporter.unconnected(e);
             throw e;
         }
     }

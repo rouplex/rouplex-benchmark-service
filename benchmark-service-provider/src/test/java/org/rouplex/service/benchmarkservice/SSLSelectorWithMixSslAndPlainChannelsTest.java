@@ -63,8 +63,10 @@ public class SSLSelectorWithMixSslAndPlainChannelsTest {
         StartTcpServerRequest startTcpServerRequest = new StartTcpServerRequest();
         startTcpServerRequest.setUseNiossl(secure);
         startTcpServerRequest.setHostname(null); // any local address
-        startTcpServerRequest.setPort(7777); // any port
+        startTcpServerRequest.setPort(0); // any port
         startTcpServerRequest.setSsl(secure);
+//        startTcpServerRequest.setSocketSendBufferSize(150000);
+//        startTcpServerRequest.setSocketReceiveBufferSize(150000);
         startTcpServerRequest.setMetricsAggregation(metricsAggregation);
         startTcpServerRequest.setBacklog(1000);
         StartTcpServerResponse startTcpServerResponse = bmService.startTcpServer(startTcpServerRequest);
@@ -76,7 +78,9 @@ public class SSLSelectorWithMixSslAndPlainChannelsTest {
 //        startTcpClientsRequest.setHostname("www.rouplex-demo.com");
 //        startTcpClientsRequest.setPort(8888);
         startTcpClientsRequest.setSsl(secure);
-        startTcpClientsRequest.setClientCount(150);
+//        startTcpClientsRequest.setSocketSendBufferSize(150000);
+//        startTcpClientsRequest.setSocketReceiveBufferSize(150000);
+        startTcpClientsRequest.setClientCount(100);
         startTcpClientsRequest.setMinDelayMillisBeforeCreatingClient(1);
         startTcpClientsRequest.setMaxDelayMillisBeforeCreatingClient(1001);
         startTcpClientsRequest.setMinClientLifeMillis(10000);
@@ -91,9 +95,9 @@ public class SSLSelectorWithMixSslAndPlainChannelsTest {
         EchoReporter echoResponderReporter = new EchoReporter(startTcpServerRequest, null, EchoResponder.class);
         EchoReporter echoRequesterReporter = new EchoReporter(startTcpClientsRequest, null, EchoRequester.class);
 
-        int maxRoundtripMillis = 10000;
+        int maxRoundtripMillis = 20000;
         int maxRequestMillis = startTcpClientsRequest.getMaxDelayMillisBeforeCreatingClient() + startTcpClientsRequest.getMaxClientLifeMillis();
-        int sleepDurationMillis = 2000;
+        int sleepDurationMillis = 5000;
 
         boolean allRequestersDisconnected = false;
         boolean allRespondersDisconnected = false;
@@ -103,6 +107,7 @@ public class SSLSelectorWithMixSslAndPlainChannelsTest {
             Thread.sleep(sleepDurationMillis);
             GetSnapshotMetricsResponse getSnapshotMetricsResponse = bmService.getSnapshotMetricsResponse(new GetSnapshotMetricsRequest());
 
+            // no progress?
             if (compare(lastGetSnapshotMetricsResponse, getSnapshotMetricsResponse)) {
                 break;
             }

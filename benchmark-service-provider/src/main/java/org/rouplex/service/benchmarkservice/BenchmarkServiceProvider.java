@@ -44,11 +44,6 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
 
     final MetricRegistry benchmarkerMetrics = new MetricRegistry();
     final MetricsUtil metricsUtil = new MetricsUtil(TimeUnit.SECONDS);
-    final JmxReporter jmxReporter = JmxReporter.forRegistry(benchmarkerMetrics)
-            .convertRatesTo(TimeUnit.SECONDS)
-            .convertDurationsTo(TimeUnit.MILLISECONDS)
-            .build();
-
     final AtomicInteger incrementalId = new AtomicInteger();
     final Random random = new Random();
     Map<String, Closeable> closeables = new HashMap<>();
@@ -88,7 +83,11 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
         niosslTcpBinder.setRouplexTcpClientConnectedListener(clientConnectedListener);
         niosslTcpBinder.setRouplexTcpClientClosedListener(clientClosedListener);
 
-        addCloseable(jmxReporter).start();
+        addCloseable(JmxReporter.forRegistry(benchmarkerMetrics)
+                .convertRatesTo(TimeUnit.SECONDS)
+                .convertDurationsTo(TimeUnit.MILLISECONDS)
+                .build()
+        ).start();
     }
 
     @Override
@@ -104,6 +103,8 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
                     .withRouplexTcpBinder(tcpBinder)
                     .withSecure(request.isSsl(), null)
                     .withBacklog(request.getBacklog())
+                    .withSendBufferSize(request.getSocketSendBufferSize())
+                    .withReceiveBufferSize(request.getSocketReceiveBufferSize())
                     .withAttachment(request)
                     .build();
 
@@ -179,10 +180,12 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
                                 .withRouplexTcpBinder(tcpBinder)
                                 .withRemoteAddress(request.getHostname(), request.getPort())
                                 .withSecure(request.isSsl(), null)
+                                .withSendBufferSize(request.getSocketSendBufferSize())
+                                .withReceiveBufferSize(request.getSocketReceiveBufferSize())
                                 .withAttachment(request)
                                 .buildAsync();
                     } catch (Exception e) {
-                        echoReporter.unconnected();
+                        echoReporter.unconnected(e);
                     }
                 }
             }, startClientMillis, TimeUnit.MILLISECONDS);

@@ -104,9 +104,9 @@ public class EchoReporter {
         logger.info(String.format("Connecting %s", completeId));
     }
 
-    void unconnected() {
+    void unconnected(Exception e) {
         unconnected.mark();
-        logger.info(String.format("Unconnected %s", completeId));
+        logger.info(String.format("Unconnected %s. Cause: %s %s", completeId, e.getClass(), e.getMessage()));
     }
 
     void connected() {
