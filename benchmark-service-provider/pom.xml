@@ -93,8 +93,8 @@
     </profiles>
 
     <dependencies>
-        <!--&lt;!&ndash; Use rouplex-niossl-instrumentor to get rouplex-niossl related metrics &ndash;&gt;-->
-        <!--&lt;!&ndash; It should normally be inside debug profile, but the maven-war-plugin does not copy it in /lib folder &ndash;&gt;-->
+         <!--Use rouplex-niossl-instrumentor to get rouplex-niossl related metrics-->
+         <!--It should normally be inside debug profile, but the maven-war-plugin does not copy it in /lib folder-->
         <!--<dependency>-->
             <!--<groupId>org.rouplex</groupId>-->
             <!--<artifactId>rouplex-niossl-instrumentor</artifactId>-->

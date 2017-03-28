@@ -17,59 +17,40 @@ import java.util.logging.Logger;
  */
 public class EchoReporter {
     private static final Logger logger = Logger.getLogger(BenchmarkServiceProvider.class.getSimpleName());
-    public static final String format = "%s.%s.%s.%s:%s::%s:%s.%s";
-    // [N,C].[S,P].[EchoRequester,EchoResponder].[Server]:[Port]::[Client]:[Port].[ClientId]
+    public static final String format = "%s.%s.%s.%s:%s::%s:%s";
+    // [N,C].[S,P].[EchoRequester,EchoResponder].[Server]:[Port]::[Client]:[Port]
 
-    final Request request;
     final MetricRegistry benchmarkerMetrics;
     final String actor;
 
-    String serverAddress;
-    String serverPort;
-    String clientAddress = "A";
-    String clientPort = "A";
-    String clientId = "A";
+    final String serverAddress;
+    final String serverPort;
+    final String clientAddress;
+    final String clientPort;
 
-    Meter connecting;
-    Meter unconnected;
-    Meter connected;
-    Meter disconnected;
+    final Meter connected;
+    final Meter disconnected;
 
-    Meter sentBytes;
-    Meter sentEos;
-    Meter sendFailures;
-    Histogram sentSizes;
-    Histogram sendBufferFilled;
-    Meter discardedSendBytes;
-    Timer sendPauseTime;
+    final Meter sentBytes;
+    final Meter sentEos;
+    final Meter sendFailures;
+    final Histogram sentSizes;
+    final Histogram sendBufferFilled;
+    final Meter discardedSendBytes;
+    final Timer sendPauseTime;
 
-    Meter receivedBytes;
-    Meter receivedEos;
-    Meter receivedDisconnect;
-    Histogram receivedSizes;
+    final Meter receivedBytes;
+    final Meter receivedEos;
+    final Meter receivedDisconnect;
+    final Histogram receivedSizes;
 
-    String aggregatedId;
-    String completeId;
+    final String aggregatedId;
+    final String completeId;
 
-    public EchoReporter(Request request, MetricRegistry benchmarkerMetrics, Class<?> clazz) {
-        this.request = request;
+    public EchoReporter(Request request, MetricRegistry benchmarkerMetrics, Class<?> clazz, RouplexTcpClient tcpClient) throws IOException {
         this.benchmarkerMetrics = benchmarkerMetrics;
-        actor = clazz.getSimpleName();
+        this.actor = clazz.getSimpleName();
 
-        serverAddress = request.getHostname() == null ? "A" : request.getHostname().replace('.', '-');
-        serverPort = "" + request.getPort();
-
-        updateId();
-
-        if (benchmarkerMetrics != null) {
-            connecting = benchmarkerMetrics.meter(MetricRegistry.name(aggregatedId, "connecting"));
-            unconnected = benchmarkerMetrics.meter(MetricRegistry.name(aggregatedId, "unconnected"));
-            connected = benchmarkerMetrics.meter(MetricRegistry.name(aggregatedId, "connected"));
-            disconnected = benchmarkerMetrics.meter(MetricRegistry.name(aggregatedId, "disconnected"));
-        }
-    }
-
-    public void setTcpClient(RouplexTcpClient tcpClient) throws IOException {
         InetSocketAddress localIsa = (InetSocketAddress) tcpClient.getLocalAddress();
         clientAddress = localIsa.getAddress().getHostAddress().replace('.', '-');
         clientPort = "" + localIsa.getPort();
@@ -77,13 +58,33 @@ public class EchoReporter {
         InetSocketAddress remoteIsa = (InetSocketAddress) tcpClient.getRemoteAddress();
         serverAddress = remoteIsa.getAddress().getHostAddress().replace('.', '-');
         serverPort = "" + remoteIsa.getPort();
-    }
 
-    public void setClientId(int clientId) {
-        this.clientId = String.format("%010d", clientId);
-        updateId();
+        String secureTag = request.isSsl() ? "S" : "P";
+        completeId = String.format(format,
+                request.isUseNiossl() ? "N" : "C",
+                secureTag,
+                actor,
+                serverAddress,
+                serverPort,
+                clientAddress,
+                clientPort
+        );
+
+        MetricsAggregation ma = request.getMetricsAggregation();
+        aggregatedId = String.format(format,
+                request.isUseNiossl() ? "N" : "C",
+                ma.isAggregateSslWithPlain() ? "A" : secureTag,
+                actor,
+                ma.isAggregateServerAddresses() ? "A" : serverAddress,
+                ma.isAggregateServerPorts() ? "A" : serverPort,
+                ma.isAggregateClientAddresses() ? "A" : clientAddress,
+                ma.isAggregateClientPorts() ? "A" : clientPort
+        );
 
         if (benchmarkerMetrics != null) {
+            connected = benchmarkerMetrics.meter(MetricRegistry.name(aggregatedId, "connected"));
+            disconnected = benchmarkerMetrics.meter(MetricRegistry.name(aggregatedId, "disconnected"));
+
             sentBytes = benchmarkerMetrics.meter(MetricRegistry.name(aggregatedId, "sentBytes"));
             sentEos = benchmarkerMetrics.meter(MetricRegistry.name(aggregatedId, "sentEos"));
             sendFailures = benchmarkerMetrics.meter(MetricRegistry.name(aggregatedId, "sendFailures"));
@@ -96,53 +97,21 @@ public class EchoReporter {
             receivedEos = benchmarkerMetrics.meter(MetricRegistry.name(aggregatedId, "receivedEos"));
             receivedDisconnect = benchmarkerMetrics.meter(MetricRegistry.name(aggregatedId, "receivedDisconnect"));
             receivedSizes = benchmarkerMetrics.histogram(MetricRegistry.name(aggregatedId, "receivedSizes"));
+
+            connected.mark();
+        } else {
+            connected = disconnected = sentBytes = sentEos =
+                    sendFailures = discardedSendBytes = receivedBytes = receivedEos = receivedDisconnect = null;
+            receivedSizes = sentSizes = sendBufferFilled = null;
+            sendPauseTime = null;
         }
-    }
 
-    void connecting() {
-        connecting.mark();
-        logger.info(String.format("Connecting %s", completeId));
-    }
-
-    void unconnected(Exception e) {
-        unconnected.mark();
-        logger.info(String.format("Unconnected %s. Cause: %s %s", completeId, e.getClass(), e.getMessage()));
-    }
-
-    void connected() {
-        connected.mark();
         logger.info(String.format("Connected %s", completeId));
     }
 
     void disconnected() {
         disconnected.mark();
         logger.info(String.format("Disconnected %s", completeId));
-    }
-
-    private void updateId() {
-        String secureTag = request.isSsl() ? "S" : "P";
-        completeId = String.format(format,
-                request.isUseNiossl() ? "N" : "C",
-                secureTag,
-                actor,
-                serverAddress,
-                serverPort,
-                clientAddress,
-                clientPort,
-                clientId
-        );
-
-        MetricsAggregation ma = request.getMetricsAggregation();
-        aggregatedId = String.format(format,
-                request.isUseNiossl() ? "N" : "C",
-                ma.isAggregateSslWithPlain() ? "A" : secureTag,
-                actor,
-                ma.isAggregateServerAddresses() ? "A" : serverAddress,
-                ma.isAggregateServerPorts() ? "A" : serverPort,
-                ma.isAggregateClientAddresses() ? "A" : clientAddress,
-                ma.isAggregateClientPorts() ? "A" : clientPort,
-                ma.isAggregateClientIds() ? "A" : clientId
-        );
     }
 
     public String getAggregatedId() {

@@ -38,6 +38,7 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
         }
     }
 
+    // keeping two shared binders, one using nio classic and the other using niossl, to show they are identical
     final RouplexTcpBinder classicTcpBinder;
     final RouplexTcpBinder niosslTcpBinder;
     final ScheduledExecutorService scheduledExecutor = Executors.newSingleThreadScheduledExecutor();
@@ -53,9 +54,11 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
         public void onEvent(RouplexTcpClient rouplexTcpClient) {
             try {
                 if (rouplexTcpClient.getRouplexTcpServer() == null) {
-                    new EchoRequester(BenchmarkServiceProvider.this, rouplexTcpClient);
+                    new EchoRequester((StartTcpClientsRequest) rouplexTcpClient.getAttachment(),
+                            BenchmarkServiceProvider.this, rouplexTcpClient);
                 } else {
-                    new EchoResponder(BenchmarkServiceProvider.this, rouplexTcpClient);
+                    new EchoResponder((Request) rouplexTcpClient.getRouplexTcpServer().getAttachment(),
+                            BenchmarkServiceProvider.this, rouplexTcpClient);
                 }
             } catch (IOException ioe) {
                 benchmarkerMetrics.meter(MetricRegistry.name("EEE", ioe.getMessage()));
@@ -67,7 +70,13 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
         @Override
         public void onEvent(RouplexTcpClient rouplexTcpClient) {
             if (rouplexTcpClient.getRouplexTcpServer() == null) {
-                ((EchoRequester) rouplexTcpClient.getAttachment()).echoReporter.disconnected();
+                if (rouplexTcpClient.getAttachment() instanceof StartTcpClientsRequest) {
+                    // this is a client failed to connect
+                    benchmarkerMetrics.meter(MetricRegistry.name("connection.failed")).mark();
+                    logger.info("Connection failed");
+                } else {
+                    ((EchoRequester) rouplexTcpClient.getAttachment()).echoReporter.disconnected();
+                }
             } else {
                 ((EchoResponder) rouplexTcpClient.getAttachment()).echoReporter.disconnected();
             }
@@ -172,8 +181,7 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
             scheduledExecutor.schedule(new Runnable() {
                 @Override
                 public void run() {
-                    EchoReporter echoReporter = new EchoReporter(request, benchmarkerMetrics, EchoRequester.class);
-                    echoReporter.connecting();
+                    benchmarkerMetrics.meter(MetricRegistry.name("connection.started")).mark();
 
                     try {
                         RouplexTcpClient.newBuilder()
@@ -185,7 +193,8 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
                                 .withAttachment(request)
                                 .buildAsync();
                     } catch (Exception e) {
-                        echoReporter.unconnected(e);
+                        benchmarkerMetrics.meter(MetricRegistry.name("connection.failed")).mark();
+                        logger.info(String.format("Connection failed. Cause: %s %s", e.getClass(), e.getMessage()));
                     }
                 }
             }, startClientMillis, TimeUnit.MILLISECONDS);

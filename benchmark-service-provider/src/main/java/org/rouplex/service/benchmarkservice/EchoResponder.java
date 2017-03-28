@@ -24,12 +24,11 @@ public class EchoResponder {
     ByteBuffer sendBuffer;
     Integer clientId;
 
-    EchoResponder(BenchmarkServiceProvider benchmarkServiceProvider, RouplexTcpClient rouplexTcpClient) throws IOException {
-        Request request = (Request) rouplexTcpClient.getRouplexTcpServer().getAttachment();
+    EchoResponder(Request request, BenchmarkServiceProvider benchmarkServiceProvider, RouplexTcpClient rouplexTcpClient) throws IOException {
         rouplexTcpClient.setAttachment(this);
 
-        echoReporter = new EchoReporter(request, benchmarkServiceProvider.benchmarkerMetrics, EchoResponder.class);
-        echoReporter.connected();
+        echoReporter = new EchoReporter(request,
+                benchmarkServiceProvider.benchmarkerMetrics, EchoResponder.class, rouplexTcpClient);
 
         sendChannel = rouplexTcpClient.hookSendChannel(new Throttle() {
             @Override
@@ -52,7 +51,6 @@ public class EchoResponder {
                 } else {
                     if (clientId == null) {
                         clientId = deserializeClientId(payload);
-                        echoReporter.setClientId(clientId);
                     }
 
                     echoReporter.receivedSizes.update(payload.length);

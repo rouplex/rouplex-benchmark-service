@@ -39,55 +39,44 @@ public class EchoRequester {
     int currentSendBufferSize;
     Timer.Context pauseTimer;
 
-    EchoRequester(BenchmarkServiceProvider benchmarkServiceProvider, RouplexTcpClient rouplexTcpClient) throws IOException {
-        this.request = (StartTcpClientsRequest) rouplexTcpClient.getAttachment();
+    EchoRequester(StartTcpClientsRequest request, BenchmarkServiceProvider benchmarkServiceProvider, RouplexTcpClient rouplexTcpClient) throws IOException {
+        this.request = request;
         rouplexTcpClient.setAttachment(this);
 
         scheduledExecutor = benchmarkServiceProvider.scheduledExecutor;
 
-        echoReporter = new EchoReporter(request, benchmarkServiceProvider.benchmarkerMetrics, EchoRequester.class);
+        echoReporter = new EchoReporter(request, benchmarkServiceProvider.benchmarkerMetrics, EchoRequester.class, rouplexTcpClient);
         clientId = benchmarkServiceProvider.incrementalId.incrementAndGet();
-        echoReporter.setClientId(clientId);
 
-        try {
-            echoReporter.setTcpClient(rouplexTcpClient);
+        maxSendBufferSize = request.maxPayloadSize * 1;
+        closeTimestamp = System.currentTimeMillis() + request.minClientLifeMillis +
+                random.nextInt(request.maxClientLifeMillis - request.minClientLifeMillis);
 
-            maxSendBufferSize = request.maxPayloadSize * 1;
-            closeTimestamp = System.currentTimeMillis() + request.minClientLifeMillis +
-                    random.nextInt(request.maxClientLifeMillis - request.minClientLifeMillis);
+        sendChannel = rouplexTcpClient.hookSendChannel(new Throttle() {
+            @Override
+            public void resume() {
+                pauseTimer.stop(); // this should be reporting the time paused
+                send();
+            }
+        });
 
-            sendChannel = rouplexTcpClient.hookSendChannel(new Throttle() {
-                @Override
-                public void resume() {
-                    pauseTimer.stop(); // this should be reporting the time paused
-                    send();
+        receiveThrottle = rouplexTcpClient.hookReceiveChannel(new ReceiveChannel<byte[]>() {
+            @Override
+            public boolean receive(byte[] payload) {
+                if (payload == null) {
+                    echoReporter.receivedDisconnect.mark();
+                } else if (payload.length == 0) {
+                    echoReporter.receivedEos.mark();
+                } else {
+                    echoReporter.receivedBytes.mark(payload.length);
+                    echoReporter.receivedSizes.update(payload.length);
                 }
-            });
 
-            receiveThrottle = rouplexTcpClient.hookReceiveChannel(new ReceiveChannel<byte[]>() {
-                @Override
-                public boolean receive(byte[] payload) {
-                    if (payload == null) {
-                        echoReporter.receivedDisconnect.mark();
-                    } else if (payload.length == 0) {
-                        echoReporter.receivedEos.mark();
-                    } else {
-                        echoReporter.receivedBytes.mark(payload.length);
-                        echoReporter.receivedSizes.update(payload.length);
-                    }
+                return true;
+            }
+        }, true);
 
-                    return true;
-                }
-            }, true);
-
-            echoReporter.connected();
-
-            keepSendingThenClose();
-        } catch (RuntimeException e) {
-            // RuntimeException (UnresolvedAddressException)
-            echoReporter.unconnected(e);
-            throw e;
-        }
+        keepSendingThenClose();
     }
 
     void keepSendingThenClose() {
