@@ -9,7 +9,6 @@ public class MetricsAggregation {
     boolean aggregateServerPorts;
     boolean aggregateClientAddresses;
     boolean aggregateClientPorts;
-    boolean aggregateClientIds;
 
     public boolean isAggregateServerAddresses() {
         return aggregateServerAddresses;
@@ -41,14 +40,6 @@ public class MetricsAggregation {
 
     public void setAggregateClientPorts(boolean aggregateClientPorts) {
         this.aggregateClientPorts = aggregateClientPorts;
-    }
-
-    public boolean isAggregateClientIds() {
-        return aggregateClientIds;
-    }
-
-    public void setAggregateClientIds(boolean aggregateClientIds) {
-        this.aggregateClientIds = aggregateClientIds;
     }
 
     public boolean isAggregateSslWithPlain() {

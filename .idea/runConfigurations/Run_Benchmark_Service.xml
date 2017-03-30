@@ -1,7 +1,7 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="Run Benchmark Service" type="#com.intellij.j2ee.web.tomcat.TomcatRunConfigurationFactory" factoryName="Local" APPLICATION_SERVER_NAME="Tomcat 8.5.5" ALTERNATIVE_JRE_ENABLED="false">
     <option name="OPEN_IN_BROWSER_URL" value="http://localhost:8080/webjars/swagger-ui/2.2.5/index.html?url=http://localhost:8080/rouplex/swagger.json#!/benchmark/startTcpServer" />
-    <option name="COMMON_VM_ARGUMENTS" value="-Djavax.net.ssl.keyStore=$PROJECT_DIR$/benchmark-service-provider/src/test/resources/server-keystore -Djavax.net.ssl.keyStorePassword=kotplot -Djava.util.logging.config.file=$PROJECT_DIR$/benchmark-service-provider-jersey/src/main/resources/logginglocal.properties" />
+    <option name="COMMON_VM_ARGUMENTS" value="-Djavax.net.ssl.keyStore=$PROJECT_DIR$/benchmark-service-provider/src/test/resources/server-keystore -Djavax.net.ssl.keyStorePassword=kotplot" />
     <option name="UPDATING_POLICY" value="restart-server" />
     <deployment>
       <artifact name="benchmark-service-provider-jersey:war exploded">

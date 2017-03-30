@@ -5,22 +5,19 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.rouplex.platform.tcp.RouplexTcpClient;
 import org.rouplex.service.benchmarkservice.BenchmarkService;
 import org.rouplex.service.benchmarkservice.BenchmarkServiceProvider;
+import org.rouplex.service.benchmarkservice.tcp.Provider;
 import org.rouplex.service.benchmarkservice.tcp.StartTcpServerRequest;
 import org.rouplex.service.benchmarkservice.tcp.StartTcpServerResponse;
 
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.TrustManager;
-import javax.net.ssl.X509TrustManager;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.AsynchronousCloseException;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SocketChannel;
-import java.security.cert.CertificateException;
-import java.security.cert.X509Certificate;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.concurrent.ExecutorService;
@@ -52,7 +49,7 @@ public class ChannelShutdownParityTest {
         BenchmarkService bmService = BenchmarkServiceProvider.get();
 
         StartTcpServerRequest startTcpServerRequest = new StartTcpServerRequest();
-        startTcpServerRequest.setUseNiossl(secure);
+        startTcpServerRequest.setProvider(Provider.ROUPLEX_NIOSSL);
         startTcpServerRequest.setHostname(null); // any local address
         startTcpServerRequest.setPort(0); // any port
         startTcpServerRequest.setSsl(secure);
@@ -63,7 +60,7 @@ public class ChannelShutdownParityTest {
 
     @Test
     public void verifyChannelWriteThrowsIfShutdownOutputIsInvokedConcurrently() throws Exception {
-        final SocketChannel socketChannel = secure ? SSLSocketChannel.open(buildRelaxedSSLContext()) : SocketChannel.open();
+        final SocketChannel socketChannel = secure ? SSLSocketChannel.open(RouplexTcpClient.buildRelaxedSSLContext()) : SocketChannel.open();
         final StringBuilder sb = new StringBuilder();
 
         AtomicReference<Object> result = new AtomicReference<>();
@@ -131,27 +128,5 @@ public class ChannelShutdownParityTest {
         Object value = result.get();
         Assert.assertTrue(value instanceof ClosedChannelException || value instanceof AsynchronousCloseException);
         System.out.println(sb);
-    }
-
-    public static SSLContext buildRelaxedSSLContext() throws Exception {
-        TrustManager tm = new X509TrustManager() {
-            @Override
-            public void checkClientTrusted(X509Certificate[] x509Certificates, String s) throws CertificateException {
-            }
-
-            @Override
-            public void checkServerTrusted(X509Certificate[] x509Certificates, String s) throws CertificateException {
-            }
-
-            @Override
-            public X509Certificate[] getAcceptedIssuers() {
-                return new X509Certificate[0];
-            }
-        };
-
-        SSLContext sslContext = SSLContext.getInstance("TLS");
-        sslContext.init(null, new TrustManager[]{tm}, null);
-
-        return sslContext;
     }
 }

@@ -26,25 +26,37 @@ public class SSLSelectorWithMixSslAndPlainChannelsTest {
     @Parameterized.Parameters
     public static Collection<Object[]> data() throws IOException {
         List<Object[]> data = new ArrayList<Object[]>();
+//        Provider[] providers = {Provider.CLASSIC_NIO, Provider.ROUPLEX_NIOSSL, Provider.SCALABLE_SSL};
+        Provider[] providers = {Provider.CLASSIC_NIO, Provider.ROUPLEX_NIOSSL};
+//        Provider[] providers = {Provider.SCALABLE_SSL};
         boolean[] secures = {true};
         boolean[] aggregates = {true};
 
-        for (boolean secure : secures) {
-            for (boolean aggregate : aggregates) {
-                data.add(new Object[]{
-                        secure,
-                        aggregate
-                });
+        for (Provider provider : providers) {
+            for (boolean secure : secures) {
+                for (boolean aggregate : aggregates) {
+                    if (provider == Provider.CLASSIC_NIO && secure) {
+                        continue; // classic nio does not support ssl
+                    }
+
+                    data.add(new Object[]{
+                            provider,
+                            secure,
+                            aggregate
+                    });
+                }
             }
         }
 
         return data;
     }
 
+    Provider provider;
     boolean secure;
     boolean aggregated;
 
-    public SSLSelectorWithMixSslAndPlainChannelsTest(boolean secure, boolean aggregated) {
+    public SSLSelectorWithMixSslAndPlainChannelsTest(Provider provider, boolean secure, boolean aggregated) {
+        this.provider = provider;
         this.secure = secure;
         this.aggregated = aggregated;
     }
@@ -61,7 +73,7 @@ public class SSLSelectorWithMixSslAndPlainChannelsTest {
         metricsAggregation.setAggregateClientPorts(aggregated);
 
         StartTcpServerRequest startTcpServerRequest = new StartTcpServerRequest();
-        startTcpServerRequest.setUseNiossl(secure);
+        startTcpServerRequest.setProvider(provider);
         startTcpServerRequest.setHostname(null); // any local address
         startTcpServerRequest.setPort(0); // any port
         startTcpServerRequest.setSsl(secure);
@@ -72,7 +84,7 @@ public class SSLSelectorWithMixSslAndPlainChannelsTest {
         StartTcpServerResponse startTcpServerResponse = bmService.startTcpServer(startTcpServerRequest);
 
         StartTcpClientsRequest startTcpClientsRequest = new StartTcpClientsRequest();
-        startTcpClientsRequest.setUseNiossl(secure);
+        startTcpClientsRequest.setProvider(provider);
         startTcpClientsRequest.setHostname(startTcpServerResponse.getHostname());
         startTcpClientsRequest.setPort(startTcpServerResponse.getPort());
 //        startTcpClientsRequest.setHostname("www.rouplex-demo.com");
@@ -80,7 +92,7 @@ public class SSLSelectorWithMixSslAndPlainChannelsTest {
         startTcpClientsRequest.setSsl(secure);
 //        startTcpClientsRequest.setSocketSendBufferSize(150000);
 //        startTcpClientsRequest.setSocketReceiveBufferSize(150000);
-        startTcpClientsRequest.setClientCount(1000);
+        startTcpClientsRequest.setClientCount(100);
         startTcpClientsRequest.setMinDelayMillisBeforeCreatingClient(1);
         startTcpClientsRequest.setMaxDelayMillisBeforeCreatingClient(1001);
         startTcpClientsRequest.setMinClientLifeMillis(1000);
@@ -113,23 +125,30 @@ public class SSLSelectorWithMixSslAndPlainChannelsTest {
 
             try {
                 snapshotMetrics = currentSnapshotMetrics;
-                checkAggregatedMetrics(snapshotMetrics, startTcpClientsRequest.getClientCount());
+                if (aggregated) {
+                    checkAggregatedMetrics(snapshotMetrics, startTcpClientsRequest.getClientCount());
+                } else {
+                    checkDetailedMetrics(snapshotMetrics, startTcpClientsRequest.getClientCount());
+                }
                 break;
             } catch (AssertionError e) {
                 // ok, give it more time
             }
         }
 
-        logger.warning(gson.toJson(snapshotMetrics));
-
-        if (aggregated) {
-            try {
+        try {
+            if (aggregated) {
                 checkAggregatedMetrics(snapshotMetrics, startTcpClientsRequest.getClientCount());
-            } catch (AssertionError e) {
-                // ok, give it more time
-                e.printStackTrace();
-                Thread.sleep(100000000);
+            } else {
+                checkDetailedMetrics(snapshotMetrics, startTcpClientsRequest.getClientCount());
             }
+        } catch (AssertionError e) {
+            // ok, give it more time
+            e.printStackTrace();
+
+            logger.warning(gson.toJson(snapshotMetrics));
+
+            Thread.sleep(100000000);
         }
     }
 
@@ -137,23 +156,23 @@ public class SSLSelectorWithMixSslAndPlainChannelsTest {
         AtomicLong connectionStarted = new AtomicLong();
         AtomicLong connectionFailed = new AtomicLong();
 
-        AtomicLong reqConnected = new AtomicLong();
-        AtomicLong respConnected = new AtomicLong();
-        AtomicLong reqDisconnected = new AtomicLong();
-        AtomicLong respDisconnected = new AtomicLong();
+        AtomicLong requestersConnected = new AtomicLong();
+        AtomicLong respondersConnected = new AtomicLong();
+        AtomicLong requestersDisconnected = new AtomicLong();
+        AtomicLong respondersDisconnected = new AtomicLong();
 
-        AtomicLong reqSentBytes = new AtomicLong();
-        AtomicLong respSentBytes = new AtomicLong();
-        AtomicLong reqSentEos = new AtomicLong();
-        AtomicLong respSentEos = new AtomicLong();
-        AtomicLong reqSentFailures = new AtomicLong();
-        AtomicLong respSentFailures = new AtomicLong();
-        AtomicLong reqReceivedBytes = new AtomicLong();
-        AtomicLong respReceivedBytes = new AtomicLong();
-        AtomicLong reqReceivedEos = new AtomicLong();
-        AtomicLong respReceivedEos = new AtomicLong();
-        AtomicLong reqReceivedDisconnect = new AtomicLong();
-        AtomicLong respReceivedDisconnect = new AtomicLong();
+        AtomicLong requestersSentBytes = new AtomicLong();
+        AtomicLong respondersSentBytes = new AtomicLong();
+        AtomicLong requestersSentEos = new AtomicLong();
+        AtomicLong respondersSentEos = new AtomicLong();
+        AtomicLong requestersSentFailures = new AtomicLong();
+        AtomicLong respondersSentFailures = new AtomicLong();
+        AtomicLong requestersReceivedBytes = new AtomicLong();
+        AtomicLong respondersReceivedBytes = new AtomicLong();
+        AtomicLong requestersReceivedEos = new AtomicLong();
+        AtomicLong respondersReceivedEos = new AtomicLong();
+        AtomicLong requestersReceivedDisconnect = new AtomicLong();
+        AtomicLong respondersReceivedDisconnect = new AtomicLong();
 
         for (Map.Entry<String, SnapMeter> metric : snapshotMetrics.getMeters().entrySet()) {
             if (metric.getKey().equals("connection.started")) {
@@ -162,47 +181,101 @@ public class SSLSelectorWithMixSslAndPlainChannelsTest {
 
             if (metric.getKey().equals("connection.failed")) {
                 connectionFailed.addAndGet(metric.getValue().getCount());
-            }
-            else if (metric.getKey().endsWith(".connected")) {
-                fetchValue(metric, reqConnected, respConnected);
-            }
-            else if (metric.getKey().endsWith(".disconnected")) {
-                fetchValue(metric, reqDisconnected, respDisconnected);
-            }
-
-            else if (metric.getKey().endsWith(".sentBytes")) {
-                fetchValue(metric, reqSentBytes, respSentBytes);
-            }
-            else if (metric.getKey().endsWith(".sendFailures")) {
-                fetchValue(metric, reqSentFailures, respSentFailures);
-            }
-            else if (metric.getKey().endsWith(".sentEos")) {
-                fetchValue(metric, reqSentEos, respSentEos);
-            }
-            else if (metric.getKey().endsWith(".receivedBytes")) {
-                fetchValue(metric, reqReceivedBytes, respReceivedBytes);
-            }
-            else if (metric.getKey().endsWith(".receivedEos")) {
-                fetchValue(metric, reqReceivedEos, respReceivedEos);
-            }
-            else if (metric.getKey().endsWith(".receivedDisconnect")) {
-                fetchValue(metric, reqReceivedDisconnect, respReceivedDisconnect);
+            } else if (metric.getKey().endsWith(".connected")) {
+                fetchValue(metric, requestersConnected, respondersConnected);
+            } else if (metric.getKey().endsWith(".disconnected")) {
+                fetchValue(metric, requestersDisconnected, respondersDisconnected);
+            } else if (metric.getKey().endsWith(".sentBytes")) {
+                fetchValue(metric, requestersSentBytes, respondersSentBytes);
+            } else if (metric.getKey().endsWith(".sendFailures")) {
+                fetchValue(metric, requestersSentFailures, respondersSentFailures);
+            } else if (metric.getKey().endsWith(".sentEos")) {
+                fetchValue(metric, requestersSentEos, respondersSentEos);
+            } else if (metric.getKey().endsWith(".receivedBytes")) {
+                fetchValue(metric, requestersReceivedBytes, respondersReceivedBytes);
+            } else if (metric.getKey().endsWith(".receivedEos")) {
+                fetchValue(metric, requestersReceivedEos, respondersReceivedEos);
+            } else if (metric.getKey().endsWith(".receivedDisconnect")) {
+                fetchValue(metric, requestersReceivedDisconnect, respondersReceivedDisconnect);
             }
         }
 
         Assert.assertEquals(clientCount, connectionStarted.get());
 
-        Assert.assertEquals(connectionStarted.get() - connectionFailed.get(), reqConnected.get());
-        Assert.assertEquals(reqConnected.get(), respConnected.get());
+        Assert.assertEquals(connectionStarted.get(), requestersConnected.get() + connectionFailed.get());
+        Assert.assertEquals(requestersConnected.get(), respondersConnected.get());
 
-        Assert.assertEquals(0, reqSentFailures.get());
-        Assert.assertEquals(reqSentBytes.get(), respReceivedBytes.get());
-        Assert.assertTrue(reqSentBytes.get() >= respSentBytes.get());
-        Assert.assertTrue(respSentBytes.get() >= reqReceivedBytes.get());
+        Assert.assertEquals(0, requestersSentFailures.get());
+        Assert.assertEquals(requestersSentBytes.get(), respondersReceivedBytes.get());
+        Assert.assertTrue(respondersReceivedBytes.get() >= respondersSentBytes.get());
+        Assert.assertTrue(respondersSentBytes.get() >= requestersReceivedBytes.get());
 
-        Assert.assertEquals(reqConnected.get(), reqSentEos.get());
-        Assert.assertEquals(reqConnected.get(), respReceivedEos.get() + respReceivedDisconnect.get());
-        Assert.assertEquals(reqConnected.get(), reqReceivedEos.get() + reqReceivedDisconnect.get());
+        Assert.assertEquals(requestersConnected.get(), requestersSentEos.get());
+        Assert.assertEquals(requestersSentEos.get(), respondersReceivedEos.get() + respondersReceivedDisconnect.get());
+        Assert.assertEquals(requestersSentEos.get(), requestersReceivedEos.get() + requestersReceivedDisconnect.get());
+    }
+
+    void checkDetailedMetrics(GetSnapshotMetricsResponse snapshotMetrics, int clientCount) {
+        AtomicLong connectionStarted = new AtomicLong();
+        AtomicLong connectionFailed = new AtomicLong();
+
+        AtomicLong requestersConnected = new AtomicLong();
+        AtomicLong respondersConnected = new AtomicLong();
+        AtomicLong requestersDisconnected = new AtomicLong();
+        AtomicLong respondersDisconnected = new AtomicLong();
+
+        AtomicLong requestersSentBytes = new AtomicLong();
+        AtomicLong respondersSentBytes = new AtomicLong();
+        AtomicLong requestersSentEos = new AtomicLong();
+        AtomicLong respondersSentEos = new AtomicLong();
+        AtomicLong requestersSentFailures = new AtomicLong();
+        AtomicLong respondersSentFailures = new AtomicLong();
+        AtomicLong requestersReceivedBytes = new AtomicLong();
+        AtomicLong respondersReceivedBytes = new AtomicLong();
+        AtomicLong requestersReceivedEos = new AtomicLong();
+        AtomicLong respondersReceivedEos = new AtomicLong();
+        AtomicLong requestersReceivedDisconnect = new AtomicLong();
+        AtomicLong respondersReceivedDisconnect = new AtomicLong();
+
+        for (Map.Entry<String, SnapMeter> metric : snapshotMetrics.getMeters().entrySet()) {
+            if (metric.getKey().equals("connection.started")) {
+                connectionStarted.addAndGet(metric.getValue().getCount());
+            }
+
+            if (metric.getKey().equals("connection.failed")) {
+                connectionFailed.addAndGet(metric.getValue().getCount());
+            } else if (metric.getKey().endsWith(".connected")) {
+                fetchValue(metric, requestersConnected, respondersConnected);
+            } else if (metric.getKey().endsWith(".disconnected")) {
+                fetchValue(metric, requestersDisconnected, respondersDisconnected);
+            } else if (metric.getKey().endsWith(".sentBytes")) {
+                fetchValue(metric, requestersSentBytes, respondersSentBytes);
+            } else if (metric.getKey().endsWith(".sendFailures")) {
+                fetchValue(metric, requestersSentFailures, respondersSentFailures);
+            } else if (metric.getKey().endsWith(".sentEos")) {
+                fetchValue(metric, requestersSentEos, respondersSentEos);
+            } else if (metric.getKey().endsWith(".receivedBytes")) {
+                fetchValue(metric, requestersReceivedBytes, respondersReceivedBytes);
+            } else if (metric.getKey().endsWith(".receivedEos")) {
+                fetchValue(metric, requestersReceivedEos, respondersReceivedEos);
+            } else if (metric.getKey().endsWith(".receivedDisconnect")) {
+                fetchValue(metric, requestersReceivedDisconnect, respondersReceivedDisconnect);
+            }
+        }
+
+        Assert.assertEquals(clientCount, connectionStarted.get());
+
+        Assert.assertEquals(connectionStarted.get() - connectionFailed.get(), requestersConnected.get());
+        Assert.assertEquals(requestersConnected.get(), respondersConnected.get());
+
+        Assert.assertEquals(0, requestersSentFailures.get());
+        Assert.assertEquals(requestersSentBytes.get(), respondersReceivedBytes.get());
+        Assert.assertTrue(respondersReceivedBytes.get() >= respondersSentBytes.get());
+        Assert.assertTrue(respondersSentBytes.get() >= requestersReceivedBytes.get());
+
+        Assert.assertEquals(requestersConnected.get(), requestersSentEos.get());
+        Assert.assertEquals(requestersSentEos.get(), respondersReceivedEos.get() + respondersReceivedDisconnect.get());
+        Assert.assertEquals(requestersSentEos.get(), requestersReceivedEos.get() + requestersReceivedDisconnect.get());
     }
 
     void fetchValue(Map.Entry<String, SnapMeter> entry, AtomicLong val1, AtomicLong val2) {

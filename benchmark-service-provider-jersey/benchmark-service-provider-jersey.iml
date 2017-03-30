@@ -22,7 +22,17 @@
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
+    <orderEntry type="module-library">
+      <library>
+        <CLASSES>
+          <root url="jar://$USER_HOME$/Downloads/ScalableSSL/ScalableSSL.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
     <orderEntry type="module" module-name="benchmark-service-provider" />
+    <orderEntry type="library" name="Maven: scalablessl:scalablessl:1.0" level="project" />
     <orderEntry type="library" name="Maven: org.aspectj:aspectjrt:1.8.9" level="project" />
     <orderEntry type="library" name="Maven: org.aspectj:aspectjtools:1.8.9" level="project" />
     <orderEntry type="module" module-name="benchmark-service-api" />

@@ -4,7 +4,7 @@ package org.rouplex.service.benchmarkservice.tcp;
  * @author Andi Mullaraj (andimullaraj at gmail.com)
  */
 public class Request {
-    boolean useNiossl = true; // if ssl is true this must be set to true, otherwise will throw not implemented exception
+    Provider provider;
     String hostname;
     int port;
     boolean ssl;
@@ -14,12 +14,12 @@ public class Request {
 
     MetricsAggregation metricsAggregation = new MetricsAggregation();
 
-    public boolean isUseNiossl() {
-        return useNiossl;
+    public Provider getProvider() {
+        return provider;
     }
 
-    public void setUseNiossl(boolean useNiossl) {
-        this.useNiossl = useNiossl;
+    public void setProvider(Provider provider) {
+        this.provider = provider;
     }
 
     public String getHostname() {

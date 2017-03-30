@@ -18,7 +18,7 @@ import java.util.logging.Logger;
 public class EchoReporter {
     private static final Logger logger = Logger.getLogger(BenchmarkServiceProvider.class.getSimpleName());
     public static final String format = "%s.%s.%s.%s:%s::%s:%s";
-    // [N,C].[S,P].[EchoRequester,EchoResponder].[Server]:[Port]::[Client]:[Port]
+    // [Provider].[S,P].[EchoRequester,EchoResponder].[Server]:[Port]::[Client]:[Port]
 
     final MetricRegistry benchmarkerMetrics;
     final String actor;
@@ -61,7 +61,7 @@ public class EchoReporter {
 
         String secureTag = request.isSsl() ? "S" : "P";
         completeId = String.format(format,
-                request.isUseNiossl() ? "N" : "C",
+                request.getProvider(),
                 secureTag,
                 actor,
                 serverAddress,
@@ -72,7 +72,7 @@ public class EchoReporter {
 
         MetricsAggregation ma = request.getMetricsAggregation();
         aggregatedId = String.format(format,
-                request.isUseNiossl() ? "N" : "C",
+                request.getProvider(),
                 ma.isAggregateSslWithPlain() ? "A" : secureTag,
                 actor,
                 ma.isAggregateServerAddresses() ? "A" : serverAddress,

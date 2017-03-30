@@ -93,8 +93,8 @@
     </profiles>
 
     <dependencies>
-         <!--Use rouplex-niossl-instrumentor to get rouplex-niossl related metrics-->
-         <!--It should normally be inside debug profile, but the maven-war-plugin does not copy it in /lib folder-->
+         <!--&lt;!&ndash;Use rouplex-niossl-instrumentor to get rouplex-niossl related metrics&ndash;&gt;-->
+         <!--&lt;!&ndash;It should normally be inside debug profile, but the maven-war-plugin does not copy it in /lib folder&ndash;&gt;-->
         <!--<dependency>-->
             <!--<groupId>org.rouplex</groupId>-->
             <!--<artifactId>rouplex-niossl-instrumentor</artifactId>-->
@@ -108,6 +108,15 @@
             <!--<artifactId>rouplex-platform-tcp-instrumentor</artifactId>-->
             <!--<version>1.0-SNAPSHOT</version>-->
         <!--</dependency>-->
+
+        <dependency>
+            <groupId>scalablessl</groupId>
+            <artifactId>scalablessl</artifactId>
+            <version>1.0</version>
+            <!--<scope>system</scope>-->
+            <!--<systemPath>/Users/andi/Downloads/ScalableSSL/ScalableSSL.jar</systemPath>-->
+            <!--mvn install:install-file -Dfile=/Users/andi/Downloads/ScalableSSL/ScalableSSL.jar -DgroupId=scalablessl -DartifactId=scalablessl -Dversion=1.0 -Dpackaging=jar-->
+        </dependency>
 
         <!-- It should normally be inside debug profile, but the maven-war-plugin does not copy it in /lib folder -->
         <dependency>
