@@ -2,7 +2,9 @@ package org.rouplex.service.benchmarkservice;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import org.junit.After;
 import org.junit.Assert;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -27,9 +29,9 @@ public class SSLSelectorWithMixSslAndPlainChannelsTest {
     public static Collection<Object[]> data() throws IOException {
         List<Object[]> data = new ArrayList<Object[]>();
 //        Provider[] providers = {Provider.CLASSIC_NIO, Provider.ROUPLEX_NIOSSL, Provider.SCALABLE_SSL};
-        Provider[] providers = {Provider.CLASSIC_NIO, Provider.ROUPLEX_NIOSSL};
+        Provider[] providers = {Provider.ROUPLEX_NIOSSL};
 //        Provider[] providers = {Provider.SCALABLE_SSL};
-        boolean[] secures = {true};
+        boolean[] secures = {true, false};
         boolean[] aggregates = {true};
 
         for (Provider provider : providers) {
@@ -54,6 +56,7 @@ public class SSLSelectorWithMixSslAndPlainChannelsTest {
     Provider provider;
     boolean secure;
     boolean aggregated;
+    BenchmarkServiceProvider bmService;
 
     public SSLSelectorWithMixSslAndPlainChannelsTest(Provider provider, boolean secure, boolean aggregated) {
         this.provider = provider;
@@ -61,10 +64,19 @@ public class SSLSelectorWithMixSslAndPlainChannelsTest {
         this.aggregated = aggregated;
     }
 
+    @Before
+    public void setup() throws Exception {
+        bmService = new BenchmarkServiceProvider();
+    }
+
+    @After
+    public void teardown() throws Exception {
+        bmService.close();
+    }
+
     @Test
     public void testConnectSendAndReceive() throws Exception {
         logger.info("Starting test");
-        BenchmarkService bmService = new BenchmarkServiceProvider();
 
         MetricsAggregation metricsAggregation = new MetricsAggregation();
         metricsAggregation.setAggregateServerAddresses(aggregated);
@@ -92,7 +104,7 @@ public class SSLSelectorWithMixSslAndPlainChannelsTest {
         startTcpClientsRequest.setSsl(secure);
 //        startTcpClientsRequest.setSocketSendBufferSize(150000);
 //        startTcpClientsRequest.setSocketReceiveBufferSize(150000);
-        startTcpClientsRequest.setClientCount(100);
+        startTcpClientsRequest.setClientCount(1000);
         startTcpClientsRequest.setMinDelayMillisBeforeCreatingClient(1);
         startTcpClientsRequest.setMaxDelayMillisBeforeCreatingClient(1001);
         startTcpClientsRequest.setMinClientLifeMillis(1000);
@@ -144,11 +156,9 @@ public class SSLSelectorWithMixSslAndPlainChannelsTest {
             }
         } catch (AssertionError e) {
             // ok, give it more time
-            e.printStackTrace();
-
             logger.warning(gson.toJson(snapshotMetrics));
-
-            Thread.sleep(100000000);
+//            Thread.sleep(100000000);
+            throw e;
         }
     }
 
@@ -158,8 +168,10 @@ public class SSLSelectorWithMixSslAndPlainChannelsTest {
 
         AtomicLong requestersConnected = new AtomicLong();
         AtomicLong respondersConnected = new AtomicLong();
-        AtomicLong requestersDisconnected = new AtomicLong();
-        AtomicLong respondersDisconnected = new AtomicLong();
+        AtomicLong requestersDisconnectedOk = new AtomicLong();
+        AtomicLong requestersDisconnectedKo = new AtomicLong();
+        AtomicLong respondersDisconnectedOk = new AtomicLong();
+        AtomicLong respondersDisconnectedKo = new AtomicLong();
 
         AtomicLong requestersSentBytes = new AtomicLong();
         AtomicLong respondersSentBytes = new AtomicLong();
@@ -179,12 +191,14 @@ public class SSLSelectorWithMixSslAndPlainChannelsTest {
                 connectionStarted.addAndGet(metric.getValue().getCount());
             }
 
-            if (metric.getKey().equals("connection.failed")) {
+            if (metric.getKey().equals("connectionFailed")) {
                 connectionFailed.addAndGet(metric.getValue().getCount());
             } else if (metric.getKey().endsWith(".connected")) {
                 fetchValue(metric, requestersConnected, respondersConnected);
-            } else if (metric.getKey().endsWith(".disconnected")) {
-                fetchValue(metric, requestersDisconnected, respondersDisconnected);
+            } else if (metric.getKey().endsWith(".disconnectedOk")) {
+                fetchValue(metric, requestersDisconnectedOk, respondersDisconnectedOk);
+            } else if (metric.getKey().endsWith(".disconnectedKo")) {
+                fetchValue(metric, requestersDisconnectedKo, respondersDisconnectedKo);
             } else if (metric.getKey().endsWith(".sentBytes")) {
                 fetchValue(metric, requestersSentBytes, respondersSentBytes);
             } else if (metric.getKey().endsWith(".sendFailures")) {
@@ -213,6 +227,13 @@ public class SSLSelectorWithMixSslAndPlainChannelsTest {
         Assert.assertEquals(requestersConnected.get(), requestersSentEos.get());
         Assert.assertEquals(requestersSentEos.get(), respondersReceivedEos.get() + respondersReceivedDisconnect.get());
         Assert.assertEquals(requestersSentEos.get(), requestersReceivedEos.get() + requestersReceivedDisconnect.get());
+
+        Assert.assertEquals(requestersConnected.get(), requestersDisconnectedOk.get() + requestersDisconnectedKo.get());
+        Assert.assertEquals(respondersConnected.get(), respondersDisconnectedOk.get() + respondersDisconnectedKo.get());
+
+        if (requestersDisconnectedKo.get() == 0 && respondersDisconnectedKo.get() == 0) {
+            Assert.assertEquals(requestersSentBytes.get(), requestersReceivedBytes.get());
+        }
     }
 
     void checkDetailedMetrics(GetSnapshotMetricsResponse snapshotMetrics, int clientCount) {

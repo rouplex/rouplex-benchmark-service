@@ -1,9 +1,9 @@
 package org.rouplex.service.benchmarkservice;
 
 import com.codahale.metrics.Timer;
-import org.rouplex.platform.rr.ReceiveChannel;
-import org.rouplex.platform.rr.SendChannel;
-import org.rouplex.platform.rr.Throttle;
+import org.rouplex.platform.io.ReceiveChannel;
+import org.rouplex.platform.io.SendChannel;
+import org.rouplex.platform.io.Throttle;
 import org.rouplex.platform.tcp.RouplexTcpClient;
 import org.rouplex.service.benchmarkservice.tcp.Request;
 
@@ -29,6 +29,8 @@ public class EchoResponder {
 
         echoReporter = new EchoReporter(request,
                 benchmarkServiceProvider.benchmarkerMetrics, EchoResponder.class, rouplexTcpClient);
+
+        echoReporter.connected.mark();
 
         sendChannel = rouplexTcpClient.hookSendChannel(new Throttle() {
             @Override

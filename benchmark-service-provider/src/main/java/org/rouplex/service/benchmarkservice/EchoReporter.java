@@ -29,7 +29,10 @@ public class EchoReporter {
     final String clientPort;
 
     final Meter connected;
-    final Meter disconnected;
+    final Timer connectionTime;
+    final Meter connectionFailed;
+    final Meter disconnectedOk;
+    final Meter disconnectedKo;
 
     final Meter sentBytes;
     final Meter sentEos;
@@ -51,11 +54,11 @@ public class EchoReporter {
         this.benchmarkerMetrics = benchmarkerMetrics;
         this.actor = clazz.getSimpleName();
 
-        InetSocketAddress localIsa = (InetSocketAddress) tcpClient.getLocalAddress();
+        InetSocketAddress localIsa = (InetSocketAddress) tcpClient.getLocalAddress(true);
         clientAddress = localIsa.getAddress().getHostAddress().replace('.', '-');
         clientPort = "" + localIsa.getPort();
 
-        InetSocketAddress remoteIsa = (InetSocketAddress) tcpClient.getRemoteAddress();
+        InetSocketAddress remoteIsa = (InetSocketAddress) tcpClient.getRemoteAddress(true);
         serverAddress = remoteIsa.getAddress().getHostAddress().replace('.', '-');
         serverPort = "" + remoteIsa.getPort();
 
@@ -83,7 +86,10 @@ public class EchoReporter {
 
         if (benchmarkerMetrics != null) {
             connected = benchmarkerMetrics.meter(MetricRegistry.name(aggregatedId, "connected"));
-            disconnected = benchmarkerMetrics.meter(MetricRegistry.name(aggregatedId, "disconnected"));
+            connectionTime = benchmarkerMetrics.timer(MetricRegistry.name(aggregatedId, "connectTime"));
+            connectionFailed = benchmarkerMetrics.meter(MetricRegistry.name(aggregatedId, "connectionFailed"));
+            disconnectedOk = benchmarkerMetrics.meter(MetricRegistry.name(aggregatedId, "disconnectedOk"));
+            disconnectedKo = benchmarkerMetrics.meter(MetricRegistry.name(aggregatedId, "disconnectedKo"));
 
             sentBytes = benchmarkerMetrics.meter(MetricRegistry.name(aggregatedId, "sentBytes"));
             sentEos = benchmarkerMetrics.meter(MetricRegistry.name(aggregatedId, "sentEos"));
@@ -97,21 +103,12 @@ public class EchoReporter {
             receivedEos = benchmarkerMetrics.meter(MetricRegistry.name(aggregatedId, "receivedEos"));
             receivedDisconnect = benchmarkerMetrics.meter(MetricRegistry.name(aggregatedId, "receivedDisconnect"));
             receivedSizes = benchmarkerMetrics.histogram(MetricRegistry.name(aggregatedId, "receivedSizes"));
-
-            connected.mark();
         } else {
-            connected = disconnected = sentBytes = sentEos =
+            connected = connectionFailed = disconnectedOk = disconnectedKo = sentBytes = sentEos =
                     sendFailures = discardedSendBytes = receivedBytes = receivedEos = receivedDisconnect = null;
             receivedSizes = sentSizes = sendBufferFilled = null;
-            sendPauseTime = null;
+            connectionTime = sendPauseTime = null;
         }
-
-        logger.info(String.format("Connected %s", completeId));
-    }
-
-    void disconnected() {
-        disconnected.mark();
-        logger.info(String.format("Disconnected %s", completeId));
     }
 
     public String getAggregatedId() {

@@ -1,18 +1,19 @@
 package org.rouplex.service.benchmarkservice;
 
+import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.Timer;
-import org.rouplex.platform.rr.ReceiveChannel;
-import org.rouplex.platform.rr.SendChannel;
-import org.rouplex.platform.rr.Throttle;
+import org.rouplex.platform.io.ReceiveChannel;
+import org.rouplex.platform.io.SendChannel;
+import org.rouplex.platform.io.Throttle;
+import org.rouplex.platform.tcp.RouplexTcpBinder;
 import org.rouplex.platform.tcp.RouplexTcpClient;
 import org.rouplex.service.benchmarkservice.tcp.StartTcpClientsRequest;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.channels.SocketChannel;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -20,138 +21,185 @@ import java.util.concurrent.TimeUnit;
  */
 
 public class EchoRequester {
-    final ScheduledExecutorService scheduledExecutor;
+    final BenchmarkServiceProvider benchmarkServiceProvider;
     final StartTcpClientsRequest request;
+    final RouplexTcpClient rouplexTcpClient;
 
-    final int maxSendBufferSize;
-    final long closeTimestamp;
+    int maxSendBufferSize;
+    long closeTimestamp;
 
-    final SendChannel<ByteBuffer> sendChannel;
+    SendChannel<ByteBuffer> sendChannel;
     final List<ByteBuffer> sendBuffers = new ArrayList<>();
 
-    final Throttle receiveThrottle;
+    Throttle receiveThrottle;
 
-    final EchoReporter echoReporter;
+    EchoReporter echoReporter;
     final Random random = new Random();
 
-    final int clientId;
+    int clientId;
 
     int currentSendBufferSize;
     Timer.Context pauseTimer;
+    Timer.Context connectTimer;
+    long timeCreatedNano = System.nanoTime();
 
-    EchoRequester(StartTcpClientsRequest request, BenchmarkServiceProvider benchmarkServiceProvider, RouplexTcpClient rouplexTcpClient) throws IOException {
+    EchoRequester(BenchmarkServiceProvider benchmarkServiceProvider,
+            StartTcpClientsRequest request, RouplexTcpBinder tcpBinder) {
+
+        this.benchmarkServiceProvider = benchmarkServiceProvider;
         this.request = request;
-        rouplexTcpClient.setAttachment(this);
+        benchmarkServiceProvider.benchmarkerMetrics.meter(MetricRegistry.name("connection.started")).mark();
 
-        scheduledExecutor = benchmarkServiceProvider.scheduledExecutor;
-
-        echoReporter = new EchoReporter(request, benchmarkServiceProvider.benchmarkerMetrics, EchoRequester.class, rouplexTcpClient);
-        clientId = benchmarkServiceProvider.incrementalId.incrementAndGet();
-
-        maxSendBufferSize = request.maxPayloadSize * 1;
-        closeTimestamp = System.currentTimeMillis() + request.minClientLifeMillis +
-                random.nextInt(request.maxClientLifeMillis - request.minClientLifeMillis);
-
-        sendChannel = rouplexTcpClient.hookSendChannel(new Throttle() {
-            @Override
-            public void resume() {
-                pauseTimer.stop(); // this should be reporting the time paused
-                send();
-            }
-        });
-
-        receiveThrottle = rouplexTcpClient.hookReceiveChannel(new ReceiveChannel<byte[]>() {
-            @Override
-            public boolean receive(byte[] payload) {
-                if (payload == null) {
-                    echoReporter.receivedDisconnect.mark();
-                } else if (payload.length == 0) {
-                    echoReporter.receivedEos.mark();
-                } else {
-                    echoReporter.receivedBytes.mark(payload.length);
-                    echoReporter.receivedSizes.update(payload.length);
-                }
-
-                return true;
-            }
-        }, true);
-
-        keepSendingThenClose();
-    }
-
-    void keepSendingThenClose() {
-        if (System.currentTimeMillis() >= closeTimestamp) {
-            synchronized (sendBuffers) {
-                sendBuffers.add(ByteBuffer.allocate(0)); // send EOS
-            }
-            send();
-        } else {
-            int payloadSize = request.minPayloadSize + random.nextInt(request.maxPayloadSize - request.minPayloadSize);
-            synchronized (sendBuffers) {
-                int remaining = maxSendBufferSize - currentSendBufferSize;
-                int discarded = payloadSize - remaining;
-                if (discarded > 0) {
-                    echoReporter.discardedSendBytes.mark(discarded);
-                    payloadSize = remaining;
-                }
-
-                if (payloadSize > 0) {
-                    ByteBuffer bb = ByteBuffer.allocate(payloadSize);
-                    serializeClientId(clientId, bb.array());
-                    sendBuffers.add(bb);
-                    currentSendBufferSize += payloadSize;
-                    echoReporter.sendBufferFilled.update(currentSendBufferSize);
-                }
+        try {
+            SocketChannel socketChannel;
+            switch (request.getProvider()) {
+                case ROUPLEX_NIOSSL:
+                    socketChannel = org.rouplex.nio.channels.SSLSocketChannel.open(RouplexTcpClient.buildRelaxedSSLContext());
+                    break;
+                case SCALABLE_SSL:
+                    socketChannel = scalablessl.SSLSocketChannel.open(RouplexTcpClient.buildRelaxedSSLContext());
+                    break;
+                case CLASSIC_NIO:
+                default:
+                    socketChannel = SocketChannel.open();
             }
 
-            if (payloadSize > 0) {
-                send();
-            }
-
-            long delay = request.getMinDelayMillisBetweenSends() +
-                    random.nextInt(request.getMaxDelayMillisBetweenSends() - request.getMinDelayMillisBetweenSends());
-
-            delay = Math.max(0, Math.min(delay, closeTimestamp - System.currentTimeMillis()));
-
-            scheduledExecutor.schedule(new Runnable() {
-                @Override
-                public void run() {
-                    keepSendingThenClose();
-                }
-            }, delay, TimeUnit.MILLISECONDS);
+            rouplexTcpClient = RouplexTcpClient.newBuilder()
+                    .withRouplexTcpBinder(tcpBinder)
+                    .withSocketChannel(socketChannel)
+                    .withRemoteAddress(request.getHostname(), request.getPort())
+                    .withSecure(request.isSsl(), null) // value ignored in current context since channel is provided
+                    .withSendBufferSize(request.getSocketSendBufferSize())
+                    .withReceiveBufferSize(request.getSocketReceiveBufferSize())
+                    .withAttachment(this)
+                    .buildAsync();
+        } catch (Exception e) {
+            benchmarkServiceProvider.benchmarkerMetrics.meter(MetricRegistry.name("EEE", e.getMessage()));
+            throw new RuntimeException(e);
         }
     }
 
-    private void send() {
+    void startSendingThenClose() {
         try {
-            while (true) {
-                synchronized (sendBuffers) {
-                    if (sendBuffers.isEmpty()) {
-                        break;
-                    }
-                    ByteBuffer sendBuffer = sendBuffers.get(0);
+            echoReporter = new EchoReporter(
+                    request, benchmarkServiceProvider.benchmarkerMetrics, EchoRequester.class, rouplexTcpClient);
 
-                    int position = sendBuffer.position();
-                    sendChannel.send(sendBuffer);
-                    int payloadSize = sendBuffer.position() - position;
+            echoReporter.connectionTime.update(System.nanoTime() - timeCreatedNano, TimeUnit.NANOSECONDS);
+            echoReporter.connected.mark();
+            clientId = benchmarkServiceProvider.incrementalId.incrementAndGet();
 
-                    currentSendBufferSize -= payloadSize;
-                    if (sendBuffer.hasRemaining()) {
-                        pauseTimer = echoReporter.sendPauseTime.time();
-                        break;
-                    } else {
-                        if (sendBuffer.capacity() == 0) {
-                            echoReporter.sentEos.mark();
-                        } else {
-                            echoReporter.sentSizes.update(payloadSize);
-                            echoReporter.sentBytes.mark(payloadSize);
-                        }
-                        sendBuffers.remove(0);
+            maxSendBufferSize = request.maxPayloadSize * 1;
+            closeTimestamp = System.currentTimeMillis() + request.minClientLifeMillis +
+                    random.nextInt(request.maxClientLifeMillis - request.minClientLifeMillis);
+
+            sendChannel = rouplexTcpClient.hookSendChannel(new Throttle() {
+                @Override
+                public void resume() {
+                    pauseTimer.stop(); // this should be reporting the time paused
+                    try {
+                        send();
+                    } catch (Exception e) {
+                        echoReporter.sendFailures.mark();
                     }
                 }
+            });
+
+            receiveThrottle = rouplexTcpClient.hookReceiveChannel(new ReceiveChannel<byte[]>() {
+                @Override
+                public boolean receive(byte[] payload) {
+                    if (payload == null) {
+                        echoReporter.receivedDisconnect.mark();
+                    } else if (payload.length == 0) {
+                        echoReporter.receivedEos.mark();
+                    } else {
+                        echoReporter.receivedBytes.mark(payload.length);
+                        echoReporter.receivedSizes.update(payload.length);
+                    }
+
+                    return true;
+                }
+            }, true);
+
+            keepSendingThenClose();
+        } catch (Exception e) {
+            benchmarkServiceProvider.benchmarkerMetrics.meter(MetricRegistry.name("EEE", e.getMessage()));
+            throw new RuntimeException(e);
+        }
+    }
+
+    void keepSendingThenClose() {
+        try {
+            if (System.currentTimeMillis() >= closeTimestamp) {
+                synchronized (sendBuffers) {
+                    sendBuffers.add(ByteBuffer.allocate(0)); // send EOS
+                }
+                send();
+            } else {
+                int payloadSize = request.minPayloadSize + random.nextInt(request.maxPayloadSize - request.minPayloadSize);
+                synchronized (sendBuffers) {
+                    int remaining = maxSendBufferSize - currentSendBufferSize;
+                    int discarded = payloadSize - remaining;
+                    if (discarded > 0) {
+                        echoReporter.discardedSendBytes.mark(discarded);
+                        payloadSize = remaining;
+                    }
+
+                    if (payloadSize > 0) {
+                        ByteBuffer bb = ByteBuffer.allocate(payloadSize);
+                        serializeClientId(clientId, bb.array());
+                        sendBuffers.add(bb);
+                        currentSendBufferSize += payloadSize;
+                        echoReporter.sendBufferFilled.update(currentSendBufferSize);
+                    }
+                }
+
+                if (payloadSize > 0) {
+                    send();
+                }
+
+                long delay = request.getMinDelayMillisBetweenSends() +
+                        random.nextInt(request.getMaxDelayMillisBetweenSends() - request.getMinDelayMillisBetweenSends());
+
+                delay = Math.max(0, Math.min(delay, closeTimestamp - System.currentTimeMillis()));
+
+                benchmarkServiceProvider.scheduledExecutor.schedule(new Runnable() {
+                    @Override
+                    public void run() {
+                        keepSendingThenClose();
+                    }
+                }, delay, TimeUnit.MILLISECONDS);
             }
-        } catch (IOException ioe) {
+        } catch (Exception e) {
             echoReporter.sendFailures.mark();
+        }
+    }
+
+    private void send() throws Exception {
+        while (true) {
+            synchronized (sendBuffers) {
+                if (sendBuffers.isEmpty()) {
+                    break;
+                }
+                ByteBuffer sendBuffer = sendBuffers.get(0);
+
+                int position = sendBuffer.position();
+                sendChannel.send(sendBuffer);
+                int payloadSize = sendBuffer.position() - position;
+
+                currentSendBufferSize -= payloadSize;
+                if (sendBuffer.hasRemaining()) {
+                    pauseTimer = echoReporter.sendPauseTime.time();
+                    break;
+                } else {
+                    if (sendBuffer.capacity() == 0) {
+                        echoReporter.sentEos.mark();
+                    } else {
+                        echoReporter.sentSizes.update(payloadSize);
+                        echoReporter.sentBytes.mark(payloadSize);
+                    }
+                    sendBuffers.remove(0);
+                }
+            }
         }
     }
 
