@@ -15,12 +15,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Logger;
 
 /**
  * @author Andi Mullaraj (andimullaraj at gmail.com)
  */
 
 public class EchoRequester {
+    private static final Logger logger = Logger.getLogger(EchoRequester.class.getSimpleName());
     final BenchmarkServiceProvider benchmarkServiceProvider;
     final StartTcpClientsRequest request;
     final RouplexTcpClient rouplexTcpClient;
@@ -48,7 +50,6 @@ public class EchoRequester {
 
         this.benchmarkServiceProvider = benchmarkServiceProvider;
         this.request = request;
-        benchmarkServiceProvider.benchmarkerMetrics.meter(MetricRegistry.name("connection.started")).mark();
 
         try {
             SocketChannel socketChannel;
@@ -73,10 +74,15 @@ public class EchoRequester {
                     .withReceiveBufferSize(request.getSocketReceiveBufferSize())
                     .withAttachment(this)
                     .buildAsync();
+
+            benchmarkServiceProvider.benchmarkerMetrics.meter(MetricRegistry.name("connection.started")).mark();
         } catch (Exception e) {
             benchmarkServiceProvider.benchmarkerMetrics.meter(MetricRegistry.name("EEE", e.getMessage()));
+            logger.info("Failed creating EchoRequester");
             throw new RuntimeException(e);
         }
+
+        logger.info("Created EchoRequester");
     }
 
     void startSendingThenClose() {

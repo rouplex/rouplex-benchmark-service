@@ -2,7 +2,16 @@
 <module org.jetbrains.idea.maven.project.MavenProjectsManager.isMavenModule="true" type="JAVA_MODULE" version="4">
   <component name="FacetManager">
     <facet type="AspectJ" name="AspectJ">
-      <configuration />
+      <configuration>
+        <option name="aspectPath">
+          <projectLibrary>
+            <option name="name" value="Maven: org.rouplex:rouplex-niossl-instrumentor:1.8.0-SNAPSHOT" />
+          </projectLibrary>
+          <projectLibrary>
+            <option name="name" value="Maven: org.rouplex:rouplex-platform-tcp-instrumentor:1.0-SNAPSHOT" />
+          </projectLibrary>
+        </option>
+      </configuration>
     </facet>
   </component>
   <component name="NewModuleRootManager" LANGUAGE_LEVEL="JDK_1_8" inherit-compiler-output="false">

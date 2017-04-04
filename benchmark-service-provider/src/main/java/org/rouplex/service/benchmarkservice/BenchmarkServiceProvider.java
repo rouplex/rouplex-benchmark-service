@@ -76,12 +76,16 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
                 if (rouplexTcpClient.getRouplexTcpServer() != null) {
                     EchoReporter echoReporter = ((EchoResponder) rouplexTcpClient.getAttachment()).echoReporter;
                     meter = drainedChannels ? echoReporter.disconnectedOk : echoReporter.disconnectedKo;
+                    logger.info(String.format("Disconnected [%s] EchoReporter", drainedChannels ? "drained" : "undrained"));
                 } else {
-                    EchoRequester echoRequester = (EchoRequester) rouplexTcpClient.getAttachment();
-                    EchoReporter echoReporter = echoRequester.echoReporter;
-                    meter = echoRequester.clientId == 0 ? echoReporter.connectionFailed
-                            : drainedChannels ? echoReporter.disconnectedOk
-                            : echoReporter.disconnectedKo;
+                    EchoReporter echoReporter = ((EchoRequester) rouplexTcpClient.getAttachment()).echoReporter;
+                    if (echoReporter == null) {
+                        meter = benchmarkerMetrics.meter(MetricRegistry.name("connection.failed"));
+                        logger.info("Failed connecting EchoRequester");
+                    } else {
+                        meter = drainedChannels ? echoReporter.disconnectedOk : echoReporter.disconnectedKo;
+                        logger.info(String.format("Disconnected [%s] EchoRequester", drainedChannels ? "drained" : "undrained"));
+                    }
                 }
 
                 meter.mark();

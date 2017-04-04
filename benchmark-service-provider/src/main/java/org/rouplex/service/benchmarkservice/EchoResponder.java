@@ -9,12 +9,14 @@ import org.rouplex.service.benchmarkservice.tcp.Request;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.logging.Logger;
 
 /**
  * @author Andi Mullaraj (andimullaraj at gmail.com)
  */
 
 public class EchoResponder {
+    private static final Logger logger = Logger.getLogger(EchoResponder.class.getSimpleName());
     final SendChannel<ByteBuffer> sendChannel;
     final Throttle receiveThrottle;
 
@@ -63,6 +65,8 @@ public class EchoResponder {
                 return send();
             }
         }, true);
+
+        logger.info("Created EchoResponder");
     }
 
     private boolean send() {

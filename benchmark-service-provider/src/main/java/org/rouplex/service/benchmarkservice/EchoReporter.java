@@ -30,7 +30,6 @@ public class EchoReporter {
 
     final Meter connected;
     final Timer connectionTime;
-    final Meter connectionFailed;
     final Meter disconnectedOk;
     final Meter disconnectedKo;
 
@@ -86,8 +85,7 @@ public class EchoReporter {
 
         if (benchmarkerMetrics != null) {
             connected = benchmarkerMetrics.meter(MetricRegistry.name(aggregatedId, "connected"));
-            connectionTime = benchmarkerMetrics.timer(MetricRegistry.name(aggregatedId, "connectTime"));
-            connectionFailed = benchmarkerMetrics.meter(MetricRegistry.name(aggregatedId, "connectionFailed"));
+            connectionTime = benchmarkerMetrics.timer(MetricRegistry.name(aggregatedId, "connectionTime"));
             disconnectedOk = benchmarkerMetrics.meter(MetricRegistry.name(aggregatedId, "disconnectedOk"));
             disconnectedKo = benchmarkerMetrics.meter(MetricRegistry.name(aggregatedId, "disconnectedKo"));
 
@@ -104,7 +102,7 @@ public class EchoReporter {
             receivedDisconnect = benchmarkerMetrics.meter(MetricRegistry.name(aggregatedId, "receivedDisconnect"));
             receivedSizes = benchmarkerMetrics.histogram(MetricRegistry.name(aggregatedId, "receivedSizes"));
         } else {
-            connected = connectionFailed = disconnectedOk = disconnectedKo = sentBytes = sentEos =
+            connected = disconnectedOk = disconnectedKo = sentBytes = sentEos =
                     sendFailures = discardedSendBytes = receivedBytes = receivedEos = receivedDisconnect = null;
             receivedSizes = sentSizes = sendBufferFilled = null;
             connectionTime = sendPauseTime = null;

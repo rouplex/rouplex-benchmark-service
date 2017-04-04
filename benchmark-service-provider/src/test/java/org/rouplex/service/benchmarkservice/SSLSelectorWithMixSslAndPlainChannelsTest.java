@@ -29,9 +29,9 @@ public class SSLSelectorWithMixSslAndPlainChannelsTest {
     public static Collection<Object[]> data() throws IOException {
         List<Object[]> data = new ArrayList<Object[]>();
 //        Provider[] providers = {Provider.CLASSIC_NIO, Provider.ROUPLEX_NIOSSL, Provider.SCALABLE_SSL};
-        Provider[] providers = {Provider.ROUPLEX_NIOSSL};
+        Provider[] providers = {Provider.CLASSIC_NIO, Provider.ROUPLEX_NIOSSL};
 //        Provider[] providers = {Provider.SCALABLE_SSL};
-        boolean[] secures = {true, false};
+        boolean[] secures = {false, true};
         boolean[] aggregates = {true};
 
         for (Provider provider : providers) {
@@ -154,6 +154,7 @@ public class SSLSelectorWithMixSslAndPlainChannelsTest {
             } else {
                 checkDetailedMetrics(snapshotMetrics, startTcpClientsRequest.getClientCount());
             }
+            logger.warning(gson.toJson(snapshotMetrics));
         } catch (AssertionError e) {
             // ok, give it more time
             logger.warning(gson.toJson(snapshotMetrics));
@@ -189,9 +190,7 @@ public class SSLSelectorWithMixSslAndPlainChannelsTest {
         for (Map.Entry<String, SnapMeter> metric : snapshotMetrics.getMeters().entrySet()) {
             if (metric.getKey().equals("connection.started")) {
                 connectionStarted.addAndGet(metric.getValue().getCount());
-            }
-
-            if (metric.getKey().equals("connectionFailed")) {
+            } else if (metric.getKey().equals("connection.failed")) {
                 connectionFailed.addAndGet(metric.getValue().getCount());
             } else if (metric.getKey().endsWith(".connected")) {
                 fetchValue(metric, requestersConnected, respondersConnected);
@@ -215,21 +214,23 @@ public class SSLSelectorWithMixSslAndPlainChannelsTest {
         }
 
         Assert.assertEquals(clientCount, connectionStarted.get());
-
         Assert.assertEquals(connectionStarted.get(), requestersConnected.get() + connectionFailed.get());
-        Assert.assertEquals(requestersConnected.get(), respondersConnected.get());
 
-        Assert.assertEquals(0, requestersSentFailures.get());
-        Assert.assertEquals(requestersSentBytes.get(), respondersReceivedBytes.get());
-        Assert.assertTrue(respondersReceivedBytes.get() >= respondersSentBytes.get());
-        Assert.assertTrue(respondersSentBytes.get() >= requestersReceivedBytes.get());
+        if (secure || requestersDisconnectedKo.get() == 0) {
+            Assert.assertEquals(requestersConnected.get(), respondersConnected.get());
 
-        Assert.assertEquals(requestersConnected.get(), requestersSentEos.get());
-        Assert.assertEquals(requestersSentEos.get(), respondersReceivedEos.get() + respondersReceivedDisconnect.get());
-        Assert.assertEquals(requestersSentEos.get(), requestersReceivedEos.get() + requestersReceivedDisconnect.get());
+            Assert.assertTrue(requestersSentFailures.get() <= requestersDisconnectedKo.get());
+            Assert.assertEquals(respondersReceivedBytes.get(), requestersSentBytes.get());
+            Assert.assertTrue(respondersSentBytes.get() <= respondersReceivedBytes.get());
+            Assert.assertTrue(requestersReceivedBytes.get() <= respondersSentBytes.get());
 
-        Assert.assertEquals(requestersConnected.get(), requestersDisconnectedOk.get() + requestersDisconnectedKo.get());
-        Assert.assertEquals(respondersConnected.get(), respondersDisconnectedOk.get() + respondersDisconnectedKo.get());
+            Assert.assertEquals(requestersConnected.get(), requestersSentEos.get() + requestersSentFailures.get());
+            Assert.assertEquals(requestersSentEos.get(), respondersReceivedEos.get() + respondersReceivedDisconnect.get());
+            Assert.assertEquals(requestersSentEos.get(), requestersReceivedEos.get() + requestersReceivedDisconnect.get());
+
+            Assert.assertEquals(requestersConnected.get(), requestersDisconnectedOk.get() + requestersDisconnectedKo.get());
+            Assert.assertEquals(respondersConnected.get(), respondersDisconnectedOk.get() + respondersDisconnectedKo.get());
+        }
 
         if (requestersDisconnectedKo.get() == 0 && respondersDisconnectedKo.get() == 0) {
             Assert.assertEquals(requestersSentBytes.get(), requestersReceivedBytes.get());
