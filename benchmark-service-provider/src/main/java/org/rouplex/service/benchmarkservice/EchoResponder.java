@@ -32,7 +32,8 @@ public class EchoResponder {
         echoReporter = new EchoReporter(request,
                 benchmarkServiceProvider.benchmarkerMetrics, EchoResponder.class, rouplexTcpClient);
 
-        echoReporter.connected.mark();
+        echoReporter.connectionEstablished.mark();
+        echoReporter.liveConnections.mark();
 
         sendChannel = rouplexTcpClient.hookSendChannel(new Throttle() {
             @Override

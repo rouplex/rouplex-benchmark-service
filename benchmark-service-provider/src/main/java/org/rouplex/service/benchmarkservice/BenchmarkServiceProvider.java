@@ -61,8 +61,8 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
                             BenchmarkServiceProvider.this, rouplexTcpClient);
                 }
             } catch (Exception e) {
-                benchmarkerMetrics.meter(MetricRegistry.name("EEE", e.getMessage()));
-                e.printStackTrace();
+                benchmarkerMetrics.meter(MetricRegistry.name("EEE")).mark();
+                benchmarkerMetrics.meter(MetricRegistry.name("EEE", e.getMessage())).mark();
                 logger.warning(String.format("Failed handling clientConnected.onEvent(). Cause: %s: %s",
                         e.getClass(), e.getMessage()));
             }
@@ -76,6 +76,7 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
                 if (rouplexTcpClient.getRouplexTcpServer() != null) {
                     EchoReporter echoReporter = ((EchoResponder) rouplexTcpClient.getAttachment()).echoReporter;
                     meter = drainedChannels ? echoReporter.disconnectedOk : echoReporter.disconnectedKo;
+                    echoReporter.liveConnections.mark(-1);
                     logger.info(String.format("Disconnected [%s] EchoReporter", drainedChannels ? "drained" : "undrained"));
                 } else {
                     EchoReporter echoReporter = ((EchoRequester) rouplexTcpClient.getAttachment()).echoReporter;
@@ -84,13 +85,15 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
                         logger.info("Failed connecting EchoRequester");
                     } else {
                         meter = drainedChannels ? echoReporter.disconnectedOk : echoReporter.disconnectedKo;
+                        echoReporter.liveConnections.mark(-1);
                         logger.info(String.format("Disconnected [%s] EchoRequester", drainedChannels ? "drained" : "undrained"));
                     }
                 }
 
                 meter.mark();
             } catch (Exception e) {
-                benchmarkerMetrics.meter(MetricRegistry.name("EEE", e.getMessage()));
+                benchmarkerMetrics.meter(MetricRegistry.name("EEE")).mark();
+                benchmarkerMetrics.meter(MetricRegistry.name("EEE", e.getMessage())).mark();
                 logger.warning(String.format("Failed handling clientClosed.onEvent(). Cause: %s: %s",
                         e.getClass(), e.getMessage()));
             }

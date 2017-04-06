@@ -25,6 +25,8 @@
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
+    <orderEntry type="library" name="Maven: org.rouplex:rouplex-niossl-instrumentor:1.8.0-SNAPSHOT" level="project" />
+    <orderEntry type="library" name="Maven: org.rouplex:rouplex-platform-tcp-instrumentor:1.0-SNAPSHOT" level="project" />
     <orderEntry type="library" name="Maven: scalablessl:scalablessl:1.0" level="project" />
     <orderEntry type="library" name="Maven: org.aspectj:aspectjrt:1.8.9" level="project" />
     <orderEntry type="library" name="Maven: org.aspectj:aspectjtools:1.8.9" level="project" />

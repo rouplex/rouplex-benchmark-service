@@ -104,9 +104,9 @@ public class SSLSelectorWithMixSslAndPlainChannelsTest {
         startTcpClientsRequest.setSsl(secure);
 //        startTcpClientsRequest.setSocketSendBufferSize(150000);
 //        startTcpClientsRequest.setSocketReceiveBufferSize(150000);
-        startTcpClientsRequest.setClientCount(1000);
+        startTcpClientsRequest.setClientCount(100);
         startTcpClientsRequest.setMinDelayMillisBeforeCreatingClient(1);
-        startTcpClientsRequest.setMaxDelayMillisBeforeCreatingClient(1001);
+        startTcpClientsRequest.setMaxDelayMillisBeforeCreatingClient(50001);
         startTcpClientsRequest.setMinClientLifeMillis(1000);
         startTcpClientsRequest.setMaxClientLifeMillis(1001);
         startTcpClientsRequest.setMinDelayMillisBetweenSends(100);
@@ -116,7 +116,7 @@ public class SSLSelectorWithMixSslAndPlainChannelsTest {
         startTcpClientsRequest.setMetricsAggregation(metricsAggregation);
         StartTcpClientsResponse startTcpClientsResponse = bmService.startTcpClients(startTcpClientsRequest);
 
-        int maxRoundtripMillis = 60000;
+        int maxRoundtripMillis = 10000;
         int maxRequestMillis = startTcpClientsRequest.getMaxDelayMillisBeforeCreatingClient() + startTcpClientsRequest.getMaxClientLifeMillis();
         int sleepDurationMillis = 1000;
 
@@ -192,7 +192,7 @@ public class SSLSelectorWithMixSslAndPlainChannelsTest {
                 connectionStarted.addAndGet(metric.getValue().getCount());
             } else if (metric.getKey().equals("connection.failed")) {
                 connectionFailed.addAndGet(metric.getValue().getCount());
-            } else if (metric.getKey().endsWith(".connected")) {
+            } else if (metric.getKey().endsWith(".connection.established")) {
                 fetchValue(metric, requestersConnected, respondersConnected);
             } else if (metric.getKey().endsWith(".disconnectedOk")) {
                 fetchValue(metric, requestersDisconnectedOk, respondersDisconnectedOk);
@@ -266,7 +266,7 @@ public class SSLSelectorWithMixSslAndPlainChannelsTest {
 
             if (metric.getKey().equals("connection.failed")) {
                 connectionFailed.addAndGet(metric.getValue().getCount());
-            } else if (metric.getKey().endsWith(".connected")) {
+            } else if (metric.getKey().endsWith(".connectionEstablished")) {
                 fetchValue(metric, requestersConnected, respondersConnected);
             } else if (metric.getKey().endsWith(".disconnected")) {
                 fetchValue(metric, requestersDisconnected, respondersDisconnected);

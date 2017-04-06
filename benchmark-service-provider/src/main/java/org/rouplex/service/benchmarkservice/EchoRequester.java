@@ -77,7 +77,8 @@ public class EchoRequester {
 
             benchmarkServiceProvider.benchmarkerMetrics.meter(MetricRegistry.name("connection.started")).mark();
         } catch (Exception e) {
-            benchmarkServiceProvider.benchmarkerMetrics.meter(MetricRegistry.name("EEE", e.getMessage()));
+            benchmarkServiceProvider.benchmarkerMetrics.meter(MetricRegistry.name("EEE")).mark();
+            benchmarkServiceProvider.benchmarkerMetrics.meter(MetricRegistry.name("EEE", e.getMessage())).mark();
             logger.info("Failed creating EchoRequester");
             throw new RuntimeException(e);
         }
@@ -91,7 +92,8 @@ public class EchoRequester {
                     request, benchmarkServiceProvider.benchmarkerMetrics, EchoRequester.class, rouplexTcpClient);
 
             echoReporter.connectionTime.update(System.nanoTime() - timeCreatedNano, TimeUnit.NANOSECONDS);
-            echoReporter.connected.mark();
+            echoReporter.connectionEstablished.mark();
+            echoReporter.liveConnections.mark();
             clientId = benchmarkServiceProvider.incrementalId.incrementAndGet();
 
             maxSendBufferSize = request.maxPayloadSize * 1;
@@ -128,7 +130,8 @@ public class EchoRequester {
 
             keepSendingThenClose();
         } catch (Exception e) {
-            benchmarkServiceProvider.benchmarkerMetrics.meter(MetricRegistry.name("EEE", e.getMessage()));
+            benchmarkServiceProvider.benchmarkerMetrics.meter(MetricRegistry.name("EEE")).mark();
+            benchmarkServiceProvider.benchmarkerMetrics.meter(MetricRegistry.name("EEE", e.getMessage())).mark();
             throw new RuntimeException(e);
         }
     }

@@ -1,9 +1,6 @@
 package org.rouplex.service.benchmarkservice;
 
-import com.codahale.metrics.Histogram;
-import com.codahale.metrics.Meter;
-import com.codahale.metrics.MetricRegistry;
-import com.codahale.metrics.Timer;
+import com.codahale.metrics.*;
 import org.rouplex.platform.tcp.RouplexTcpClient;
 import org.rouplex.service.benchmarkservice.tcp.MetricsAggregation;
 import org.rouplex.service.benchmarkservice.tcp.Request;
@@ -28,7 +25,8 @@ public class EchoReporter {
     final String clientAddress;
     final String clientPort;
 
-    final Meter connected;
+    final Meter connectionEstablished;
+    final Meter liveConnections;
     final Timer connectionTime;
     final Meter disconnectedOk;
     final Meter disconnectedKo;
@@ -84,7 +82,9 @@ public class EchoReporter {
         );
 
         if (benchmarkerMetrics != null) {
-            connected = benchmarkerMetrics.meter(MetricRegistry.name(aggregatedId, "connected"));
+            connectionEstablished = benchmarkerMetrics.meter(MetricRegistry.name(aggregatedId, "connection.established"));
+            liveConnections = benchmarkerMetrics.meter(MetricRegistry.name(aggregatedId, "connection.live"));
+
             connectionTime = benchmarkerMetrics.timer(MetricRegistry.name(aggregatedId, "connectionTime"));
             disconnectedOk = benchmarkerMetrics.meter(MetricRegistry.name(aggregatedId, "disconnectedOk"));
             disconnectedKo = benchmarkerMetrics.meter(MetricRegistry.name(aggregatedId, "disconnectedKo"));
@@ -102,7 +102,7 @@ public class EchoReporter {
             receivedDisconnect = benchmarkerMetrics.meter(MetricRegistry.name(aggregatedId, "receivedDisconnect"));
             receivedSizes = benchmarkerMetrics.histogram(MetricRegistry.name(aggregatedId, "receivedSizes"));
         } else {
-            connected = disconnectedOk = disconnectedKo = sentBytes = sentEos =
+            connectionEstablished = liveConnections = disconnectedOk = disconnectedKo = sentBytes = sentEos =
                     sendFailures = discardedSendBytes = receivedBytes = receivedEos = receivedDisconnect = null;
             receivedSizes = sentSizes = sendBufferFilled = null;
             connectionTime = sendPauseTime = null;
