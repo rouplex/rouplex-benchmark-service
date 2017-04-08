@@ -115,9 +115,11 @@ tomcat 8.5.11:
 1. Edit or create TOMCAT_HOME/bin/setenv.sh and add this line to it:
 export JAVA_OPTS="-Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.local.only=false -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Djava.rmi.server.hostname=xx.xx.xx.xx"
 1. Copy TOMCAT_HOME/bin/extras/catalina-jmx-remote.jar to TOMCAT_HOME/lib (or download it at http://archive.apache.org/dist/tomcat/tomcat-8/v8.5.11/bin/extras/catalina-jmx-remote.jar if not available)
-1. Edit TOMCAT_HOME/conf/server.xml and add listener:
+1. Edit TOMCAT_HOME/conf/server.xml and add listener
+```xml
 <Listener className="org.apache.catalina.mbeans.JmxRemoteLifecycleListener" rmiRegistryPortPlatform="1706" rmiServerPortPlatform="1705"/>
-1. Open ingress ports 1705 and 1706 in your network
+```
+1. Open ingress ports 1705 and 1706 in your network (security groups in EC2)
 1. Restart tomcat
 1. Start jconsole and point it to
 service:jmx:rmi://xx.xx.xx.xx:1705/jndi/rmi://xx.xx.xx.xx:1706/jmxrmi
