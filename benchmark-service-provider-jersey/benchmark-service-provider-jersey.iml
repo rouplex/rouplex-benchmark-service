@@ -22,15 +22,6 @@
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
-    <orderEntry type="module-library">
-      <library>
-        <CLASSES>
-          <root url="jar://$USER_HOME$/Downloads/ScalableSSL/ScalableSSL.jar!/" />
-        </CLASSES>
-        <JAVADOC />
-        <SOURCES />
-      </library>
-    </orderEntry>
     <orderEntry type="module" module-name="benchmark-service-provider" />
     <orderEntry type="library" name="Maven: org.rouplex:rouplex-niossl-instrumentor:1.8.0-SNAPSHOT" level="project" />
     <orderEntry type="library" name="Maven: org.rouplex:rouplex-platform-tcp-instrumentor:1.0-SNAPSHOT" level="project" />

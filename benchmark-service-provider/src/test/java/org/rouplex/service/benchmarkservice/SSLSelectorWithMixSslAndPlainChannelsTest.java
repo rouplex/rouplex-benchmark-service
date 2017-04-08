@@ -104,9 +104,9 @@ public class SSLSelectorWithMixSslAndPlainChannelsTest {
         startTcpClientsRequest.setSsl(secure);
 //        startTcpClientsRequest.setSocketSendBufferSize(150000);
 //        startTcpClientsRequest.setSocketReceiveBufferSize(150000);
-        startTcpClientsRequest.setClientCount(100);
+        startTcpClientsRequest.setClientCount(1);
         startTcpClientsRequest.setMinDelayMillisBeforeCreatingClient(1);
-        startTcpClientsRequest.setMaxDelayMillisBeforeCreatingClient(50001);
+        startTcpClientsRequest.setMaxDelayMillisBeforeCreatingClient(2001);
         startTcpClientsRequest.setMinClientLifeMillis(1000);
         startTcpClientsRequest.setMaxClientLifeMillis(1001);
         startTcpClientsRequest.setMinDelayMillisBetweenSends(100);
@@ -128,7 +128,7 @@ public class SSLSelectorWithMixSslAndPlainChannelsTest {
             GetSnapshotMetricsResponse currentSnapshotMetrics = bmService.getSnapshotMetricsResponse(new GetSnapshotMetricsRequest());
 
             if (snapshotMetrics != null && compare(currentSnapshotMetrics, snapshotMetrics)) {
-                if (System.currentTimeMillis() - lastUsefulMetrics > 10000) {
+                if (System.currentTimeMillis() - lastUsefulMetrics > 2000) {
                     break; // no update during the delta time? then we are done
                 }
             } else {

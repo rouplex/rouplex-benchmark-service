@@ -1,5 +1,5 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="SSLSelectorWithMixSslAndPlainChannelsTest" type="JUnit" factoryName="JUnit" nameIsGenerated="true" repeat_mode="Until Failure">
+  <configuration default="false" name="SSLSelectorWithMixSslAndPlainChannelsTest" type="JUnit" factoryName="JUnit" singleton="true" nameIsGenerated="true" repeat_mode="Until Failure">
     <extension name="coverage" enabled="false" merge="false" sample_coverage="true" runner="idea">
       <pattern>
         <option name="PATTERN" value="org.rouplex.service.benchmarkservice.*" />
@@ -13,7 +13,7 @@
     <option name="MAIN_CLASS_NAME" value="org.rouplex.service.benchmarkservice.SSLSelectorWithMixSslAndPlainChannelsTest" />
     <option name="METHOD_NAME" value="" />
     <option name="TEST_OBJECT" value="class" />
-    <option name="VM_PARAMETERS" value="-Xmx3g" />
+    <option name="VM_PARAMETERS" value="-ea" />
     <option name="PARAMETERS" value="" />
     <option name="WORKING_DIRECTORY" value="file://$MODULE_DIR$" />
     <option name="ENV_VARIABLES" />
