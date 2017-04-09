@@ -102,14 +102,16 @@ If you will test with a high number of connections you must adjust the number of
 system and the user. A good link here: https://www.cyberciti.biz/faq/linux-increase-the-maximum-number-of-open-files/
 but in short, you have to `sudo vi /etc/security/limits.conf` and add two entries at the end:
 
-ec2-user         soft    nofile          888888
-ec2-user         hard    nofile          999999
+    ec2-user         soft    nofile          888888
+    ec2-user         hard    nofile          999999
 
 Log out and back in for settings to take effect.
 
-## Jmx (Optional) ##
-One of the flaws of JMX is that it will pick an available second port at random, and if your target machine is behind a
-firewall, you're out of luck because you don't know which port to open up for jconsole to connect! Since tomcat 6, a
+## Jmx ##
+Jmx is a great way to collect app metrics and somewhat visualize related graphs. The benchmark service already injects metrics
+prefixed by "metrics" word which can be collected via jconsole or other jmx clients.
+
+One of the flaws of JMX though, is that it will pick an available second port at random, and if your target machine is behind a firewall, you're out of luck because you don't know which port to open up for jconsole to connect! Since tomcat 6, a
 listener is available to force the creation in a predefined port (which you have already opened up). Per instructions
 in this url: http://gabenell.blogspot.com/2010/04/connecting-to-jmx-on-tomcat-6-through.html, and tested with
 tomcat 8.5.11:
