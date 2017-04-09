@@ -96,6 +96,8 @@ If deciding to run locally (without deploying with a context path), point your b
 http://localhost:8080/webjars/swagger-ui/2.2.5/index.html?url=http://localhost:8080/rouplex/swagger.json
 
 # Configure Host (Optional) #
+
+## File Descriptors ##
 If you will test with a high number of connections you must adjust the number of open file descriptors allowed for the
 system and the user. A good link here: https://www.cyberciti.biz/faq/linux-increase-the-maximum-number-of-open-files/
 but in short, you have to `sudo vi /etc/security/limits.conf` and add two entries at the end:
@@ -105,15 +107,17 @@ ec2-user         hard    nofile          999999
 
 Log out and back in for settings to take effect.
 
-# Configure Jmx (Optional) #
+## Jmx (Optional) ##
 One of the flaws of JMX is that it will pick an available second port at random, and if your target machine is behind a
 firewall, you're out of luck because you don't know which port to open up for jconsole to connect! Since tomcat 6, a
 listener is available to force the creation in a predefined port (which you have already opened up). Per instructions
 in this url: http://gabenell.blogspot.com/2010/04/connecting-to-jmx-on-tomcat-6-through.html, and tested with
 tomcat 8.5.11:
 
-1. Edit or create TOMCAT_HOME/bin/setenv.sh and add this line to it:
+1. Edit or create TOMCAT_HOME/bin/setenv.sh and add this line to it (xx.xx.xx.xx is the public ip or host name)
+```
 export JAVA_OPTS="-Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.local.only=false -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Djava.rmi.server.hostname=xx.xx.xx.xx"
+```
 1. Copy TOMCAT_HOME/bin/extras/catalina-jmx-remote.jar to TOMCAT_HOME/lib (or download it at http://archive.apache.org/dist/tomcat/tomcat-8/v8.5.11/bin/extras/catalina-jmx-remote.jar if not available)
 1. Edit TOMCAT_HOME/conf/server.xml and add listener
 ```xml
@@ -123,19 +127,17 @@ export JAVA_OPTS="-Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.
 1. Restart tomcat
 1. Start jconsole and point it to
 service:jmx:rmi://xx.xx.xx.xx:1705/jndi/rmi://xx.xx.xx.xx:1706/jmxrmi
-1. Go to MBeans then metrics (make sure there is metrics first by starting a server and at least a client)
+1. Go to MBeans tab, then to metrics node in the tree (make sure there are metrics available first by starting a server and at least a client)
 
-# Configure automatic start on system reboot on EC2  (Optional)#
-
-1. As root user, copy the file at benchmark-service-provider-jersey/config/initd.tomcat.template to your host's
-/etc/init.d/tomcat
+## Tomcat as an init.d service ##
+1. As root user, copy the file at benchmark-service-provider-jersey/config/initd.tomcat.template to your host's /etc/init.d/tomcat
 1. Grant exec permission to /etc/init.d/tomcat
 1. Exec shell command `sudo service tomcat restart` and the tomcat will be running with the new settings, now and on a
 system reboot
 
 The initd.tomcat.template is quite classic for starting tomcat servers, we are only adding a few CATALINA_OPS to set
 appropriate values for the heap memory to be used, as well as provide a configuration value used by JMX listener.
-
+```
 # Use 80% of the free memory
 free_mem_kb=`free -t | grep Mem | awk '{print $2}'`
 use_mem_mb=$(( free_mem_kb * 4 / 5 / 1024 ))m
@@ -145,6 +147,7 @@ public_ipv4=`curl http://169.254.169.254/latest/meta-data/public-ipv4`
 
 #CATALINA_OPS are the extra options for tomcat to get in
 export CATALINA_OPTS="-Xmx$use_mem_mb -Djava.rmi.server.hostname=$public_ipv4"
+```
 
 # Contribution guidelines #
 
