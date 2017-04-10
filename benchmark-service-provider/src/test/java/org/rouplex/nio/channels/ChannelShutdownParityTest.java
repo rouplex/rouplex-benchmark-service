@@ -63,8 +63,8 @@ public class ChannelShutdownParityTest {
         final SocketChannel socketChannel = secure ? SSLSocketChannel.open(RouplexTcpClient.buildRelaxedSSLContext()) : SocketChannel.open();
         final StringBuilder sb = new StringBuilder();
 
-        AtomicReference<Object> result = new AtomicReference<>();
-        AtomicInteger loopCount = new AtomicInteger();
+        final AtomicReference<Object> result = new AtomicReference<>();
+        final AtomicInteger loopCount = new AtomicInteger();
 
         final Object lock = new Object();
 

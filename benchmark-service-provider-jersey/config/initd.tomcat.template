@@ -29,10 +29,10 @@ export JAVA_HOME=/usr/java/latest
 export PATH=$JAVA_HOME/bin:$PATH
 
 #CATALINA_HOME is the location of the bin files of Tomcat
-export CATALINA_HOME=/home/ec2-user/apache-tomcat-8.5.11
+export CATALINA_HOME=/home/ec2-user/apache-tomcat-8.5.12
 
 #CATALINA_BASE is the location of the configuration files of this instance of Tomcat
-export CATALINA_BASE=/home/ec2-user/apache-tomcat-8.5.11
+export CATALINA_BASE=/home/ec2-user/apache-tomcat-8.5.12
 
 # Use 80% of the free memory
 free_mem_kb=`free -t | grep Mem | awk '{print $2}'`

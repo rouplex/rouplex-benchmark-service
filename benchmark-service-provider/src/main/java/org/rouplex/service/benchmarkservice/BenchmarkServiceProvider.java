@@ -190,7 +190,7 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
         logger.info(String.format("Creating %s EchoClients for server at %s:%s",
                 request.clientCount, request.getHostname(), request.getPort()));
 
-        RouplexTcpBinder tcpBinder = request.isUseSharedBinder()
+        final RouplexTcpBinder tcpBinder = request.isUseSharedBinder()
                 ? sharedTcpBinders.get(request.getProvider()) : createRouplexTcpBinder(request.getProvider());
 
         for (int cc = 0; cc < request.clientCount; cc++) {
