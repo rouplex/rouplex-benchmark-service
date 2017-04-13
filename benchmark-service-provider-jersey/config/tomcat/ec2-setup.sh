@@ -11,17 +11,12 @@ init_setup() {
     exit 1
   fi
 
-  if -z $1; then
-    echo "=========== Rouplex ============= Aborting setup. Cause: missing git branch"
+  if [ $# -lt 2 ]; then
+    echo "=========== Rouplex ============= Aborting setup. Cause: missing args"
+    echo "=========== Please provide GIT_BRANCH (usually master) and TOMCAT_MANAGER_PASSWORD in that order"
     exit 1
   else
-      GIT_BRANCH=$1
-  fi
-
-  if -z $2; then
-    echo "=========== Rouplex ============= Aborting setup. Cause: missing password"
-    exit 1
-  else
+    GIT_BRANCH=$1
     TOMCAT_MANAGER_PASSWORD=$2
   fi
 
@@ -69,7 +64,7 @@ setup_tomcat() {
 
 setup_keystore() {
   echo "=========== Rouplex ============= Downloading conf/server-keystore"
-  wget https://github.com/rouplex/rouplex-benchmark-service/blob/$GIT_BRANCH/benchmark-service-provider-jersey/config/ec2-linux-scripts/templates/server-keystore -O $TOMCAT8/conf/server-keystore
+  wget https://github.com/rouplex/rouplex-benchmark-service/blob/$GIT_BRANCH/benchmark-service-provider-jersey/config/tomcat/templates/server-keystore -O $TOMCAT8/conf/server-keystore
 
   echo "=========== Rouplex ============= Creating bin/setenv.sh"
   echo export JAVA_OPTS=\"-Djavax.net.ssl.keyStore=`pwd`/$TOMCAT8/conf/server-keystore -Djavax.net.ssl.keyStorePassword=kotplot -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.local.only=false -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Djava.rmi.server.hostname=$HOST_NAME\" > $TOMCAT8/bin/setenv.sh
@@ -82,7 +77,7 @@ setup_manager() {
   chmod 400 conf/tomcat-users.xml
 
   echo "=========== Rouplex ============= Downloading webapps/manager/META-INF/context.xml from github"
-  wget https://github.com/rouplex/rouplex-benchmark-service/blob/$GIT_BRANCH/benchmark-service-provider-jersey/config/ec2-linux-scripts/templates/manager-context.xml -O $TOMCAT8/webapps/manager/META-INF/context.xml
+  wget https://github.com/rouplex/rouplex-benchmark-service/blob/$GIT_BRANCH/benchmark-service-provider-jersey/config/tomcat/templates/manager-context.xml -O $TOMCAT8/webapps/manager/META-INF/context.xml
 }
 
 setup_jmx() {
@@ -90,12 +85,12 @@ setup_jmx() {
   wget http://archive.apache.org/dist/tomcat/tomcat-8/v8.5.12/bin/extras/catalina-jmx-remote.jar -O $TOMCAT8/lib/catalina-jmx-remote.jar
 
   echo "=========== Rouplex ============= Downloading conf/server.xml"
-  wget https://github.com/rouplex/rouplex-benchmark-service/blob/$GIT_BRANCH/benchmark-service-provider-jersey/config/ec2-linux-scripts/templates/server.xml -O $TOMCAT8/conf/server.xml
+  wget https://github.com/rouplex/rouplex-benchmark-service/blob/$GIT_BRANCH/benchmark-service-provider-jersey/config/tomcat/templates/server.xml -O $TOMCAT8/conf/server.xml
 }
 
 setup_initd() {
   echo "=========== Rouplex ============= Downloading /etc/init.d/tomcat"
-  sudo wget https://github.com/rouplex/rouplex-benchmark-service/blob/$GIT_BRANCH/benchmark-service-provider-jersey/config/ec2-linux-scripts/templates/initd.tomcat /etc/init.d/tomcat
+  sudo wget https://github.com/rouplex/rouplex-benchmark-service/blob/$GIT_BRANCH/benchmark-service-provider-jersey/config/tomcat/templates/initd.tomcat /etc/init.d/tomcat
   sudo chmod 700 /etc/init.d/tomcat
 }
 
@@ -104,7 +99,7 @@ start_tomcat() {
   sudo service tomcat restart
 }
 
-init_setup
+init_setup $1 $2
 setup_java
 setup_tomcat
 setup_keystore
