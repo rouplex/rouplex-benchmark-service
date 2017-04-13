@@ -1,12 +1,12 @@
 #!/bin/bash
 
 init_setup() {
-  if `uname` -neq "Linux"; then
+  if [ `uname` != "Linux" ]; then
     echo "=========== Rouplex ============= Aborting setup. Cause: Only Linux is supported by this setup"
     exit 1
   fi
 
-  if `uname -m` -neq "x86_64"; then
+  if [ `uname -m` != "x86_64" ]; then
     echo "=========== Rouplex ============= Aborting setup. Cause: Only 64 bit architectures supported by this setup"
     exit 1
   fi
@@ -25,6 +25,7 @@ init_setup() {
   TOMCAT8="apache-tomcat-8.5.12"
   TOMCAT8_GZ=$TOMCAT8.tar.gz
   HOST_NAME="www.rouplex-demo.com"
+  GITHUB_TEMPLATE_FOLDER="https://raw.githubusercontent.com/rouplex/rouplex-benchmark-service/$GIT_BRANCH/benchmark-service-provider-jersey/config/tomcat/templates"
 }
 
 setup_java() {
@@ -73,11 +74,11 @@ setup_keystore() {
 
 setup_manager() {
   echo "=========== Rouplex ============= Creating conf/tomcat-users.xml from scratch"
-  echo "<tomcat-users xmlns=\"http://tomcat.apache.org/xml\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://tomcat.apache.org/xml tomcat-users.xsd\" version=\"1.0\"> <role rolename=\"manager-gui\"/><user username=\"tomcat\" password=\"$TOMCAT_MANAGER_PASSWORD\" roles=\"manager-gui\"/></tomcat-users>" > conf/tomcat-users.xml
-  chmod 400 conf/tomcat-users.xml
+  echo "<tomcat-users xmlns=\"http://tomcat.apache.org/xml\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://tomcat.apache.org/xml tomcat-users.xsd\" version=\"1.0\"> <role rolename=\"manager-gui\"/><user username=\"tomcat\" password=\"$TOMCAT_MANAGER_PASSWORD\" roles=\"manager-gui\"/></tomcat-users>" > $TOMCAT8/conf/tomcat-users.xml
+  chmod 400 $TOMCAT8/conf/tomcat-users.xml
 
   echo "=========== Rouplex ============= Downloading webapps/manager/META-INF/context.xml from github"
-  wget https://github.com/rouplex/rouplex-benchmark-service/blob/$GIT_BRANCH/benchmark-service-provider-jersey/config/tomcat/templates/manager-context.xml -O $TOMCAT8/webapps/manager/META-INF/context.xml
+  wget ${GITHUB_TEMPLATE_FOLDER}/manager-context.xml -O $TOMCAT8/webapps/manager/META-INF/context.xml
 }
 
 setup_jmx() {
@@ -85,12 +86,12 @@ setup_jmx() {
   wget http://archive.apache.org/dist/tomcat/tomcat-8/v8.5.12/bin/extras/catalina-jmx-remote.jar -O $TOMCAT8/lib/catalina-jmx-remote.jar
 
   echo "=========== Rouplex ============= Downloading conf/server.xml"
-  wget https://github.com/rouplex/rouplex-benchmark-service/blob/$GIT_BRANCH/benchmark-service-provider-jersey/config/tomcat/templates/server.xml -O $TOMCAT8/conf/server.xml
+  wget ${GITHUB_TEMPLATE_FOLDER}/server.xml -O $TOMCAT8/conf/server.xml
 }
 
 setup_initd() {
   echo "=========== Rouplex ============= Downloading /etc/init.d/tomcat"
-  sudo wget https://github.com/rouplex/rouplex-benchmark-service/blob/$GIT_BRANCH/benchmark-service-provider-jersey/config/tomcat/templates/initd.tomcat /etc/init.d/tomcat
+  sudo wget ${GITHUB_TEMPLATE_FOLDER}/initd.tomcat -O /etc/init.d/tomcat
   sudo chmod 700 /etc/init.d/tomcat
 }
 
