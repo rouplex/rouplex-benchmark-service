@@ -102,8 +102,18 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
 
     BenchmarkServiceProvider() throws Exception {
         sharedTcpBinders.put(Provider.CLASSIC_NIO, createRouplexTcpBinder(Provider.CLASSIC_NIO));
-        sharedTcpBinders.put(Provider.ROUPLEX_NIOSSL, createRouplexTcpBinder(Provider.ROUPLEX_NIOSSL));
-        sharedTcpBinders.put(Provider.SCALABLE_SSL, createRouplexTcpBinder(Provider.SCALABLE_SSL));
+
+        try {
+            sharedTcpBinders.put(Provider.ROUPLEX_NIOSSL, createRouplexTcpBinder(Provider.ROUPLEX_NIOSSL));
+        } catch (Exception e) {
+            // we tried
+        }
+
+        try {
+            sharedTcpBinders.put(Provider.SCALABLE_SSL, createRouplexTcpBinder(Provider.SCALABLE_SSL));
+        } catch (Exception e) {
+            // we tried
+        }
 
         addCloseable(JmxReporter.forRegistry(benchmarkerMetrics)
                 .convertRatesTo(TimeUnit.SECONDS)
@@ -133,6 +143,10 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
                     break;
                 case CLASSIC_NIO:
                 default:
+                    if (request.isSsl()) {
+                        throw new Exception("This provider can not provide ssl communication");
+                    }
+
                     serverSocketChannel = ServerSocketChannel.open();
             }
 
