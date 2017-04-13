@@ -144,7 +144,7 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
                 case CLASSIC_NIO:
                 default:
                     if (request.isSsl()) {
-                        throw new Exception("This provider can not provide ssl communication");
+                        throw new Exception("This provider cannot provide ssl communication");
                     }
 
                     serverSocketChannel = ServerSocketChannel.open();

@@ -1,3 +1,5 @@
+#!/bin/bash
+
 init_setup() {
   if `uname` -neq "Linux"; then
     echo "=========== Rouplex ============= Aborting setup. Cause: Only Linux is supported by this setup"
@@ -7,6 +9,20 @@ init_setup() {
   if `uname -m` -neq "x86_64"; then
     echo "=========== Rouplex ============= Aborting setup. Cause: Only 64 bit architectures supported by this setup"
     exit 1
+  fi
+
+  if -z $1; then
+    echo "=========== Rouplex ============= Aborting setup. Cause: missing git branch"
+    exit 1
+  else
+      GIT_BRANCH=$1
+  fi
+
+  if -z $2; then
+    echo "=========== Rouplex ============= Aborting setup. Cause: missing password"
+    exit 1
+  else
+    TOMCAT_MANAGER_PASSWORD=$2
   fi
 
   JDK8_NAME=jdk1.8.0_121.x86_64
@@ -22,7 +38,7 @@ setup_java() {
   else
     echo "=========== Rouplex ============= Downloading java rpm $JDK8_RPM"
     wget --header "Cookie: oraclelicense=accept-securebackup-cookie" http://download.oracle.com/otn-pub/java/jdk/8u121-b13/e9e7ea248e2c4826b92b3f075a80e441/$JDK8_RPM -O $JDK8_RPM
-
+    
     echo "=========== Rouplex ============= Installing java rpm $JDK8_NAME from $JDK8_RPM"
     sudo yum -y localinstall $JDK8_RPM
 
@@ -53,21 +69,20 @@ setup_tomcat() {
 
 setup_keystore() {
   echo "=========== Rouplex ============= Downloading conf/server-keystore"
-  aws s3 cp s3://rouplex/deploys/server-keystore $TOMCAT8/conf/server-keystore
+  wget https://github.com/rouplex/rouplex-benchmark-service/blob/$GIT_BRANCH/benchmark-service-provider-jersey/config/ec2-linux-scripts/templates/server-keystore -O $TOMCAT8/conf/server-keystore
 
   echo "=========== Rouplex ============= Creating bin/setenv.sh"
   echo export JAVA_OPTS=\"-Djavax.net.ssl.keyStore=`pwd`/$TOMCAT8/conf/server-keystore -Djavax.net.ssl.keyStorePassword=kotplot -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.local.only=false -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Djava.rmi.server.hostname=$HOST_NAME\" > $TOMCAT8/bin/setenv.sh
-
-  echo "=========== Rouplex ============= Granting exec permission to bin/setenv.sh"
   chmod 700 $TOMCAT8/bin/setenv.sh
 }
 
 setup_manager() {
-  echo "=========== Rouplex ============= Downloading conf/tomcat-users.xml"
-  aws s3 cp s3://rouplex/deploys/tomcat-users.xml $TOMCAT8/conf
+  echo "=========== Rouplex ============= Creating conf/tomcat-users.xml from scratch"
+  echo "<tomcat-users xmlns=\"http://tomcat.apache.org/xml\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://tomcat.apache.org/xml tomcat-users.xsd\" version=\"1.0\"> <role rolename=\"manager-gui\"/><user username=\"tomcat\" password=\"$TOMCAT_MANAGER_PASSWORD\" roles=\"manager-gui\"/></tomcat-users>" > conf/tomcat-users.xml
+  chmod 400 conf/tomcat-users.xml
 
-  echo "=========== Rouplex ============= Downloading webapps/manager/META-INF/context.xml"
-  aws s3 cp s3://rouplex/deploys/manager-context.xml $TOMCAT8/webapps/manager/META-INF/context.xml
+  echo "=========== Rouplex ============= Downloading webapps/manager/META-INF/context.xml from github"
+  wget https://github.com/rouplex/rouplex-benchmark-service/blob/$GIT_BRANCH/benchmark-service-provider-jersey/config/ec2-linux-scripts/templates/manager-context.xml -O $TOMCAT8/webapps/manager/META-INF/context.xml
 }
 
 setup_jmx() {
@@ -75,14 +90,12 @@ setup_jmx() {
   wget http://archive.apache.org/dist/tomcat/tomcat-8/v8.5.12/bin/extras/catalina-jmx-remote.jar -O $TOMCAT8/lib/catalina-jmx-remote.jar
 
   echo "=========== Rouplex ============= Downloading conf/server.xml"
-  aws s3 cp s3://rouplex/deploys/server.xml $TOMCAT8/conf
+  wget https://github.com/rouplex/rouplex-benchmark-service/blob/$GIT_BRANCH/benchmark-service-provider-jersey/config/ec2-linux-scripts/templates/server.xml -O $TOMCAT8/conf/server.xml
 }
 
 setup_initd() {
   echo "=========== Rouplex ============= Downloading /etc/init.d/tomcat"
-  sudo aws s3 cp s3://rouplex/deploys/initd.tomcat.template /etc/init.d/tomcat
-
-  echo "=========== Rouplex ============= Granting exec permission to /etc/init.d/tomcat"
+  sudo wget https://github.com/rouplex/rouplex-benchmark-service/blob/$GIT_BRANCH/benchmark-service-provider-jersey/config/ec2-linux-scripts/templates/initd.tomcat /etc/init.d/tomcat
   sudo chmod 700 /etc/init.d/tomcat
 }
 
