@@ -20,6 +20,7 @@ init_setup() {
     TOMCAT_MANAGER_PASSWORD=$2
   fi
 
+  cd /home/ec2-user
   JDK8_NAME=jdk1.8.0_121.x86_64
   JDK8_RPM="jdk-8u121-linux-x64.rpm"
   TOMCAT8="apache-tomcat-8.5.12"
