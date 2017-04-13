@@ -1,8 +1,10 @@
 package org.rouplex.service.benchmarkservice;
 
 import com.codahale.metrics.Timer;
-import org.rouplex.platform.io.ReceiveChannel;
-import org.rouplex.platform.io.SendChannel;
+import org.rouplex.platform.io.Receiver;
+import org.rouplex.platform.io.Receiver;
+import org.rouplex.platform.io.Sender;
+import org.rouplex.platform.io.Sender;
 import org.rouplex.platform.io.Throttle;
 import org.rouplex.platform.tcp.RouplexTcpClient;
 import org.rouplex.service.benchmarkservice.tcp.Request;
@@ -17,7 +19,7 @@ import java.util.logging.Logger;
 
 public class EchoResponder {
     private static final Logger logger = Logger.getLogger(EchoResponder.class.getSimpleName());
-    final SendChannel<ByteBuffer> sendChannel;
+    final Sender<ByteBuffer> sender;
     final Throttle receiveThrottle;
 
     final EchoReporter echoReporter;
@@ -35,7 +37,7 @@ public class EchoResponder {
         echoReporter.connectionEstablished.mark();
         echoReporter.liveConnections.mark();
 
-        sendChannel = rouplexTcpClient.hookSendChannel(new Throttle() {
+        sender = rouplexTcpClient.hookSendChannel(new Throttle() {
             @Override
             public void resume() {
                 pauseTimer.stop(); // this should be reporting the time paused
@@ -43,7 +45,7 @@ public class EchoResponder {
             }
         });
 
-        receiveThrottle = rouplexTcpClient.hookReceiveChannel(new ReceiveChannel<byte[]>() {
+        receiveThrottle = rouplexTcpClient.hookReceiveChannel(new Receiver<byte[]>() {
             @Override
             public boolean receive(byte[] payload) {
                 if (payload == null) {
@@ -73,7 +75,7 @@ public class EchoResponder {
     private boolean send() {
         try {
             int position = sendBuffer.position();
-            sendChannel.send(sendBuffer); // echo as many as possible
+            sender.send(sendBuffer); // echo as many as possible
 
             if (sendBuffer.hasRemaining()) {
                 pauseTimer = echoReporter.sendPauseTime.time();

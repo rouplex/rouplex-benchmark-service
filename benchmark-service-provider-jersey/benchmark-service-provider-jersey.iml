@@ -23,8 +23,7 @@
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="module" module-name="benchmark-service-provider" />
-    <orderEntry type="library" name="Maven: org.rouplex:rouplex-niossl-instrumentor:1.8.0-SNAPSHOT" level="project" />
-    <orderEntry type="library" name="Maven: org.rouplex:rouplex-platform-tcp-instrumentor:1.0-SNAPSHOT" level="project" />
+    <orderEntry type="library" name="Maven: org.rouplex:rouplex-niossl:1.8.0-SNAPSHOT" level="project" />
     <orderEntry type="library" name="Maven: scalablessl:scalablessl:1.0" level="project" />
     <orderEntry type="library" name="Maven: org.aspectj:aspectjrt:1.8.9" level="project" />
     <orderEntry type="library" name="Maven: org.aspectj:aspectjtools:1.8.9" level="project" />
@@ -33,7 +32,6 @@
     <orderEntry type="library" name="Maven: org.slf4j:slf4j-api:1.7.7" level="project" />
     <orderEntry type="library" name="Maven: com.google.code.gson:gson:1.7.1" level="project" />
     <orderEntry type="library" name="Maven: org.rouplex:rouplex-platform-tcp:1.0-SNAPSHOT" level="project" />
-    <orderEntry type="library" name="Maven: org.rouplex:rouplex-niossl:1.8.0-SNAPSHOT" level="project" />
     <orderEntry type="library" name="Maven: org.rouplex:rouplex-platform-jaxrs:1.0-SNAPSHOT" level="project" />
     <orderEntry type="library" name="Maven: javax.annotation:javax.annotation-api:1.2" level="project" />
     <orderEntry type="library" name="Maven: javax.ws.rs:javax.ws.rs-api:2.0.1" level="project" />

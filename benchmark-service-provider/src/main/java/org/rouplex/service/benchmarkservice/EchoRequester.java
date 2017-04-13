@@ -2,8 +2,8 @@ package org.rouplex.service.benchmarkservice;
 
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.Timer;
-import org.rouplex.platform.io.ReceiveChannel;
-import org.rouplex.platform.io.SendChannel;
+import org.rouplex.platform.io.Receiver;
+import org.rouplex.platform.io.Sender;
 import org.rouplex.platform.io.Throttle;
 import org.rouplex.platform.tcp.RouplexTcpBinder;
 import org.rouplex.platform.tcp.RouplexTcpClient;
@@ -30,7 +30,7 @@ public class EchoRequester {
     int maxSendBufferSize;
     long closeTimestamp;
 
-    SendChannel<ByteBuffer> sendChannel;
+    Sender<ByteBuffer> sender;
     final List<ByteBuffer> sendBuffers = new ArrayList<>();
 
     Throttle receiveThrottle;
@@ -100,7 +100,7 @@ public class EchoRequester {
             closeTimestamp = System.currentTimeMillis() + request.minClientLifeMillis +
                     random.nextInt(request.maxClientLifeMillis - request.minClientLifeMillis);
 
-            sendChannel = rouplexTcpClient.hookSendChannel(new Throttle() {
+            sender = rouplexTcpClient.hookSendChannel(new Throttle() {
                 @Override
                 public void resume() {
                     pauseTimer.stop(); // this should be reporting the time paused
@@ -112,7 +112,7 @@ public class EchoRequester {
                 }
             });
 
-            receiveThrottle = rouplexTcpClient.hookReceiveChannel(new ReceiveChannel<byte[]>() {
+            receiveThrottle = rouplexTcpClient.hookReceiveChannel(new Receiver<byte[]>() {
                 @Override
                 public boolean receive(byte[] payload) {
                     if (payload == null) {
@@ -192,7 +192,7 @@ public class EchoRequester {
                 ByteBuffer sendBuffer = sendBuffers.get(0);
 
                 int position = sendBuffer.position();
-                sendChannel.send(sendBuffer);
+                sender.send(sendBuffer);
                 int payloadSize = sendBuffer.position() - position;
 
                 currentSendBufferSize -= payloadSize;
