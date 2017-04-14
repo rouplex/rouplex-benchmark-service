@@ -20,8 +20,7 @@ init_setup() {
     TOMCAT_MANAGER_PASSWORD=$2
   fi
 
-  mkdir rouplex
-  cd rouplex
+  cd /home/ec2-user
   JDK8_NAME=jdk1.8.0_121.x86_64
   JDK8_RPM="jdk-8u121-linux-x64.rpm"
   TOMCAT8="apache-tomcat-8.5.12"
@@ -99,6 +98,7 @@ setup_initd() {
 
 start_tomcat() {
   echo "=========== Rouplex ============= Starting tomcat"
+  sudo chown -R ec2-user:ec2-user $TOMCAT8
   sudo service tomcat restart
 }
 
