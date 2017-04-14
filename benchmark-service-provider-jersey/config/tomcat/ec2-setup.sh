@@ -11,13 +11,12 @@ init_setup() {
     exit 1
   fi
 
-  if [ $# -lt 2 ]; then
+  if [ $# -lt 1 ]; then
     echo "=========== Rouplex ============= Aborting setup. Cause: missing args"
-    echo "=========== Please provide GIT_BRANCH (usually master) and TOMCAT_MANAGER_PASSWORD in that order"
+    echo "=========== Please provide GIT_BRANCH (usually \"master\" with no quotes)"
     exit 1
   else
     GIT_BRANCH=$1
-    TOMCAT_MANAGER_PASSWORD=$2
   fi
 
   cd /home/ec2-user
