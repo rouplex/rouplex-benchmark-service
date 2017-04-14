@@ -74,9 +74,8 @@ setup_keystore() {
 }
 
 setup_manager() {
-  echo "=========== Rouplex ============= Creating conf/tomcat-users.xml from scratch"
-  echo "<tomcat-users xmlns=\"http://tomcat.apache.org/xml\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://tomcat.apache.org/xml tomcat-users.xsd\" version=\"1.0\"> <role rolename=\"manager-gui\"/><user username=\"tomcat\" password=\"$TOMCAT_MANAGER_PASSWORD\" roles=\"manager-gui\"/></tomcat-users>" > $TOMCAT8/conf/tomcat-users.xml
-  chmod 400 $TOMCAT8/conf/tomcat-users.xml
+  echo "=========== Rouplex ====x========= Downloading conf/tomcat-users.xml from s3://rouplex ..."
+  aws s3 cp s3://rouplex/deploys/${GIT_BRANCH}/tomcat-users.xml $TOMCAT8/conf
 
   echo "=========== Rouplex ============= Downloading webapps/manager/META-INF/context.xml from github"
   wget ${GITHUB_TEMPLATE_FOLDER}/manager-context.xml -O $TOMCAT8/webapps/manager/META-INF/context.xml
