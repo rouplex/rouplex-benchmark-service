@@ -38,7 +38,7 @@ cp root-ca/root-ca.crt ../root-ca.crt
 echo "Rouplex --- Copying sub-ca public certificate to config folder"
 cp sub-cas/sub-ca-$organization_name/$organization_name.crt ../sub-ca.crt
 
-echo "Rouplex --- Copying server-keystore to config folder"
+echo "Rouplex --- Copying localhost.p12 to config folder"
 cp server-credentials/$domain_name/$domain_name-$organization_name.p12 ../server-keystore.p12
 
 echo "Rouplex --- Copying client-keystore to config folder"
@@ -74,7 +74,7 @@ echo "
    enableLookups=\"true\" disableUploadTimeout=\"true\"
    acceptCount=\"100\" maxThreads=\"200\"
    scheme=\"https\" secure=\"true\" SSLEnabled=\"true\"
-   keystoreFile=\"$config_folder/server-keystore.p12\" keystoreType=\"PKCS12\" keystorePass=\"localhost\"
+   keystoreFile=\"$config_folder/localhost.p12.p12\" keystoreType=\"PKCS12\" keystorePass=\"localhost\"
    truststoreFile=\"$config_folder/server-truststore.jks\" truststoreType=\"JKS\" truststorePass=\"truststore\"
    SSLVerifyClient=\"optional\" SSLEngine=\"on\" SSLVerifyDepth=\"3\" sslProtocol=\"TLS\"
 />"
