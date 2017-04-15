@@ -1,5 +1,0 @@
-#!/bin/bash
-GIT_BRANCH=feature/deployment-scripts
-wget "https://raw.githubusercontent.com/rouplex/rouplex-benchmark-service/$GIT_BRANCH/benchmark-service-provider-jersey/config/tomcat/ec2-setup.sh" -O ec2-setup.sh
-chmod 700 ec2-setup.sh
-./ec2-setup.sh $GIT_BRANCH

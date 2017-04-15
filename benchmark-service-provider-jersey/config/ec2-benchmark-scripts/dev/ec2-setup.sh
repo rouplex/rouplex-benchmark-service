@@ -25,7 +25,7 @@ init_setup() {
   TOMCAT8="apache-tomcat-8.5.12"
   TOMCAT8_GZ=$TOMCAT8.tar.gz
   HOST_NAME="www.rouplex-demo.com"
-  GITHUB_TEMPLATE_FOLDER="https://raw.githubusercontent.com/rouplex/rouplex-benchmark-service/$GIT_BRANCH/benchmark-service-provider-jersey/config/tomcat/templates"
+  GITHUB_TEMPLATE_FOLDER="https://raw.githubusercontent.com/rouplex/rouplex-benchmark-service/$GIT_BRANCH/benchmark-service-provider-jersey/config/ec2-benchmark-scripts/dev/templates"
 }
 
 setup_java() {
