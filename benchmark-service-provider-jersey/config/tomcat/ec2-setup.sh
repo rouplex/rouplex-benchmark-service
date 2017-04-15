@@ -65,7 +65,7 @@ setup_tomcat() {
 
 setup_keystore() {
   echo "=========== Rouplex ============= Downloading conf/server-keystore"
-  wget https://github.com/rouplex/rouplex-benchmark-service/blob/$GIT_BRANCH/benchmark-service-provider-jersey/config/tomcat/templates/server-keystore -O $TOMCAT8/conf/server-keystore
+  wget ${GITHUB_TEMPLATE_FOLDER}/server-keystore -O $TOMCAT8/conf/server-keystore
 
   echo "=========== Rouplex ============= Creating bin/setenv.sh"
   echo export JAVA_OPTS=\"-Djavax.net.ssl.keyStore=`pwd`/$TOMCAT8/conf/server-keystore -Djavax.net.ssl.keyStorePassword=kotplot -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.local.only=false -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Djava.rmi.server.hostname=$HOST_NAME\" > $TOMCAT8/bin/setenv.sh
@@ -75,6 +75,9 @@ setup_keystore() {
 setup_manager() {
   echo "=========== Rouplex ====x========= Downloading conf/tomcat-users.xml from s3://rouplex ..."
   aws s3 cp s3://rouplex/deploys/${GIT_BRANCH}/tomcat-users.xml $TOMCAT8/conf
+  if [ $? -eq 1 ]; then
+    aws s3 cp s3://rouplex/deploys/tomcat-users.xml $TOMCAT8/conf
+  fi
 
   echo "=========== Rouplex ============= Downloading webapps/manager/META-INF/context.xml from github"
   wget ${GITHUB_TEMPLATE_FOLDER}/manager-context.xml -O $TOMCAT8/webapps/manager/META-INF/context.xml

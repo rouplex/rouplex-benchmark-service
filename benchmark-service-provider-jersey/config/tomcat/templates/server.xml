@@ -71,6 +71,16 @@
     <Connector port="8080" protocol="HTTP/1.1"
                connectionTimeout="20000"
                redirectPort="8443" />
+
+    <Connector
+            clientAuth="true" port="8088" minSpareThreads="5" maxSpareThreads="75"
+            enableLookups="true" disableUploadTimeout="true"
+            acceptCount="100" maxThreads="200"
+            scheme="https" secure="true" SSLEnabled="true"
+            keystoreFile="/home/ec2-user/apache-tomcat-8.5.12/conf/server-keystore" keystoreType="JKS" keystorePass="kotplot"
+            SSLVerifyClient="optional" SSLEngine="on" SSLVerifyDepth="3" sslProtocol="TLS"
+    />
+
     <!-- A "Connector" using the shared thread pool-->
     <!--
     <Connector executor="tomcatThreadPool"
