@@ -123,7 +123,7 @@ start_tomcat() {
   sudo service tomcat restart
 }
 
-init_setup $1
+init_setup $1 $2
 setup_java
 setup_tomcat
 setup_keystore
