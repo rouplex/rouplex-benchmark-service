@@ -11,11 +11,12 @@ init_setup() {
     exit 1
   fi
 
-  if [ $# -lt 1 ]; then
-    echo "=========== Rouplex ============= Aborting setup. Cause: No GIT_BRANCH defined"
+  if [ $# -lt 2 ]; then
+    echo "=========== Rouplex ============= Aborting setup. Cause: No GIT_BRANCH / DOMAIN_NAME defined"
     exit 1
   else
     GIT_BRANCH=$1
+    SERVER_KEYSTORE=$2.p12
   fi
 
   cd /home/ec2-user
@@ -27,12 +28,6 @@ init_setup() {
   GITHUB_DEPLOY_FOLDER="https://raw.githubusercontent.com/rouplex/rouplex-benchmark-service/$GIT_BRANCH/benchmark-service-provider-jersey/config/ec2-benchmark-scripts/templates"
   S3_DEPLOY_FOLDER=s3://rouplex/deploys/${GIT_BRANCH}
   S3_DEFAULT_DEPLOY_FOLDER=s3://rouplex/deploys/defaults
-
-  if [ GIT_BRANCH == "prod" ]; then
-    SERVER_KEYSTORE=${HOST_NAME}.p12
-  else
-    SERVER_KEYSTORE="localhost.p12"
-  fi
 }
 
 setup_java() {
