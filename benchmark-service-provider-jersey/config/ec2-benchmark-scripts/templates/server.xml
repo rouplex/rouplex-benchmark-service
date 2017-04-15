@@ -77,7 +77,7 @@
             enableLookups="true" disableUploadTimeout="true"
             acceptCount="100" maxThreads="200"
             scheme="https" secure="true" SSLEnabled="true"
-            keystoreFile="/home/ec2-user/apache-tomcat-8.5.12/conf/server-keystore" keystoreType="JKS" keystorePass="kotplot"
+            keystoreFile="/home/ec2-user/apache-tomcat-8.5.12/conf/localhost.p12" keystoreType="JKS" keystorePass="kotplot"
             SSLVerifyClient="optional" SSLEngine="on" SSLVerifyDepth="3" sslProtocol="TLS"
     />
 

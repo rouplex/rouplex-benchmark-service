@@ -12,8 +12,7 @@ init_setup() {
   fi
 
   if [ $# -lt 1 ]; then
-    echo "=========== Rouplex ============= Aborting setup. Cause: missing args"
-    echo "=========== Please provide GIT_BRANCH (usually \"master\" with no quotes)"
+    echo "=========== Rouplex ============= Aborting setup. Cause: No GIT_BRANCH defined"
     exit 1
   else
     GIT_BRANCH=$1
@@ -24,8 +23,16 @@ init_setup() {
   JDK8_RPM="jdk-8u121-linux-x64.rpm"
   TOMCAT8="apache-tomcat-8.5.12"
   TOMCAT8_GZ=$TOMCAT8.tar.gz
-  HOST_NAME="www.rouplex-demo.com"
-  GITHUB_TEMPLATE_FOLDER="https://raw.githubusercontent.com/rouplex/rouplex-benchmark-service/$GIT_BRANCH/benchmark-service-provider-jersey/config/ec2-benchmark-scripts/templates"
+  HOST_NAME="rouplex-demo.com"
+  GITHUB_DEPLOY_FOLDER="https://raw.githubusercontent.com/rouplex/rouplex-benchmark-service/$GIT_BRANCH/benchmark-service-provider-jersey/config/ec2-benchmark-scripts/templates"
+  S3_DEPLOY_FOLDER=s3://rouplex/deploys/${GIT_BRANCH}
+  S3_DEFAULT_DEPLOY_FOLDER=s3://rouplex/deploys/defaults
+
+  if [ GIT_BRANCH == "prod" ]; then
+    SERVER_KEYSTORE=${HOST_NAME}.p12
+  else
+    SERVER_KEYSTORE="localhost.p12"
+  fi
 }
 
 setup_java() {
@@ -63,37 +70,55 @@ setup_tomcat() {
   fi
 }
 
+download_combined() {
+  echo "=========== Rouplex ============= Downloading $2 from ${S3_DEPLOY_FOLDER}/$2 to $3"
+  $1 aws s3 cp ${S3_DEPLOY_FOLDER}/$2 $3 >/dev/null 2>&1
+
+  if [ $? -ne 0 ]; then
+    echo "=========== Rouplex ============= Downloading $2 failed. Trying from ${GITHUB_DEPLOY_FOLDER}/$2 to $3"
+    $1 wget ${GITHUB_DEPLOY_FOLDER}/$2 -O $3 >/dev/null 2>&1
+  fi
+
+  if [ $? -ne 0 ]; then
+    echo "=========== Rouplex ============= Downloading $2 failed. Trying from ${S3_DEFAULT_DEPLOY_FOLDER}/$2 to $3"
+    $1 aws s3 cp ${S3_DEFAULT_DEPLOY_FOLDER}/$2 $3 >/dev/null 2>&1
+  fi
+
+  if [ $? -ne 0 ]; then
+    echo "=========== Rouplex ============= Aborting setup. Failed locating $2"
+    exit 1
+  fi
+
+  echo "=========== Rouplex ============= Downloaded $3"
+}
+
 setup_keystore() {
-  echo "=========== Rouplex ============= Downloading conf/server-keystore"
-  wget ${GITHUB_TEMPLATE_FOLDER}/server-keystore -O $TOMCAT8/conf/server-keystore
+  download_combined "" ${SERVER_KEYSTORE} $TOMCAT8/conf/${SERVER_KEYSTORE}
+  download_combined "" ${SERVER_KEYSTORE}.password $TOMCAT8/conf/${SERVER_KEYSTORE}.password
+  SERVER_KEYSTORE_PASSWORD=`cat $TOMCAT8/conf/${SERVER_KEYSTORE}.password`
 
   echo "=========== Rouplex ============= Creating bin/setenv.sh"
-  echo export JAVA_OPTS=\"-Djavax.net.ssl.keyStore=`pwd`/$TOMCAT8/conf/server-keystore -Djavax.net.ssl.keyStorePassword=kotplot -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.local.only=false -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Djava.rmi.server.hostname=$HOST_NAME\" > $TOMCAT8/bin/setenv.sh
+  echo export JAVA_OPTS=\"-Djavax.net.ssl.keyStore=`pwd`/$TOMCAT8/conf/$SERVER_KEYSTORE -Djavax.net.ssl.keyStorePassword=$SERVER_KEYSTORE_PASSWORD -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.local.only=false -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Djava.rmi.server.hostname=$HOST_NAME\" > $TOMCAT8/bin/setenv.sh
   chmod 700 $TOMCAT8/bin/setenv.sh
+
+  echo "=========== Rouplex ============= Deleting $TOMCAT8/conf/${SERVER_KEYSTORE}.password"
+  rm $TOMCAT8/conf/${SERVER_KEYSTORE}.password
 }
 
 setup_manager() {
-  echo "=========== Rouplex ====x========= Downloading conf/tomcat-users.xml from s3://rouplex ..."
-  aws s3 cp s3://rouplex/deploys/${GIT_BRANCH}/tomcat-users.xml $TOMCAT8/conf
-  if [ $? -eq 1 ]; then
-    aws s3 cp s3://rouplex/deploys/tomcat-users.xml $TOMCAT8/conf
-  fi
-
-  echo "=========== Rouplex ============= Downloading webapps/manager/META-INF/context.xml from github"
-  wget ${GITHUB_TEMPLATE_FOLDER}/manager-context.xml -O $TOMCAT8/webapps/manager/META-INF/context.xml
+  download_combined "" tomcat-users.xml $TOMCAT8/conf/tomcat-users.xml
+  download_combined "" manager-context.xml $TOMCAT8/webapps/manager/META-INF/context.xml
 }
 
 setup_jmx() {
   echo "=========== Rouplex ============= Downloading tomcat extras catalina-jmx-remote.jar"
-  wget http://archive.apache.org/dist/tomcat/tomcat-8/v8.5.12/bin/extras/catalina-jmx-remote.jar -O $TOMCAT8/lib/catalina-jmx-remote.jar
+  wget http://archive.apache.org/dist/tomcat/tomcat-8/v8.5.12/bin/extras/catalina-jmx-remote.jar -O $TOMCAT8/lib/catalina-jmx-remote.jar >/dev/null 2>&1
 
-  echo "=========== Rouplex ============= Downloading conf/server.xml"
-  wget ${GITHUB_TEMPLATE_FOLDER}/server.xml -O $TOMCAT8/conf/server.xml
+  download_combined "" server.xml $TOMCAT8/conf/server.xml
 }
 
 setup_initd() {
-  echo "=========== Rouplex ============= Downloading /etc/init.d/tomcat"
-  sudo wget ${GITHUB_TEMPLATE_FOLDER}/initd.tomcat -O /etc/init.d/tomcat
+  download_combined "sudo" initd.tomcat /etc/init.d/tomcat
   sudo chmod 700 /etc/init.d/tomcat
 }
 
@@ -103,7 +128,7 @@ start_tomcat() {
   sudo service tomcat restart
 }
 
-init_setup $1 $2
+init_setup $1
 setup_java
 setup_tomcat
 setup_keystore

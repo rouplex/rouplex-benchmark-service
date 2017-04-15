@@ -61,7 +61,7 @@ echo "Rouplex --- Deleting the csr since it is not needed anymore"
 rm $server_path.csr
 
 echo "Rouplex --- Creating pkcs12 certificate (private key and certificate chain included) ready for use on ssl server"
-echo "Rouplex === [The password you are asked for, is for protecting the server-keystore.p12 and you can chose '$domain_name' (no quotes) for the sake of this demo] ==="
+echo "Rouplex === [The password you are asked for, is for protecting the localhost.p12.p12 and you can chose '$domain_name' (no quotes) for the sake of this demo] ==="
 cat $server_path.crt > $server_path-cert-chain.crt
 cat sub-cas/sub-ca-$organization_name/$organization_name.crt >> $server_path-cert-chain.crt
 cat root-ca/root-ca.crt >> $server_path-cert-chain.crt
