@@ -134,20 +134,31 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
                     ? sharedTcpBinders.get(request.getProvider()) : createRouplexTcpBinder(request.getProvider());
 
             ServerSocketChannel serverSocketChannel;
-            switch (request.getProvider()) {
-                case ROUPLEX_NIOSSL:
-                    serverSocketChannel = org.rouplex.nio.channels.SSLServerSocketChannel.open(SSLContext.getDefault());
-                    break;
-                case SCALABLE_SSL:
-                    serverSocketChannel = scalablessl.SSLServerSocketChannel.open(SSLContext.getDefault());
-                    break;
-                case CLASSIC_NIO:
-                default:
-                    if (request.isSsl()) {
-                        throw new Exception("This provider cannot provide ssl communication");
-                    }
 
-                    serverSocketChannel = ServerSocketChannel.open();
+            if (request.isSsl()) {
+                switch (request.getProvider()) {
+                    case ROUPLEX_NIOSSL:
+                        serverSocketChannel = org.rouplex.nio.channels.SSLServerSocketChannel.open(SSLContext.getDefault());
+                        break;
+                    case SCALABLE_SSL:
+                        serverSocketChannel = scalablessl.SSLServerSocketChannel.open(SSLContext.getDefault());
+                        break;
+                    case CLASSIC_NIO:
+                    default:
+                        throw new Exception("This provider cannot provide ssl communication");
+                }
+            } else {
+                switch (request.getProvider()) {
+                    case ROUPLEX_NIOSSL:
+                        serverSocketChannel = org.rouplex.nio.channels.SSLServerSocketChannel.open();
+                        break;
+                    case SCALABLE_SSL:
+                        //serverSocketChannel = scalablessl.SSLServerSocketChannel.open((SSLContext) null);
+                        throw new Exception("This provider cannot provide plain communication");
+                    case CLASSIC_NIO:
+                    default:
+                        serverSocketChannel = ServerSocketChannel.open();
+                }
             }
 
             RouplexTcpServer rouplexTcpServer = RouplexTcpServer.newBuilder()

@@ -9,7 +9,9 @@ import org.rouplex.platform.tcp.RouplexTcpBinder;
 import org.rouplex.platform.tcp.RouplexTcpClient;
 import org.rouplex.service.benchmarkservice.tcp.StartTcpClientsRequest;
 
+import javax.net.ssl.SSLContext;
 import java.nio.ByteBuffer;
+import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.ArrayList;
 import java.util.List;
@@ -42,7 +44,6 @@ public class EchoRequester {
 
     int currentSendBufferSize;
     Timer.Context pauseTimer;
-    Timer.Context connectTimer;
     long timeCreatedNano = System.nanoTime();
 
     EchoRequester(BenchmarkServiceProvider benchmarkServiceProvider,
@@ -53,16 +54,30 @@ public class EchoRequester {
 
         try {
             SocketChannel socketChannel;
-            switch (request.getProvider()) {
-                case ROUPLEX_NIOSSL:
-                    socketChannel = org.rouplex.nio.channels.SSLSocketChannel.open(RouplexTcpClient.buildRelaxedSSLContext());
-                    break;
-                case SCALABLE_SSL:
-                    socketChannel = scalablessl.SSLSocketChannel.open(RouplexTcpClient.buildRelaxedSSLContext());
-                    break;
-                case CLASSIC_NIO:
-                default:
-                    socketChannel = SocketChannel.open();
+            if (request.isSsl()) {
+                switch (request.getProvider()) {
+                    case ROUPLEX_NIOSSL:
+                        socketChannel = org.rouplex.nio.channels.SSLSocketChannel.open(RouplexTcpClient.buildRelaxedSSLContext());
+                        break;
+                    case SCALABLE_SSL:
+                        socketChannel = scalablessl.SSLSocketChannel.open(RouplexTcpClient.buildRelaxedSSLContext());
+                        break;
+                    case CLASSIC_NIO:
+                    default:
+                        throw new Exception("This provider cannot provide ssl communication");
+                }
+            } else {
+                switch (request.getProvider()) {
+                    case ROUPLEX_NIOSSL:
+                        socketChannel = org.rouplex.nio.channels.SSLSocketChannel.open();
+                        break;
+                    case SCALABLE_SSL:
+//                        socketChannel = scalablessl.SSLSocketChannel.open();
+                        throw new Exception("This provider cannot provide plain communication");
+                    case CLASSIC_NIO:
+                    default:
+                        socketChannel = SocketChannel.open();
+                }
             }
 
             rouplexTcpClient = RouplexTcpClient.newBuilder()
