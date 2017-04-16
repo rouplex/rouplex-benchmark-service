@@ -67,17 +67,7 @@ public class EchoRequester {
                         throw new Exception("This provider cannot provide ssl communication");
                 }
             } else {
-                switch (request.getProvider()) {
-                    case ROUPLEX_NIOSSL:
-                        socketChannel = org.rouplex.nio.channels.SSLSocketChannel.open();
-                        break;
-                    case SCALABLE_SSL:
-//                        socketChannel = scalablessl.SSLSocketChannel.open();
-                        throw new Exception("This provider cannot provide plain communication");
-                    case CLASSIC_NIO:
-                    default:
-                        socketChannel = SocketChannel.open();
-                }
+                socketChannel = SocketChannel.open();
             }
 
             rouplexTcpClient = RouplexTcpClient.newBuilder()
