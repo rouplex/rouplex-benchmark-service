@@ -115,6 +115,9 @@ setup_jmx() {
 setup_initd() {
   download_combined "sudo" initd.tomcat /etc/init.d/tomcat
   sudo chmod 700 /etc/init.d/tomcat
+
+  echo "=========== Rouplex ============= Making tomcat restartable on reboot"
+  sudo chkconfig tomcat on
 }
 
 start_tomcat() {
