@@ -55,7 +55,7 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
         public void onCreated(RouplexTcpClient rouplexTcpClient) {
             try {
                 if (rouplexTcpClient.getRouplexTcpServer() == null) {
-                    ((EchoRequester) rouplexTcpClient.getAttachment()).startSendingThenClose();
+                    ((EchoRequester) rouplexTcpClient.getAttachment()).startSendingThenClose(rouplexTcpClient);
                 } else {
                     new EchoResponder((Request) rouplexTcpClient.getRouplexTcpServer().getAttachment(),
                             BenchmarkServiceProvider.this, rouplexTcpClient);

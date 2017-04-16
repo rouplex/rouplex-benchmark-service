@@ -9,9 +9,8 @@ import org.rouplex.platform.tcp.RouplexTcpBinder;
 import org.rouplex.platform.tcp.RouplexTcpClient;
 import org.rouplex.service.benchmarkservice.tcp.StartTcpClientsRequest;
 
-import javax.net.ssl.SSLContext;
+import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.ArrayList;
 import java.util.List;
@@ -27,7 +26,6 @@ public class EchoRequester {
     private static final Logger logger = Logger.getLogger(EchoRequester.class.getSimpleName());
     final BenchmarkServiceProvider benchmarkServiceProvider;
     final StartTcpClientsRequest request;
-    final RouplexTcpClient rouplexTcpClient;
 
     int maxSendBufferSize;
     long closeTimestamp;
@@ -70,7 +68,7 @@ public class EchoRequester {
                 socketChannel = SocketChannel.open();
             }
 
-            rouplexTcpClient = RouplexTcpClient.newBuilder()
+            RouplexTcpClient.newBuilder()
                     .withRouplexTcpBinder(tcpBinder)
                     .withSocketChannel(socketChannel)
                     .withRemoteAddress(request.getHostname(), request.getPort())
@@ -91,54 +89,48 @@ public class EchoRequester {
         logger.info("Created EchoRequester");
     }
 
-    void startSendingThenClose() {
-        try {
-            echoReporter = new EchoReporter(
-                    request, benchmarkServiceProvider.benchmarkerMetrics, EchoRequester.class, rouplexTcpClient);
+    void startSendingThenClose(RouplexTcpClient rouplexTcpClient) throws IOException {
+        echoReporter = new EchoReporter(
+                request, benchmarkServiceProvider.benchmarkerMetrics, EchoRequester.class, rouplexTcpClient);
 
-            echoReporter.connectionTime.update(System.nanoTime() - timeCreatedNano, TimeUnit.NANOSECONDS);
-            echoReporter.connectionEstablished.mark();
-            echoReporter.liveConnections.mark();
-            clientId = benchmarkServiceProvider.incrementalId.incrementAndGet();
+        echoReporter.connectionTime.update(System.nanoTime() - timeCreatedNano, TimeUnit.NANOSECONDS);
+        echoReporter.connectionEstablished.mark();
+        echoReporter.liveConnections.mark();
+        clientId = benchmarkServiceProvider.incrementalId.incrementAndGet();
 
-            maxSendBufferSize = request.maxPayloadSize * 1;
-            closeTimestamp = System.currentTimeMillis() + request.minClientLifeMillis +
-                    random.nextInt(request.maxClientLifeMillis - request.minClientLifeMillis);
+        maxSendBufferSize = request.maxPayloadSize * 1;
+        closeTimestamp = System.currentTimeMillis() + request.minClientLifeMillis +
+                random.nextInt(request.maxClientLifeMillis - request.minClientLifeMillis);
 
-            sender = rouplexTcpClient.hookSendChannel(new Throttle() {
-                @Override
-                public void resume() {
-                    pauseTimer.stop(); // this should be reporting the time paused
-                    try {
-                        send();
-                    } catch (Exception e) {
-                        echoReporter.sendFailures.mark();
-                    }
+        sender = rouplexTcpClient.hookSendChannel(new Throttle() {
+            @Override
+            public void resume() {
+                pauseTimer.stop(); // this should be reporting the time paused
+                try {
+                    send();
+                } catch (Exception e) {
+                    echoReporter.sendFailures.mark();
                 }
-            });
+            }
+        });
 
-            receiveThrottle = rouplexTcpClient.hookReceiveChannel(new Receiver<byte[]>() {
-                @Override
-                public boolean receive(byte[] payload) {
-                    if (payload == null) {
-                        echoReporter.receivedDisconnect.mark();
-                    } else if (payload.length == 0) {
-                        echoReporter.receivedEos.mark();
-                    } else {
-                        echoReporter.receivedBytes.mark(payload.length);
-                        echoReporter.receivedSizes.update(payload.length);
-                    }
-
-                    return true;
+        receiveThrottle = rouplexTcpClient.hookReceiveChannel(new Receiver<byte[]>() {
+            @Override
+            public boolean receive(byte[] payload) {
+                if (payload == null) {
+                    echoReporter.receivedDisconnect.mark();
+                } else if (payload.length == 0) {
+                    echoReporter.receivedEos.mark();
+                } else {
+                    echoReporter.receivedBytes.mark(payload.length);
+                    echoReporter.receivedSizes.update(payload.length);
                 }
-            }, true);
 
-            keepSendingThenClose();
-        } catch (Exception e) {
-            benchmarkServiceProvider.benchmarkerMetrics.meter(MetricRegistry.name("EEE")).mark();
-            benchmarkServiceProvider.benchmarkerMetrics.meter(MetricRegistry.name("EEE", e.getMessage())).mark();
-            throw new RuntimeException(e);
-        }
+                return true;
+            }
+        }, true);
+
+        keepSendingThenClose();
     }
 
     void keepSendingThenClose() {
