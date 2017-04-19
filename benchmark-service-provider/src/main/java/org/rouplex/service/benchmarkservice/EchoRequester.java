@@ -45,15 +45,15 @@ public class EchoRequester {
     long timeCreatedNano = System.nanoTime();
 
     EchoRequester(BenchmarkServiceProvider benchmarkServiceProvider,
-                  StartTcpClientsRequest request, RouplexTcpBinder tcpBinder) {
+                  StartTcpClientsRequest startTcpClientsRequest, RouplexTcpBinder tcpBinder) {
 
         this.benchmarkServiceProvider = benchmarkServiceProvider;
-        this.request = request;
+        this.request = startTcpClientsRequest;
 
         try {
             SocketChannel socketChannel;
-            if (request.isSsl()) {
-                switch (request.getProvider()) {
+            if (startTcpClientsRequest.isSsl()) {
+                switch (startTcpClientsRequest.getProvider()) {
                     case ROUPLEX_NIOSSL:
                         socketChannel = org.rouplex.nio.channels.SSLSocketChannel.open(RouplexTcpClient.buildRelaxedSSLContext());
                         break;
@@ -71,10 +71,10 @@ public class EchoRequester {
             RouplexTcpClient.newBuilder()
                     .withRouplexTcpBinder(tcpBinder)
                     .withSocketChannel(socketChannel)
-                    .withRemoteAddress(request.getHostname(), request.getPort())
-                    .withSecure(request.isSsl(), null) // value ignored in current context since channel is provided
-                    .withSendBufferSize(request.getSocketSendBufferSize())
-                    .withReceiveBufferSize(request.getSocketReceiveBufferSize())
+                    .withRemoteAddress(startTcpClientsRequest.getHostname(), startTcpClientsRequest.getPort())
+                    .withSecure(startTcpClientsRequest.isSsl(), null) // value ignored in current context since channel is provided
+                    .withSendBufferSize(startTcpClientsRequest.getSocketSendBufferSize())
+                    .withReceiveBufferSize(startTcpClientsRequest.getSocketReceiveBufferSize())
                     .withAttachment(this)
                     .buildAsync();
 
@@ -203,8 +203,10 @@ public class EchoRequester {
 
             return true;
         } catch (Exception e) {
-            benchmarkServiceProvider.benchmarkerMetrics.meter(MetricRegistry.name("EEE")).mark();
-            benchmarkServiceProvider.benchmarkerMetrics.meter(MetricRegistry.name("EEE", e.getMessage())).mark();
+            benchmarkServiceProvider.benchmarkerMetrics.meter(MetricRegistry.name("BenchmarkInternalError")).mark();
+            benchmarkServiceProvider.benchmarkerMetrics.meter( MetricRegistry.name("BenchmarkInternalError.EEE",
+                    e.getClass().getSimpleName(), e.getMessage())).mark();
+
             echoReporter.sendFailures.mark();
             return false;
         }

@@ -2,12 +2,11 @@ package org.rouplex.service.benchmarkservice;
 
 import com.codahale.metrics.Timer;
 import org.rouplex.platform.io.Receiver;
-import org.rouplex.platform.io.Receiver;
-import org.rouplex.platform.io.Sender;
 import org.rouplex.platform.io.Sender;
 import org.rouplex.platform.io.Throttle;
 import org.rouplex.platform.tcp.RouplexTcpClient;
-import org.rouplex.service.benchmarkservice.tcp.Request;
+import org.rouplex.service.benchmarkservice.tcp.StartTcpEndPointRequest;
+import org.rouplex.service.benchmarkservice.tcp.StartTcpServerRequest;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -28,10 +27,12 @@ public class EchoResponder {
     ByteBuffer sendBuffer;
     Integer clientId;
 
-    EchoResponder(Request request, BenchmarkServiceProvider benchmarkServiceProvider, RouplexTcpClient rouplexTcpClient) throws IOException {
+    EchoResponder(StartTcpServerRequest startTcpServerRequest, BenchmarkServiceProvider benchmarkServiceProvider,
+                  RouplexTcpClient rouplexTcpClient) throws IOException {
+
         rouplexTcpClient.setAttachment(this);
 
-        echoReporter = new EchoReporter(request,
+        echoReporter = new EchoReporter(startTcpServerRequest,
                 benchmarkServiceProvider.benchmarkerMetrics, EchoResponder.class, rouplexTcpClient);
 
         echoReporter.connectionEstablished.mark();

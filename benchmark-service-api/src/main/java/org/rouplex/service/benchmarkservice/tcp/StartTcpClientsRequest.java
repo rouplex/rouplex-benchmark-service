@@ -3,7 +3,7 @@ package org.rouplex.service.benchmarkservice.tcp;
 /**
  * @author Andi Mullaraj (andimullaraj at gmail.com)
  */
-public class StartTcpClientsRequest extends Request {
+public class StartTcpClientsRequest extends StartTcpEndPointRequest {
     public int clientCount = 100;
 
     public int minPayloadSize;

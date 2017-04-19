@@ -3,7 +3,7 @@ package org.rouplex.service.benchmarkservice;
 import com.codahale.metrics.*;
 import org.rouplex.platform.tcp.RouplexTcpClient;
 import org.rouplex.service.benchmarkservice.tcp.MetricsAggregation;
-import org.rouplex.service.benchmarkservice.tcp.Request;
+import org.rouplex.service.benchmarkservice.tcp.StartTcpEndPointRequest;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -47,7 +47,9 @@ public class EchoReporter {
     final String aggregatedId;
     final String completeId;
 
-    public EchoReporter(Request request, MetricRegistry benchmarkerMetrics, Class<?> clazz, RouplexTcpClient tcpClient) throws IOException {
+    public EchoReporter(StartTcpEndPointRequest startTcpEndPointRequest, MetricRegistry benchmarkerMetrics,
+                        Class<?> clazz, RouplexTcpClient tcpClient) throws IOException {
+
         this.benchmarkerMetrics = benchmarkerMetrics;
         this.actor = clazz.getSimpleName();
 
@@ -59,9 +61,9 @@ public class EchoReporter {
         serverAddress = remoteIsa.getAddress().getHostAddress().replace('.', '-');
         serverPort = "" + remoteIsa.getPort();
 
-        String secureTag = request.isSsl() ? "S" : "P";
+        String secureTag = startTcpEndPointRequest.isSsl() ? "S" : "P";
         completeId = String.format(format,
-                request.getProvider(),
+                startTcpEndPointRequest.getProvider(),
                 secureTag,
                 actor,
                 serverAddress,
@@ -70,9 +72,9 @@ public class EchoReporter {
                 clientPort
         );
 
-        MetricsAggregation ma = request.getMetricsAggregation();
+        MetricsAggregation ma = startTcpEndPointRequest.getMetricsAggregation();
         aggregatedId = String.format(format,
-                request.getProvider(),
+                startTcpEndPointRequest.getProvider(),
                 ma.isAggregateSslWithPlain() ? "A" : secureTag,
                 actor,
                 ma.isAggregateServerAddresses() ? "A" : serverAddress,

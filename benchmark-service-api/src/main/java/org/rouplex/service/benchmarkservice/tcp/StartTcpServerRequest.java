@@ -3,7 +3,7 @@ package org.rouplex.service.benchmarkservice.tcp;
 /**
  * @author Andi Mullaraj (andimullaraj at gmail.com)
  */
-public class StartTcpServerRequest extends Request {
+public class StartTcpServerRequest extends StartTcpEndPointRequest {
     int backlog;
 
     public int getBacklog() {
