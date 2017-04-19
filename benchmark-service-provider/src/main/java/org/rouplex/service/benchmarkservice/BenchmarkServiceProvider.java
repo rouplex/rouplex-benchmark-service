@@ -4,7 +4,7 @@ import com.codahale.metrics.*;
 import com.codahale.metrics.Timer;
 import org.rouplex.platform.tcp.RouplexTcpBinder;
 import org.rouplex.platform.tcp.RouplexTcpClient;
-import org.rouplex.platform.tcp.RouplexTcpConnectorLifecycleListener;
+import org.rouplex.platform.tcp.RouplexTcpClientListener;
 import org.rouplex.platform.tcp.RouplexTcpServer;
 import org.rouplex.service.benchmarkservice.tcp.*;
 import org.rouplex.service.benchmarkservice.tcp.metric.SnapCounter;
@@ -48,11 +48,9 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
     final Random random = new Random();
     Map<String, Closeable> closeables = new HashMap<>();
 
-    final RouplexTcpConnectorLifecycleListener<RouplexTcpClient>
-            rouplexTcpClientLifecycleListener = new RouplexTcpConnectorLifecycleListener<RouplexTcpClient>() {
-
+    final RouplexTcpClientListener rouplexTcpClientListener = new RouplexTcpClientListener() {
         @Override
-        public void onCreated(RouplexTcpClient rouplexTcpClient) {
+        public void onConnected(RouplexTcpClient rouplexTcpClient) {
             try {
                 if (rouplexTcpClient.getRouplexTcpServer() == null) {
                     ((EchoRequester) rouplexTcpClient.getAttachment()).startSendingThenClose(rouplexTcpClient);
@@ -63,39 +61,41 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
             } catch (Exception e) {
                 benchmarkerMetrics.meter(MetricRegistry.name("EEE")).mark();
                 benchmarkerMetrics.meter(MetricRegistry.name("EEE", e.getMessage())).mark();
+
                 logger.warning(String.format("Failed handling clientConnected.onEvent(). Cause: %s: %s",
-                        e.getClass(), e.getMessage()));
+                        e.getClass().getSimpleName(), e.getMessage()));
             }
         }
 
         @Override
-        public void onDestroyed(RouplexTcpClient rouplexTcpClient, boolean drainedChannels) {
+        public void onConnectionFailed(RouplexTcpClient rouplexTcpClient, Exception reason) {
+            benchmarkerMetrics.meter(MetricRegistry.name("connection.failed")).mark();
+            benchmarkerMetrics.meter(MetricRegistry.name(
+                    "EEE", reason.getClass().getSimpleName(), reason.getMessage())).mark();
+
+            logger.warning(String.format("Failed connecting EchoRequester. Cause: %s: %s",
+                    reason.getClass().getSimpleName(), reason.getMessage()));
+        }
+
+        @Override
+        public void onDisconnected(
+                RouplexTcpClient rouplexTcpClient, Exception optionalReason, boolean drainedChannels) {
             try {
-                Meter meter;
+                EchoReporter echoReporter = rouplexTcpClient.getRouplexTcpServer() == null
+                        ? ((EchoRequester) rouplexTcpClient.getAttachment()).echoReporter
+                        : ((EchoResponder) rouplexTcpClient.getAttachment()).echoReporter;
 
-                if (rouplexTcpClient.getRouplexTcpServer() == null) {
-                    EchoReporter echoReporter = ((EchoRequester) rouplexTcpClient.getAttachment()).echoReporter;
-                    if (echoReporter == null) {
-                        meter = benchmarkerMetrics.meter(MetricRegistry.name("connection.failed"));
-                        logger.info("Failed connecting EchoRequester");
-                    } else {
-                        meter = drainedChannels ? echoReporter.disconnectedOk : echoReporter.disconnectedKo;
-                        echoReporter.liveConnections.mark(-1);
-                        logger.info(String.format("Disconnected [%s] EchoRequester", drainedChannels ? "drained" : "undrained"));
-                    }
-                } else {
-                    EchoReporter echoReporter = ((EchoResponder) rouplexTcpClient.getAttachment()).echoReporter;
-                    meter = drainedChannels ? echoReporter.disconnectedOk : echoReporter.disconnectedKo;
-                    echoReporter.liveConnections.mark(-1);
-                    logger.info(String.format("Disconnected [%s] EchoReporter", drainedChannels ? "drained" : "undrained"));
-                }
+                echoReporter.liveConnections.mark(-1);
+                (drainedChannels ? echoReporter.disconnectedOk : echoReporter.disconnectedKo).mark();
 
-                meter.mark();
+                logger.info(String.format("Disconnected %s. Drained: %s",
+                        rouplexTcpClient.getAttachment().getClass().getSimpleName(), drainedChannels));
             } catch (Exception e) {
                 benchmarkerMetrics.meter(MetricRegistry.name("EEE")).mark();
-                benchmarkerMetrics.meter(MetricRegistry.name("EEE", e.getMessage())).mark();
-                logger.warning(String.format("Failed handling clientClosed.onEvent(). Cause: %s: %s",
-                        e.getClass(), e.getMessage()));
+                benchmarkerMetrics.meter(MetricRegistry.name("EEE", e.getClass().getSimpleName(), e.getMessage())).mark();
+
+                logger.warning(String.format("Failed handling onDisconnected(). Cause: %s: %s",
+                        e.getClass().getSimpleName(), e.getMessage()));
             }
         }
     };
@@ -175,8 +175,8 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
             response.setPort(isa.getPort());
             return response;
         } catch (Exception e) {
-            logger.warning(String.format("Failed creating EchoServer at %s:%s. Cause: %s. %s",
-                    request.getHostname(), request.getPort(), e.getClass(), e.getMessage()));
+            logger.warning(String.format("Failed creating EchoServer at %s:%s. Cause: %s: %s",
+                    request.getHostname(), request.getPort(), e.getClass().getSimpleName(), e.getMessage()));
             throw e;
         }
     }
@@ -270,7 +270,7 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
         }
 
         RouplexTcpBinder rouplexTcpBinder = new RouplexTcpBinder(selector);
-        rouplexTcpBinder.setRouplexTcpClientLifecycleListener(rouplexTcpClientLifecycleListener);
+        rouplexTcpBinder.setRouplexTcpClientListener(rouplexTcpClientListener);
         return addCloseable(rouplexTcpBinder);
     }
 

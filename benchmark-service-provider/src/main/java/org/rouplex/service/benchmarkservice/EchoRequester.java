@@ -45,7 +45,7 @@ public class EchoRequester {
     long timeCreatedNano = System.nanoTime();
 
     EchoRequester(BenchmarkServiceProvider benchmarkServiceProvider,
-            StartTcpClientsRequest request, RouplexTcpBinder tcpBinder) {
+                  StartTcpClientsRequest request, RouplexTcpBinder tcpBinder) {
 
         this.benchmarkServiceProvider = benchmarkServiceProvider;
         this.request = request;
@@ -106,11 +106,7 @@ public class EchoRequester {
             @Override
             public void resume() {
                 pauseTimer.stop(); // this should be reporting the time paused
-                try {
-                    send();
-                } catch (Exception e) {
-                    echoReporter.sendFailures.mark();
-                }
+                send();
             }
         });
 
@@ -134,78 +130,83 @@ public class EchoRequester {
     }
 
     void keepSendingThenClose() {
-        try {
-            if (System.currentTimeMillis() >= closeTimestamp) {
-                synchronized (sendBuffers) {
-                    sendBuffers.add(ByteBuffer.allocate(0)); // send EOS
-                }
-                send();
-            } else {
-                int payloadSize = request.minPayloadSize + random.nextInt(request.maxPayloadSize - request.minPayloadSize);
-                synchronized (sendBuffers) {
-                    int remaining = maxSendBufferSize - currentSendBufferSize;
-                    int discarded = payloadSize - remaining;
-                    if (discarded > 0) {
-                        echoReporter.discardedSendBytes.mark(discarded);
-                        payloadSize = remaining;
-                    }
-
-                    if (payloadSize > 0) {
-                        ByteBuffer bb = ByteBuffer.allocate(payloadSize);
-                        serializeClientId(clientId, bb.array());
-                        sendBuffers.add(bb);
-                        currentSendBufferSize += payloadSize;
-                        echoReporter.sendBufferFilled.update(currentSendBufferSize);
-                    }
+        if (System.currentTimeMillis() >= closeTimestamp) {
+            synchronized (sendBuffers) {
+                sendBuffers.add(ByteBuffer.allocate(0)); // send EOS
+            }
+            send();
+        } else {
+            int payloadSize = request.minPayloadSize + random.nextInt(request.maxPayloadSize - request.minPayloadSize);
+            synchronized (sendBuffers) {
+                int remaining = maxSendBufferSize - currentSendBufferSize;
+                int discarded = payloadSize - remaining;
+                if (discarded > 0) {
+                    echoReporter.discardedSendBytes.mark(discarded);
+                    payloadSize = remaining;
                 }
 
                 if (payloadSize > 0) {
-                    send();
+                    ByteBuffer bb = ByteBuffer.allocate(payloadSize);
+                    serializeClientId(clientId, bb.array());
+                    sendBuffers.add(bb);
+                    currentSendBufferSize += payloadSize;
+                    echoReporter.sendBufferFilled.update(currentSendBufferSize);
                 }
-
-                long delay = request.getMinDelayMillisBetweenSends() +
-                        random.nextInt(request.getMaxDelayMillisBetweenSends() - request.getMinDelayMillisBetweenSends());
-
-                delay = Math.max(0, Math.min(delay, closeTimestamp - System.currentTimeMillis()));
-
-                benchmarkServiceProvider.scheduledExecutor.schedule(new Runnable() {
-                    @Override
-                    public void run() {
-                        keepSendingThenClose();
-                    }
-                }, delay, TimeUnit.MILLISECONDS);
             }
-        } catch (Exception e) {
-            echoReporter.sendFailures.mark();
+
+            if (payloadSize > 0 && !send()) {
+                return;
+            }
+
+            long delay = request.getMinDelayMillisBetweenSends() +
+                    random.nextInt(request.getMaxDelayMillisBetweenSends() - request.getMinDelayMillisBetweenSends());
+
+            delay = Math.max(0, Math.min(delay, closeTimestamp - System.currentTimeMillis()));
+
+            benchmarkServiceProvider.scheduledExecutor.schedule(new Runnable() {
+                @Override
+                public void run() {
+                    keepSendingThenClose();
+                }
+            }, delay, TimeUnit.MILLISECONDS);
         }
     }
 
-    private void send() throws Exception {
-        while (true) {
-            synchronized (sendBuffers) {
-                if (sendBuffers.isEmpty()) {
-                    break;
-                }
-                ByteBuffer sendBuffer = sendBuffers.get(0);
-
-                int position = sendBuffer.position();
-                sender.send(sendBuffer);
-                int payloadSize = sendBuffer.position() - position;
-
-                currentSendBufferSize -= payloadSize;
-                if (sendBuffer.hasRemaining()) {
-                    pauseTimer = echoReporter.sendPauseTime.time();
-                    break;
-                } else {
-                    if (sendBuffer.capacity() == 0) {
-                        echoReporter.sentEos.mark();
-                    } else {
-                        echoReporter.sentSizes.update(payloadSize);
-                        echoReporter.sentBytes.mark(payloadSize);
+    private boolean send() {
+        try {
+            while (true) {
+                synchronized (sendBuffers) {
+                    if (sendBuffers.isEmpty()) {
+                        break;
                     }
-                    sendBuffers.remove(0);
+                    ByteBuffer sendBuffer = sendBuffers.get(0);
+
+                    int position = sendBuffer.position();
+                    sender.send(sendBuffer);
+                    int payloadSize = sendBuffer.position() - position;
+
+                    currentSendBufferSize -= payloadSize;
+                    if (sendBuffer.hasRemaining()) {
+                        pauseTimer = echoReporter.sendPauseTime.time();
+                        break;
+                    } else {
+                        if (sendBuffer.capacity() == 0) {
+                            echoReporter.sentEos.mark();
+                        } else {
+                            echoReporter.sentSizes.update(payloadSize);
+                            echoReporter.sentBytes.mark(payloadSize);
+                        }
+                        sendBuffers.remove(0);
+                    }
                 }
             }
+
+            return true;
+        } catch (Exception e) {
+            benchmarkServiceProvider.benchmarkerMetrics.meter(MetricRegistry.name("EEE")).mark();
+            benchmarkServiceProvider.benchmarkerMetrics.meter(MetricRegistry.name("EEE", e.getMessage())).mark();
+            echoReporter.sendFailures.mark();
+            return false;
         }
     }
 

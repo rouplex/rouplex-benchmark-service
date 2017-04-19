@@ -1,5 +1,6 @@
 package org.rouplex.service;
 
+import org.rouplex.nio.channels.spi.SSLSelectorProvider;
 import org.rouplex.platform.jersey.RouplexJerseyApplication;
 import org.rouplex.service.benchmarkservice.BenchmarkServiceResource;
 
@@ -18,8 +19,21 @@ public class BenchmarkServiceApplication extends RouplexJerseyApplication implem
 
     public BenchmarkServiceApplication(@Context ServletContext servletContext) {
         super(servletContext);
+//        SSLSelectorProvider.provider();
+//
+//        try {
+//            Class<?> clazz = ClassLoader.getSystemClassLoader().loadClass("org.rouplex.nio.channels.spi.SSLSelectorProvider");
+//            SSLSelectorProvider sslSelectorProvider = (SSLSelectorProvider) clazz.newInstance();
+//            SSLSelectorProvider sslSelectorProvider1 = sslSelectorProvider;
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//        }
 
         bindRouplexResource(BenchmarkServiceResource.class, true);
+//        getSwaggerBeanConfig().setPrettyPrint(true);
+
+        getSwaggerBeanConfig().setDescription(
+                "jconsole service:jmx:rmi://www.rouplex-demo.com:1705/jndi/rmi://www.rouplex-demo.com:1706/jmxrmi");
     }
 
     @Override
