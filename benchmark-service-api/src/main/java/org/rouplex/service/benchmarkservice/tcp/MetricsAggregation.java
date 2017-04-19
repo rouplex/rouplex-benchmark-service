@@ -5,10 +5,10 @@ package org.rouplex.service.benchmarkservice.tcp;
  */
 public class MetricsAggregation {
     boolean aggregateSslWithPlain;
-    boolean aggregateServerAddresses;
-    boolean aggregateServerPorts;
-    boolean aggregateClientAddresses;
-    boolean aggregateClientPorts;
+    boolean aggregateServerAddresses = true;
+    boolean aggregateServerPorts = true;
+    boolean aggregateClientAddresses = true;
+    boolean aggregateClientPorts = true;
 
     public boolean isAggregateServerAddresses() {
         return aggregateServerAddresses;
