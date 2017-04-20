@@ -1,6 +1,13 @@
 package org.rouplex.service;
 
-import org.rouplex.nio.channels.spi.SSLSelectorProvider;
+import com.amazonaws.auth.AWSCredentials;
+import com.amazonaws.auth.AWSCredentialsProvider;
+import com.amazonaws.auth.BasicAWSCredentials;
+import com.amazonaws.regions.Regions;
+import com.amazonaws.services.ec2.AmazonEC2;
+import com.amazonaws.services.ec2.AmazonEC2Client;
+import com.amazonaws.services.ec2.model.DescribeInstancesRequest;
+import com.amazonaws.util.EC2MetadataUtils;
 import org.rouplex.platform.jersey.RouplexJerseyApplication;
 import org.rouplex.service.benchmarkservice.BenchmarkServiceResource;
 
@@ -8,6 +15,7 @@ import javax.servlet.ServletContext;
 import javax.ws.rs.ApplicationPath;
 import javax.ws.rs.core.Context;
 import java.io.Closeable;
+import java.util.logging.Logger;
 
 /**
  * This is the webapp, or the main jersey {@link javax.ws.rs.core.Application} which binds all the jersey resources.
@@ -16,24 +24,34 @@ import java.io.Closeable;
  */
 @ApplicationPath("/rouplex")
 public class BenchmarkServiceApplication extends RouplexJerseyApplication implements Closeable { // todo ApplicationEventListener
+    private static Logger logger = Logger.getLogger(BenchmarkServiceApplication.class.getSimpleName());
 
     public BenchmarkServiceApplication(@Context ServletContext servletContext) {
         super(servletContext);
-//        SSLSelectorProvider.provider();
-//
-//        try {
-//            Class<?> clazz = ClassLoader.getSystemClassLoader().loadClass("org.rouplex.nio.channels.spi.SSLSelectorProvider");
-//            SSLSelectorProvider sslSelectorProvider = (SSLSelectorProvider) clazz.newInstance();
-//            SSLSelectorProvider sslSelectorProvider1 = sslSelectorProvider;
-//        } catch (Exception e) {
-//            e.printStackTrace();
-//        }
 
         bindRouplexResource(BenchmarkServiceResource.class, true);
-//        getSwaggerBeanConfig().setPrettyPrint(true);
 
-        getSwaggerBeanConfig().setDescription(
-                "jconsole service:jmx:rmi://www.rouplex-demo.com:1705/jndi/rmi://www.rouplex-demo.com:1706/jmxrmi");
+        try {
+            String instanceId = EC2MetadataUtils.getInstanceId();
+            String region = EC2MetadataUtils.getEC2InstanceRegion();
+
+            String publicIp = AmazonEC2Client.builder()
+                    .withRegion(region)
+                    .build()
+                    .describeInstances(new DescribeInstancesRequest().withInstanceIds(instanceId))
+                    .getReservations().iterator().next()
+                    .getInstances().iterator().next()
+                    .getPublicIpAddress();
+
+            getSwaggerBeanConfig().setDescription(String.format(
+                    "jconsole service:jmx:rmi://%s:1705/jndi/rmi://%s:1706/jmxrmi", publicIp, publicIp));
+        } catch (Throwable t) {
+            String errorMessage = String.format("Could not locate the public ip address. Cause: %s: %s",
+                    t.getClass().getSimpleName(), t.getMessage());
+
+            logger.severe(errorMessage);
+            getSwaggerBeanConfig().setDescription(errorMessage);
+        }
     }
 
     @Override
@@ -46,24 +64,4 @@ public class BenchmarkServiceApplication extends RouplexJerseyApplication implem
 //            }
 //        }
     }
-
-// todo check app lifecycle
-//    @Override
-//    public void onEvent(ApplicationEvent event) {
-//        switch (event.getType()) {
-//            case INITIALIZATION_FINISHED:
-//                System.out.println("Application "
-//                        + event.getResourceConfig().getApplicationName()
-//                        + " was initialized.");
-//                break;
-//            case DESTROY_FINISHED:
-//                close();
-//                break;
-//        }
-//    }
-//
-//    @Override
-//    public RequestEventListener onRequest(RequestEvent requestEvent) {
-//        return null;
-//    }
 }

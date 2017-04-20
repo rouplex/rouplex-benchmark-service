@@ -1,6 +1,6 @@
 #!/bin/bash
 GIT_BRANCH=master
-# GIT_BRANCH=feature/deployment-scripts // for branches
+# GIT_BRANCH=feature/deployment-scripts // if you want to deploy a particular branch
 wget "https://raw.githubusercontent.com/rouplex/rouplex-benchmark-service/$GIT_BRANCH/benchmark-service-provider-jersey/config/ec2-benchmark-scripts/setup.sh" -O setup.sh
 chmod 700 setup.sh
 ./setup.sh $GIT_BRANCH localhost
