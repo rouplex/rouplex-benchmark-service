@@ -27,6 +27,31 @@
         </profile>
     </profiles>
 
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.tomcat.maven</groupId>
+                <artifactId>tomcat7-maven-plugin</artifactId>
+                <version>2.1</version>
+                <executions>
+                    <execution>
+                        <id>run-tomcat</id>
+                        <goals>
+                            <goal>exec-war-only</goal>
+                        </goals>
+                        <phase>package</phase>
+                        <configuration>
+                            <path>/</path>
+                            <!--main url: http://localhost:8080/webjars/swagger-ui/2.2.5/index.html?url=http://localhost:8080/rouplex/swagger.json#/benchmark-->
+                            <enableNaming>false</enableNaming>
+                            <finalName>rouplex-benchmark.jar</finalName>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
     <dependencies>
         <dependency>
             <groupId>org.rouplex</groupId>
