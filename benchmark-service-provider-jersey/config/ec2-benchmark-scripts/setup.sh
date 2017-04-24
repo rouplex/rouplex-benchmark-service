@@ -112,6 +112,21 @@ setup_jmx() {
   download_combined "" server.xml $TOMCAT8/conf/server.xml
 }
 
+setup_socket_limits() {
+    echo "=========== Rouplex ============= Allowing more open file descriptors, tcp sockets, tcp memory"
+
+    echo "* hard nofile 1000000" | sudo tee -a /etc/security/limits.conf
+    echo "* hard nofile 1000000" | sudo tee -a /etc/security/limits.conf
+
+    echo "" | sudo tee -a /etc/sysctl.conf
+    echo "# Allow use of almost 64000 ports from 1024 to 64000" | sudo tee -a /etc/sysctl.conf
+    echo "net.ipv4.ip_local_port_range = 1024 65000" | sudo tee -a /etc/sysctl.conf
+
+    echo "" | sudo tee -a /etc/sysctl.conf
+    echo "# Setup bigger tcp memory" | sudo tee -a /etc/sysctl.conf
+    echo "net.ipv4.tcp_mem = 383865 511820 2303190" | sudo tee -a /etc/sysctl.conf
+}
+
 setup_initd() {
   download_combined "sudo" initd.tomcat /etc/init.d/tomcat
   sudo chmod 700 /etc/init.d/tomcat
@@ -133,4 +148,5 @@ setup_keystore
 setup_manager
 setup_jmx
 setup_initd
+setup_socket_limits
 start_tomcat
