@@ -116,7 +116,7 @@ setup_socket_limits() {
     echo "=========== Rouplex ============= Allowing more open file descriptors, tcp sockets, tcp memory"
 
     echo "* hard nofile 1000000" | sudo tee -a /etc/security/limits.conf
-    echo "* hard nofile 1000000" | sudo tee -a /etc/security/limits.conf
+    echo "* soft nofile 1000000" | sudo tee -a /etc/security/limits.conf
 
     echo "" | sudo tee -a /etc/sysctl.conf
     echo "# Allow use of almost 64000 ports from 1024 to 64000" | sudo tee -a /etc/sysctl.conf
