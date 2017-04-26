@@ -15,4 +15,4 @@ download_setup() {
 }
 
 download_setup master
-sudo -H -u ec2-user bash -c rouplex-deploy-benchmark/src/main/shell/common/ec2-setup.sh default
+sudo -H -u ec2-user bash -c "rouplex-deploy-benchmark/src/main/shell/common/ec2-setup.sh default"
