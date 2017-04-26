@@ -80,8 +80,9 @@ public class EchoRequester {
 
             benchmarkServiceProvider.benchmarkerMetrics.meter(MetricRegistry.name("connection.started")).mark();
         } catch (Exception e) {
-            benchmarkServiceProvider.benchmarkerMetrics.meter(MetricRegistry.name("EEE")).mark();
-            benchmarkServiceProvider.benchmarkerMetrics.meter(MetricRegistry.name("EEE", e.getMessage())).mark();
+            benchmarkServiceProvider.benchmarkerMetrics.meter(MetricRegistry.name("connection.start.failed")).mark();
+            benchmarkServiceProvider.benchmarkerMetrics.meter(
+                    MetricRegistry.name("connection.start.failed.EEE", e.getMessage())).mark();
             logger.info("Failed creating EchoRequester");
             throw new RuntimeException(e);
         }
@@ -203,8 +204,8 @@ public class EchoRequester {
 
             return true;
         } catch (Exception e) {
-            benchmarkServiceProvider.benchmarkerMetrics.meter(MetricRegistry.name("BenchmarkInternalError")).mark();
-            benchmarkServiceProvider.benchmarkerMetrics.meter( MetricRegistry.name("BenchmarkInternalError.EEE",
+            benchmarkServiceProvider.benchmarkerMetrics.meter(MetricRegistry.name("BenchmarkInternalError.send")).mark();
+            benchmarkServiceProvider.benchmarkerMetrics.meter( MetricRegistry.name("BenchmarkInternalError.send.EEE",
                     e.getClass().getSimpleName(), e.getMessage())).mark();
 
             echoReporter.sendFailures.mark();

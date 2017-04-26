@@ -59,9 +59,10 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
                             BenchmarkServiceProvider.this, rouplexTcpClient);
                 }
             } catch (Exception e) {
-                benchmarkServiceProvider.benchmarkerMetrics.meter(MetricRegistry.name("BenchmarkInternalError")).mark();
-                benchmarkServiceProvider.benchmarkerMetrics.meter(MetricRegistry.name("BenchmarkInternalError.EEE",
-                        e.getClass().getSimpleName(), e.getMessage())).mark();
+                benchmarkServiceProvider.benchmarkerMetrics.meter(MetricRegistry.name(
+                        "BenchmarkInternalError.onConnected")).mark();
+                benchmarkServiceProvider.benchmarkerMetrics.meter(MetricRegistry.name(
+                        "BenchmarkInternalError.onConnected.EEE", e.getClass().getSimpleName(), e.getMessage())).mark();
 
                 logger.warning(String.format("Failed handling onConnected(). Cause: %s: %s",
                         e.getClass().getSimpleName(), e.getMessage()));
@@ -78,9 +79,10 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
                 logger.warning(String.format("Failed connecting EchoRequester. Cause: %s: %s",
                         reason.getClass().getSimpleName(), reason.getMessage()));
             } catch (Exception e) {
-                benchmarkServiceProvider.benchmarkerMetrics.meter(MetricRegistry.name("BenchmarkInternalError")).mark();
-                benchmarkServiceProvider.benchmarkerMetrics.meter(MetricRegistry.name("BenchmarkInternalError.EEE",
-                        e.getClass().getSimpleName(), e.getMessage())).mark();
+                benchmarkServiceProvider.benchmarkerMetrics.meter(MetricRegistry.name(
+                        "BenchmarkInternalError.onConnectionFailed")).mark();
+                benchmarkServiceProvider.benchmarkerMetrics.meter(MetricRegistry.name(
+                        "BenchmarkInternalError.onConnectionFailed.EEE", e.getClass().getSimpleName(), e.getMessage())).mark();
 
                 logger.warning(String.format("Failed handling onConnectionFailed(). Cause: %s: %s",
                         e.getClass().getSimpleName(), e.getMessage()));
@@ -101,9 +103,10 @@ public class BenchmarkServiceProvider implements BenchmarkService, Closeable {
                 logger.info(String.format("Disconnected %s. Drained: %s",
                         rouplexTcpClient.getAttachment().getClass().getSimpleName(), drainedChannels));
             } catch (Exception e) {
-                benchmarkServiceProvider.benchmarkerMetrics.meter(MetricRegistry.name("BenchmarkInternalError")).mark();
-                benchmarkServiceProvider.benchmarkerMetrics.meter(MetricRegistry.name("BenchmarkInternalError.EEE",
-                        e.getClass().getSimpleName(), e.getMessage())).mark();
+                benchmarkServiceProvider.benchmarkerMetrics.meter(MetricRegistry.name(
+                        "BenchmarkInternalError.onDisconnected")).mark();
+                benchmarkServiceProvider.benchmarkerMetrics.meter(MetricRegistry.name(
+                        "BenchmarkInternalError.onDisconnected.EEE", e.getClass().getSimpleName(), e.getMessage())).mark();
 
                 logger.warning(String.format("Failed handling onDisconnected(). Cause: %s: %s",
                         e.getClass().getSimpleName(), e.getMessage()));
