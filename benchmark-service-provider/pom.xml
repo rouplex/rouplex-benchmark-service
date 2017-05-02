@@ -105,7 +105,7 @@
                         <exclude>
                             <!-- Exclude all unless depending on rouplex-niossl-spi (rather than rouplex-niossl) -->
                             <!-- Plugin is not allowing excluding all packages by prefix (org.rouplex.*) -->
-                            org.rouplex.service.benchmark.*,
+                            org.rouplex.service.benchmark.worker.*,
                             org.rouplex.nio.channels.*
                         </exclude>
                     </excludes>
