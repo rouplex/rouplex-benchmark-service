@@ -131,7 +131,7 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
         Entity<StartTcpServerRequest> startTcpServerEntity = Entity.entity(startTcpServerRequest, MediaType.APPLICATION_JSON);
         StartTcpServerResponse startTcpServerResponse = jaxrsClient.target(String.format(
             "https://%s:8088/benchmark-service-provider-jersey-1.0-SNAPSHOT/rouplex", serverInstance.getPublicIpAddress()))
-            .path("/benchmark/tcp/server/start")
+            .path("/benchmark/worker/tcp/server/start")
             .request(MediaType.APPLICATION_JSON)
             .post(startTcpServerEntity, StartTcpServerResponse.class);
 
@@ -156,11 +156,15 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
         startTcpClientsRequest.setSocketSendBufferSize(request.getOptionalSocketSendBufferSize());
         startTcpClientsRequest.setMetricsAggregation(request.getMetricsAggregation());
 
+        List<String> clientIpAddresses = new ArrayList<String>();
         Entity<StartTcpClientsRequest> startTcpClientsEntity = Entity.entity(startTcpClientsRequest, MediaType.APPLICATION_JSON);
+
         for (Instance clientInstance : clientInstances) {
+            clientIpAddresses.add(clientInstance.getPublicIpAddress());
+
             jaxrsClient.target(String.format(
                 "https://%s:8088/benchmark-service-provider-jersey-1.0-SNAPSHOT/rouplex", clientInstance.getPublicIpAddress()))
-                .path("/benchmark/tcp/clients/start")
+                .path("/benchmark/worker/tcp/clients/start")
                 .request(MediaType.APPLICATION_JSON)
                 .post(startTcpClientsEntity);
         }
@@ -169,20 +173,20 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
         StartDistributedTcpBenchmarkResponse response = new StartDistributedTcpBenchmarkResponse();
         response.setBenchmarkRequestId(request.getOptionalBenchmarkRequestId());
         response.setImageId(serverInstance.getImageId());
-        response.setServerHostType(HostType.fromValue(serverEC2InstanceType.toString()));
-        response.setServerGeoLocation(GeoLocation.fromName(serverEC2Region.toString()));
+        response.setServerHostType(HostType.fromString(serverEC2InstanceType.toString()));
+        response.setServerGeoLocation(GeoLocation.fromString(serverEC2Region.getName()));
         response.setServerIpAddress(serverInstance.getPublicIpAddress());
 
-        response.setClientsHostType(HostType.fromValue(clientsEC2InstanceType.toString()));
-        response.setClientsGeoLocation(GeoLocation.fromName(clientsEC2Region.toString()));
+        response.setClientsHostType(HostType.fromString(clientsEC2InstanceType.toString()));
+        response.setClientsGeoLocation(GeoLocation.fromString(clientsEC2Region.getName()));
 
         StringBuilder jconsoleJmxLink = new StringBuilder("jconsole");
         for (Instance instance : relatedInstances) {
-            jconsoleJmxLink.append(' ').append(String.format(
-                    "jconsole service:jmx:rmi://%s:1705/jndi/rmi://%s:1706/jmxrmi",
-                        instance.getPublicIpAddress(), instance.getPublicIpAddress()));
+            jconsoleJmxLink.append(String.format(" service:jmx:rmi://%s:1705/jndi/rmi://%s:1706/jmxrmi",
+                instance.getPublicIpAddress(), instance.getPublicIpAddress()));
         }
 
+        response.setClientIpAddresses(clientIpAddresses);
         response.setJconsoleJmxLink(jconsoleJmxLink.toString());
         return response;
     }
@@ -252,7 +256,7 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
                                 jaxrsClient.target(String.format(
                                         "https://%s:8088/benchmark-service-provider-jersey-1.0-SNAPSHOT/rouplex",
                                         instanceEntry.getKey().getPublicIpAddress()))
-                                        .path("/benchmark/service/configure")
+                                        .path("/benchmark/management/service/configuration")
                                         .property(JERSEY_CLIENT_CONNECT_TIMEOUT, 2)
                                         .property(JERSEY_CLIENT_READ_TIMEOUT, 10)
                                         .request(MediaType.APPLICATION_JSON)
@@ -377,7 +381,7 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
             Entity<GetServiceStateRequest> requestEntity = Entity.entity(new GetServiceStateRequest(), MediaType.APPLICATION_JSON);
             WebTarget benchmarkWebTarget = jaxrsClient.target(String.format(
                     "https://%s:8088/benchmark-service-provider-jersey-1.0-SNAPSHOT/rouplex", instance.getPublicIpAddress()))
-                    .path("/benchmark/service/state")
+                    .path("/benchmark/management/service/state")
                     .property(JERSEY_CLIENT_CONNECT_TIMEOUT, 2000)
                     .property(JERSEY_CLIENT_READ_TIMEOUT, 10000);
 

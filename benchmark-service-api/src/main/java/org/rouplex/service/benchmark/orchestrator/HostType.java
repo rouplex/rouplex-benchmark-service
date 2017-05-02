@@ -1,28 +1,31 @@
 package org.rouplex.service.benchmark.orchestrator;
 
+import java.util.HashMap;
+import java.util.Map;
+
 public enum HostType {
-//    T1Micro("t1.micro"), // not available anymore
-    EC2_T2Nano("t2.nano"),
-    EC2_T2Micro("t2.micro"),
-    EC2_T2Small("t2.small"),
-    EC2_T2Medium("t2.medium"),
-    EC2_T2Large("t2.large"),
-    EC2_T2Xlarge("t2.xlarge"),
-    EC2_T22xlarge("t2.2xlarge"),
-    EC2_M1Small("m1.small"),
-    EC2_M1Medium("m1.medium"),
-    EC2_M1Large("m1.large"),
-    EC2_M1Xlarge("m1.xlarge"),
-    EC2_M3Medium("m3.medium"),
-    EC2_M3Large("m3.large"),
-    EC2_M3Xlarge("m3.xlarge"),
-    EC2_M32xlarge("m3.2xlarge"),
-    EC2_M4Large("m4.large"),
-    EC2_M4Xlarge("m4.xlarge"),
-    EC2_M42xlarge("m4.2xlarge"),
-    EC2_M44xlarge("m4.4xlarge"),
-    EC2_M410xlarge("m4.10xlarge"),
-    EC2_M416xlarge("m4.16xlarge");
+    //    T1Micro("t1.micro"), // not available anymore
+    EC2_T2Nano,
+    EC2_T2Micro,
+    EC2_T2Small,
+    EC2_T2Medium,
+    EC2_T2Large,
+    EC2_T2Xlarge,
+    EC2_T22xlarge,
+    EC2_M1Small,
+    EC2_M1Medium,
+    EC2_M1Large,
+    EC2_M1Xlarge,
+    EC2_M3Medium,
+    EC2_M3Large,
+    EC2_M3Xlarge,
+    EC2_M32xlarge,
+    EC2_M4Large,
+    EC2_M4Xlarge,
+    EC2_M42xlarge,
+    EC2_M44xlarge,
+    EC2_M410xlarge,
+    EC2_M416xlarge;
 
 //    removing these temporary till we have authentication/authorization in place
 //    M2Xlarge("m2.xlarge"),
@@ -81,32 +84,47 @@ public enum HostType {
 //    F12xlarge("f1.2xlarge"),
 //    F116xlarge("f1.16xlarge");
 
-    private String value;
+    static final Map<HostType, String> enumToString = new HashMap<HostType, String>() {{
+        put(EC2_T2Nano, "t2.nano");
+        put(EC2_T2Micro, "t2.micro");
+        put(EC2_T2Small, "t2.small");
+        put(EC2_T2Medium, "t2.medium");
+        put(EC2_T2Large, "t2.large");
+        put(EC2_T2Xlarge, "t2.xlarge");
+        put(EC2_T22xlarge, "t2.2xlarge");
+        put(EC2_M1Small, "m1.small");
+        put(EC2_M1Medium, "m1.medium");
+        put(EC2_M1Large, "m1.large");
+        put(EC2_M1Xlarge, "m1.xlarge");
+        put(EC2_M3Medium, "m3.medium");
+        put(EC2_M3Large, "m3.large");
+        put(EC2_M3Xlarge, "m3.xlarge");
+        put(EC2_M32xlarge, "m3.2xlarge");
+        put(EC2_M4Large, "m4.large");
+        put(EC2_M4Xlarge, "m4.xlarge");
+        put(EC2_M42xlarge, "m4.2xlarge");
+        put(EC2_M44xlarge, "m4.4xlarge");
+        put(EC2_M410xlarge, "m4.10xlarge");
+        put(EC2_M416xlarge, "m4.16xlarge");
+    }};
 
-    HostType(String value) {
-        this.value = value;
+    static final Map<String, HostType> stringToEnum = new HashMap<String, HostType>() {{
+        for (Map.Entry<HostType, String> entry : enumToString.entrySet()) {
+            put(entry.getValue(), entry.getKey());
+        }
+    }};
+
+    public static HostType fromString(String string) {
+        HostType hostType = stringToEnum.get(string);
+        if (hostType != null) {
+            return hostType;
+        }
+
+        throw new IllegalArgumentException("Cannot create enum from " + string + " value!");
     }
 
     @Override
     public String toString() {
-        return value;
-    }
-
-    public static HostType fromValue(String value) {
-        if (value != null && !"" .equals(value)) {
-            HostType[] var1 = values();
-            int var2 = var1.length;
-
-            for (int var3 = 0; var3 < var2; ++var3) {
-                HostType enumEntry = var1[var3];
-                if (enumEntry.toString().equals(value)) {
-                    return enumEntry;
-                }
-            }
-
-            throw new IllegalArgumentException("Cannot create enum from " + value + " value!");
-        } else {
-            throw new IllegalArgumentException("Value cannot be null or empty!");
-        }
+        return enumToString.get(this);
     }
 }
