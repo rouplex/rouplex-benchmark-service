@@ -105,7 +105,7 @@
                         <exclude>
                             <!-- Exclude all unless depending on rouplex-niossl-spi (rather than rouplex-niossl) -->
                             <!-- Plugin is not allowing excluding all packages by prefix (org.rouplex.*) -->
-                            org.rouplex.service.benchmarkservice.*,
+                            org.rouplex.service.benchmark.worker.*,
                             org.rouplex.nio.channels.*
                         </exclude>
                     </excludes>
@@ -189,7 +189,7 @@
             <version>3.1.0</version>
         </dependency>
 
-        <!-- Use Gson for serializations of metric constructs -->
+        <!-- Use Gson for serializations of metrics constructs -->
         <dependency>
             <groupId>com.google.code.gson</groupId>
             <artifactId>gson</artifactId>
@@ -201,6 +201,12 @@
             <groupId>org.rouplex</groupId>
             <artifactId>rouplex-platform-tcp</artifactId>
             <version>1.0-SNAPSHOT</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.fasterxml.jackson.jaxrs</groupId>
+            <artifactId>jackson-jaxrs-json-provider</artifactId>
+            <version>2.6.6</version>
         </dependency>
 
         <!-- https://mvnrepository.com/artifact/com.amazonaws/aws-java-sdk-ec2 -->
