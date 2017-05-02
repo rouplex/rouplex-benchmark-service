@@ -6,11 +6,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.rouplex.platform.tcp.RouplexTcpClient;
-import org.rouplex.service.benchmarkservice.BenchmarkService;
-import org.rouplex.service.benchmarkservice.BenchmarkServiceProvider;
-import org.rouplex.service.benchmarkservice.tcp.Provider;
-import org.rouplex.service.benchmarkservice.tcp.StartTcpServerRequest;
-import org.rouplex.service.benchmarkservice.tcp.StartTcpServerResponse;
+import org.rouplex.service.benchmark.worker.*;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -46,7 +42,7 @@ public class ChannelShutdownParityTest {
 
     @Before
     public void startServer() throws Exception {
-        BenchmarkService bmService = BenchmarkServiceProvider.get();
+        BenchmarkWorkerService bmService = BenchmarkWorkerServiceProvider.get();
 
         StartTcpServerRequest startTcpServerRequest = new StartTcpServerRequest();
         startTcpServerRequest.setProvider(Provider.ROUPLEX_NIOSSL);

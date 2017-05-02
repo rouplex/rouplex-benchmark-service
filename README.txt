@@ -24,7 +24,7 @@ We use semantic versioning, in its representation x.y.z, x stands for API update
 1. An application container is required to run the service. You can download tomcat if none is available on your host.
 `wget http://archive.apache.org/dist/tomcat/tomcat-8/v8.5.12/bin/apache-tomcat-8.5.12.tar.gz; tar -xvf apache-tomcat-8.5.12.tar.gz`
 1. A server key and certificate is required to run the test servers. You can create your own or you can copy the keystore at rouplex-benchmark-service/benchmark-service-provider/src/test/resources/server-keystore somewhere on your host. Let say you copied it on $TOMCAT_HOME/conf/server-keystore. The keystore password is "kotplot" without the quotes.
-1. The test servers must be configured to find the location of the keystore. That can be done by editing (or creating) $TOMCAT_HOME/bin/setenv.sh file to add the line containing the system properties used by JVM for this purpose `export JAVA_OPTS="-Djavax.net.ssl.keyStore=$TOMCAT_HOME/conf/server-keystore -Djavax.net.ssl.keyStorePassword=kotplot"`
+1. The test servers must be configured to find the geoLocation of the keystore. That can be done by editing (or creating) $TOMCAT_HOME/bin/setenv.sh file to add the line containing the system properties used by JVM for this purpose `export JAVA_OPTS="-Djavax.net.ssl.keyStore=$TOMCAT_HOME/conf/server-keystore -Djavax.net.ssl.keyStorePassword=kotplot"`
 1. The application container must be started ($TOMCAT_HOME/catalina.sh start is one way of doing it) for a dynamic deployment (or one can opt for a static deployment, equivalent, but out of the scope of this guide)
 1. You must now deploy the benchmark service to the application container. Point your browser at `http://domain.com:8080/manager/html` and you should see the tomcat manager page.
   * If you get permission denied, it is because your manager by default is configured to allow only local connections. You can override that behaviour by editting manager's config `vi $TOMCAT_HOME/webapps/manager/META-INF/context.xml` and lifting the restriction by commenting out the valve, or restrict to your public ip address (not shown).
@@ -51,8 +51,8 @@ We use semantic versioning, in its representation x.y.z, x stands for API update
   "port": 8888,
   "ssl": true,
   "useSharedBinder": false,
-  "socketSendBufferSize": 0,
-  "socketReceiveBufferSize": 0,
+  "optionalSocketSendBufferSize": 0,
+  "optionalSocketReceiveBufferSize": 0,
   "metricsAggregation": {
     "aggregateSslWithPlain": false,
     "aggregateServerAddresses": true,
@@ -60,7 +60,7 @@ We use semantic versioning, in its representation x.y.z, x stands for API update
     "aggregateClientAddresses": true,
     "aggregateClientPorts": true
   },
-  "backlog": 1000
+  "optionalBacklog": 1000
 }
 ```
 The result will show the effective ip address (xx.xx.xx.xx), hostname, and port (pppp)
@@ -73,8 +73,8 @@ The result will show the effective ip address (xx.xx.xx.xx), hostname, and port 
   "port": pppp,
   "ssl": true,
   "useSharedBinder": false,
-  "socketSendBufferSize": 0,
-  "socketReceiveBufferSize": 0,
+  "optionalSocketSendBufferSize": 0,
+  "optionalSocketReceiveBufferSize": 0,
   "metricsAggregation": {
     "aggregateSslWithPlain": false,
     "aggregateServerAddresses": true,
