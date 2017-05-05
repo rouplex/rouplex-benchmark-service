@@ -17,7 +17,6 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
-import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -25,9 +24,11 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
 
+/**
+ * @author Andi Mullaraj (andimullaraj at gmail.com)
+ */
 public class BenchmarkWorkerServiceProvider implements BenchmarkWorkerService, Closeable {
     private static final Logger logger = Logger.getLogger(BenchmarkWorkerServiceProvider.class.getSimpleName());
-    private static final SimpleDateFormat UTC_DATE_FORMAT = new SimpleDateFormat("YYYY-MM-DD'T'hh:mm:ssZ");
 
     private static BenchmarkWorkerService benchmarkWorkerService;
     public static BenchmarkWorkerService get() throws Exception {
@@ -46,7 +47,7 @@ public class BenchmarkWorkerServiceProvider implements BenchmarkWorkerService, C
     final MetricsUtil metricsUtil = new MetricsUtil(TimeUnit.SECONDS);
     final AtomicInteger incrementalId = new AtomicInteger();
     final Random random = new Random();
-    Map<String, Closeable> closeables = new HashMap<>();
+    Map<String, Closeable> closeables = new HashMap<String, Closeable>();
 
     final RouplexTcpClientListener rouplexTcpClientListener = new RouplexTcpClientListener() {
         @Override
@@ -242,22 +243,22 @@ public class BenchmarkWorkerServiceProvider implements BenchmarkWorkerService, C
 
     @Override
     public GetMetricsResponse getMetricsResponse(GetMetricsRequest request) throws Exception {
-        SortedMap<String, SnapCounter> counters = new TreeMap<>();
+        SortedMap<String, SnapCounter> counters = new TreeMap<String, SnapCounter>();
         for (Map.Entry<String, Counter> entry : benchmarkerMetrics.getCounters().entrySet()) {
             counters.put(entry.getKey(), metricsUtil.snapCounter(entry.getValue()));
         }
 
-        SortedMap<String, SnapMeter> meters = new TreeMap<>();
+        SortedMap<String, SnapMeter> meters = new TreeMap<String, SnapMeter>();
         for (Map.Entry<String, Meter> entry : benchmarkerMetrics.getMeters().entrySet()) {
             meters.put(entry.getKey(), metricsUtil.snapMeter(entry.getValue()));
         }
 
-        SortedMap<String, SnapHistogram> histograms = new TreeMap<>();
+        SortedMap<String, SnapHistogram> histograms = new TreeMap<String, SnapHistogram>();
         for (Map.Entry<String, Histogram> entry : benchmarkerMetrics.getHistograms().entrySet()) {
             histograms.put(entry.getKey(), metricsUtil.snapHistogram(entry.getValue()));
         }
 
-        SortedMap<String, SnapTimer> timers = new TreeMap<>();
+        SortedMap<String, SnapTimer> timers = new TreeMap<String, SnapTimer>();
         for (Map.Entry<String, Timer> entry : benchmarkerMetrics.getTimers().entrySet()) {
             timers.put(entry.getKey(), metricsUtil.snapTimer(entry.getValue()));
         }

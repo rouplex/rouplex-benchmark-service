@@ -20,7 +20,6 @@ import java.util.logging.Logger;
 /**
  * @author Andi Mullaraj (andimullaraj at gmail.com)
  */
-
 public class EchoRequester {
     private static final Logger logger = Logger.getLogger(EchoRequester.class.getSimpleName());
     final BenchmarkWorkerServiceProvider benchmarkServiceProvider;
@@ -30,7 +29,7 @@ public class EchoRequester {
     long closeTimestamp;
 
     Sender<ByteBuffer> sender;
-    final List<ByteBuffer> sendBuffers = new ArrayList<>();
+    final List<ByteBuffer> sendBuffers = new ArrayList<ByteBuffer>();
 
     Throttle receiveThrottle;
 
@@ -203,11 +202,10 @@ public class EchoRequester {
 
             return true;
         } catch (Exception e) {
-            benchmarkServiceProvider.benchmarkerMetrics.meter(MetricRegistry.name("BenchmarkInternalError.send")).mark();
-            benchmarkServiceProvider.benchmarkerMetrics.meter( MetricRegistry.name("BenchmarkInternalError.send.EEE",
-                    e.getClass().getSimpleName(), e.getMessage())).mark();
-
             echoReporter.sendFailures.mark();
+            benchmarkServiceProvider.benchmarkerMetrics.meter(MetricRegistry.name(echoReporter.getAggregatedId(),
+                    "sendFailures", "EEE", e.getClass().getSimpleName(), e.getMessage())).mark();
+
             return false;
         }
     }
