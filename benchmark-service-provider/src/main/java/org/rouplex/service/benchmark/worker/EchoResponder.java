@@ -13,7 +13,6 @@ import java.util.logging.Logger;
 /**
  * @author Andi Mullaraj (andimullaraj at gmail.com)
  */
-
 public class EchoResponder {
     private static final Logger logger = Logger.getLogger(EchoResponder.class.getSimpleName());
     final Sender<ByteBuffer> sender;

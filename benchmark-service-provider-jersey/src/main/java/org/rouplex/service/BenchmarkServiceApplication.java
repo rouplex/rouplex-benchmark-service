@@ -14,7 +14,11 @@ import org.rouplex.service.benchmark.worker.BenchmarkWorkerServiceProvider;
 import javax.servlet.ServletContext;
 import javax.ws.rs.ApplicationPath;
 import javax.ws.rs.core.Context;
+import javax.ws.rs.core.Response;
+import javax.ws.rs.ext.ExceptionMapper;
+import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
+import java.io.PrintStream;
 import java.util.logging.Logger;
 
 /**
@@ -28,6 +32,8 @@ public class BenchmarkServiceApplication extends RouplexJerseyApplication implem
 
     public BenchmarkServiceApplication(@Context ServletContext servletContext) {
         super(servletContext);
+
+        initExceptionMapper();
 
         bindRouplexResource(BenchmarkManagementServiceResource.class, false);
         bindRouplexResource(BenchmarkWorkerServiceResource.class, true);
@@ -59,6 +65,46 @@ public class BenchmarkServiceApplication extends RouplexJerseyApplication implem
             logger.severe(errorMessage);
             getSwaggerBeanConfig().setDescription(errorMessage);
         }
+    }
+
+    @Override
+    protected void initExceptionMapper() {
+        class E {
+            String exceptionClass;
+            String exceptionMessage;
+
+            E(Exception exception) {
+                this.exceptionClass = exception.getClass().toString();
+                this.exceptionMessage = exception.getMessage();
+            }
+
+            public String getExceptionClass() {
+                return exceptionClass;
+            }
+
+            public void setExceptionClass(String exceptionClass) {
+                this.exceptionClass = exceptionClass;
+            }
+
+            public String getExceptionMessage() {
+                return exceptionMessage;
+            }
+
+            public void setExceptionMessage(String exceptionMessage) {
+                this.exceptionMessage = exceptionMessage;
+            }
+        }
+
+        register(new ExceptionMapper<Exception>() {
+            @Override
+            public Response toResponse(Exception e) {
+                ByteArrayOutputStream os = new ByteArrayOutputStream();
+                e.printStackTrace(new PrintStream(os));
+                logger.severe("Stack trace: " + new String(os.toByteArray()));
+
+                return Response.status(500).entity(new E(e)).build();
+            }
+        });
     }
 
     private String getPublicIp() {

@@ -1,17 +1,17 @@
 package org.rouplex.service.benchmark.orchestrator;
 
-import com.amazonaws.auth.AWSCredentials;
-import com.amazonaws.auth.AWSCredentialsProvider;
-import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.ec2.AmazonEC2;
-import com.amazonaws.services.ec2.AmazonEC2Client;
+import com.amazonaws.services.ec2.AmazonEC2ClientBuilder;
 import com.amazonaws.services.ec2.model.*;
 import com.amazonaws.util.EC2MetadataUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.jaxrs.json.JacksonJaxbJsonProvider;
+import org.rouplex.commons.configuration.Configuration;
+import org.rouplex.commons.configuration.ConfigurationManager;
 import org.rouplex.platform.tcp.RouplexTcpClient;
+import org.rouplex.service.benchmark.Util;
 import org.rouplex.service.benchmark.management.*;
 import org.rouplex.service.benchmark.worker.StartTcpClientsRequest;
 import org.rouplex.service.benchmark.worker.StartTcpServerRequest;
@@ -26,22 +26,37 @@ import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.MediaType;
 import java.io.Closeable;
 import java.io.IOException;
-import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.logging.Logger;
 
+/**
+ * @author Andi Mullaraj (andimullaraj at gmail.com)
+ */
 public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestratorService, Closeable {
     private static final Logger logger = Logger.getLogger(BenchmarkOrchestratorServiceProvider.class.getSimpleName());
     private static final String JERSEY_CLIENT_READ_TIMEOUT = "jersey.config.client.readTimeout";
     private static final String JERSEY_CLIENT_CONNECT_TIMEOUT = "jersey.config.client.connectTimeout";
-    private static final SimpleDateFormat UTC_DATE_FORMAT = new SimpleDateFormat("YYYY-MM-DD'T'hh:mm:ssZ");
+
+    public enum BenchmarkConfigurationKey {
+        WorkerInstanceProfileName, WorkerLeaseInMinutes, ServiceHttpDescriptor
+    }
 
     private static BenchmarkOrchestratorService benchmarkOrchestratorService;
+
     public static BenchmarkOrchestratorService get() throws Exception {
         synchronized (BenchmarkOrchestratorServiceProvider.class) {
             if (benchmarkOrchestratorService == null) {
-                benchmarkOrchestratorService = new BenchmarkOrchestratorServiceProvider();
+                // a shortcut for now, this will discovered automatically when rouplex provides a discovery service
+                ConfigurationManager configurationManager = new ConfigurationManager();
+                configurationManager.putConfigurationEntry(BenchmarkConfigurationKey.WorkerInstanceProfileName,
+                        "RouplexBenchmarkWorkerRole");
+                configurationManager.putConfigurationEntry(BenchmarkConfigurationKey.ServiceHttpDescriptor,
+                        "https://%s:8088/benchmark-service-provider-jersey-1.0-SNAPSHOT/rouplex/benchmark");
+                configurationManager.putConfigurationEntry(BenchmarkConfigurationKey.WorkerLeaseInMinutes, "30");
+
+                benchmarkOrchestratorService = new BenchmarkOrchestratorServiceProvider(configurationManager.getConfiguration());
             }
 
             return benchmarkOrchestratorService;
@@ -49,21 +64,27 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
     }
 
     // for distributed benchmarking, we need to manage ec2 instance lifecycle
-    private final Map<Regions, AmazonEC2> amazonEC2Clients = new HashMap<>();
+    private final Map<Regions, AmazonEC2> amazonEC2Clients = new HashMap<Regions, AmazonEC2>();
 
     // for distributed benchmarking, we need to manage remote benchmark instances
-    private final Client jaxrsClient;
+    private final Client jaxrsClient; // rouplex platform will provide a specific version of this soon
 
     // Targeting jdk6 we cannot use the nice LocalDateTime of jdk8
     private final Map<String, Map<Instance, Long>> distributedTcpBenchmarks = new HashMap<String, Map<Instance, Long>>();
 
-    BenchmarkOrchestratorServiceProvider() throws Exception {
+    private final ExecutorService executorService = Executors.newSingleThreadExecutor();
+    private final Configuration configuration;
+
+    BenchmarkOrchestratorServiceProvider(Configuration configuration) throws Exception {
+        this.configuration = configuration;
         jaxrsClient = createJaxRsClient();
         startMonitoringBenchmarkInstances();
     }
 
     @Override
-    public StartDistributedTcpBenchmarkResponse startDistributedTcpBenchmark(StartDistributedTcpBenchmarkRequest request) throws Exception {
+    public StartDistributedTcpBenchmarkResponse
+        startDistributedTcpBenchmark(StartDistributedTcpBenchmarkRequest request) throws Exception {
+
         if (request.getOptionalBenchmarkRequestId() == null) {
             request.setOptionalBenchmarkRequestId(UUID.randomUUID().toString());
         }
@@ -71,11 +92,12 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
         synchronized (this) {
             // the underlying host just became an orchestrator and is granted unlimited lease
             ConfigureServiceRequest configureServiceRequest = new ConfigureServiceRequest();
-            configureServiceRequest.setLeaseEndAsIsoInstant(UTC_DATE_FORMAT.format(Long.MAX_VALUE));
+            configureServiceRequest.setLeaseEndAsIsoInstant(Util.convertIsoInstantToString(Long.MAX_VALUE));
             BenchmarkManagementServiceProvider.get().configureService(configureServiceRequest);
 
             if (distributedTcpBenchmarks.get(request.getOptionalBenchmarkRequestId()) != null) {
-                throw new Exception(String.format("Distributed tcp benchmark [%s] already running", request.getOptionalBenchmarkRequestId()));
+                throw new Exception(String.format("Distributed tcp benchmark [%s] already running",
+                        request.getOptionalBenchmarkRequestId()));
             }
 
             distributedTcpBenchmarks.put(request.getOptionalBenchmarkRequestId(), new HashMap<Instance, Long>());
@@ -94,17 +116,17 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
         AmazonEC2 amazonEC2ForClients = getAmazonEc2Client(clientsEC2Region);
 
         InstanceType serverEC2InstanceType = getEC2InstanceType(request, true);
-        Collection<Instance> serverInstances = startRunningEc2Instances(
-                amazonEC2ForServer, request.getOptionalImageId(), serverEC2InstanceType, 1, request.getOptionalKeyName(), null,
-                "server-" + request.getOptionalBenchmarkRequestId());
+        Collection<Instance> serverInstances = startRunningEC2Instances(
+                amazonEC2ForServer, request.getOptionalImageId(), serverEC2InstanceType, 1,
+                request.getOptionalKeyName(), null, "server-" + request.getOptionalBenchmarkRequestId());
 
         InstanceType clientsEC2InstanceType = getEC2InstanceType(request, false);
-        Collection<Instance> clientInstances = startRunningEc2Instances(
+        Collection<Instance> clientInstances = startRunningEC2Instances(
                 amazonEC2ForClients, request.getOptionalImageId(), clientsEC2InstanceType, clientInstanceCount,
                 request.getOptionalKeyName(), null, "client-" + request.getOptionalBenchmarkRequestId());
 
-        serverInstances = ensureEc2InstancesRunning(amazonEC2ForServer, serverInstances);
-        clientInstances = ensureEc2InstancesRunning(amazonEC2ForClients, clientInstances);
+        serverInstances = ensureEC2InstancesRunning(amazonEC2ForServer, serverInstances);
+        clientInstances = ensureEC2InstancesRunning(amazonEC2ForClients, clientInstances);
 
         Instance serverInstance = serverInstances.iterator().next();
         Collection<Instance> relatedInstances = new ArrayList<Instance>();
@@ -112,9 +134,10 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
         relatedInstances.addAll(clientInstances);
 
         ensureBenchmarkServiceRunning(relatedInstances);
+        long leaseExpiration = System.currentTimeMillis() +
+                configuration.getAsInteger(BenchmarkConfigurationKey.WorkerLeaseInMinutes) * 60 * 1000;
         for (Instance instance : relatedInstances) {
-            distributedTcpBenchmarks.get(request.getOptionalBenchmarkRequestId())
-                    .put(instance, System.currentTimeMillis() + 30 * 60 * 1000);
+            distributedTcpBenchmarks.get(request.getOptionalBenchmarkRequestId()).put(instance, leaseExpiration);
         }
 
         // start server remotely
@@ -130,10 +153,10 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
 
         Entity<StartTcpServerRequest> startTcpServerEntity = Entity.entity(startTcpServerRequest, MediaType.APPLICATION_JSON);
         StartTcpServerResponse startTcpServerResponse = jaxrsClient.target(String.format(
-            "https://%s:8088/benchmark-service-provider-jersey-1.0-SNAPSHOT/rouplex", serverInstance.getPublicIpAddress()))
-            .path("/benchmark/worker/tcp/server/start")
-            .request(MediaType.APPLICATION_JSON)
-            .post(startTcpServerEntity, StartTcpServerResponse.class);
+                configuration.get(BenchmarkConfigurationKey.ServiceHttpDescriptor), serverInstance.getPublicIpAddress()))
+                .path("/worker/tcp/server/start")
+                .request(MediaType.APPLICATION_JSON)
+                .post(startTcpServerEntity, StartTcpServerResponse.class);
 
         // start clients remotely
         StartTcpClientsRequest startTcpClientsRequest = new StartTcpClientsRequest();
@@ -163,10 +186,10 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
             clientIpAddresses.add(clientInstance.getPublicIpAddress());
 
             jaxrsClient.target(String.format(
-                "https://%s:8088/benchmark-service-provider-jersey-1.0-SNAPSHOT/rouplex", clientInstance.getPublicIpAddress()))
-                .path("/benchmark/worker/tcp/clients/start")
-                .request(MediaType.APPLICATION_JSON)
-                .post(startTcpClientsEntity);
+                    configuration.get(BenchmarkConfigurationKey.ServiceHttpDescriptor), clientInstance.getPublicIpAddress()))
+                    .path("/worker/tcp/clients/start")
+                    .request(MediaType.APPLICATION_JSON)
+                    .post(startTcpClientsEntity);
         }
 
         // prepare and return response
@@ -183,7 +206,7 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
         StringBuilder jconsoleJmxLink = new StringBuilder("jconsole");
         for (Instance instance : relatedInstances) {
             jconsoleJmxLink.append(String.format(" service:jmx:rmi://%s:1705/jndi/rmi://%s:1706/jmxrmi",
-                instance.getPublicIpAddress(), instance.getPublicIpAddress()));
+                    instance.getPublicIpAddress(), instance.getPublicIpAddress()));
         }
 
         response.setClientIpAddresses(clientIpAddresses);
@@ -217,19 +240,7 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
             AmazonEC2 amazonEC2Client = amazonEC2Clients.get(region);
 
             if (amazonEC2Client == null) {
-                amazonEC2Client = AmazonEC2Client.builder().withCredentials(new AWSCredentialsProvider() {
-                    @Override
-                    public AWSCredentials getCredentials() {
-                        return new BasicAWSCredentials("AKIAI7HYQJMBH36ZZGEQ", "k7rdZDPUfWwD+3bnJB8fPhyHh29LVtB2Wb9ZJ1qL");
-                    }
-
-                    @Override
-                    public void refresh() {
-
-                    }
-                }).withRegion(region).build();
-
-                // aaa temp amazonEC2Client = AmazonEC2Client.builder().withRegion(region).build();
+                amazonEC2Client = AmazonEC2ClientBuilder.defaultClient();
                 amazonEC2Clients.put(region, amazonEC2Client);
             }
 
@@ -238,57 +249,59 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
     }
 
     private void startMonitoringBenchmarkInstances() {
-        Executors.newSingleThreadExecutor().submit(new Runnable() {
+        executorService.submit(new Runnable() {
             @Override
             public void run() {
 
-                while (!isClosed()) {
+                while (!executorService.isShutdown()) {
                     long timeStart = System.currentTimeMillis();
+                    int workerLeaseInMinutes = configuration.getAsInteger(BenchmarkConfigurationKey.WorkerLeaseInMinutes);
+                    long newExpiration = timeStart + workerLeaseInMinutes * 60 * 1000;
 
                     for (Map<Instance, Long> relatedInstances : distributedTcpBenchmarks.values()) {
                         Set<Instance> expiredInstances = new HashSet<Instance>();
                         for (Map.Entry<Instance, Long> instanceEntry : relatedInstances.entrySet()) {
                             try {
-                                long newExpiration = System.currentTimeMillis() + 30 * 60 * 1000;
                                 ConfigureServiceRequest configureServiceRequest = new ConfigureServiceRequest();
-                                configureServiceRequest.setLeaseEndAsIsoInstant(UTC_DATE_FORMAT.format(newExpiration));
+                                configureServiceRequest.setLeaseEndAsIsoInstant(Util.convertIsoInstantToString(newExpiration));
 
                                 jaxrsClient.target(String.format(
-                                        "https://%s:8088/benchmark-service-provider-jersey-1.0-SNAPSHOT/rouplex",
+                                        configuration.get(BenchmarkConfigurationKey.ServiceHttpDescriptor),
                                         instanceEntry.getKey().getPublicIpAddress()))
-                                        .path("/benchmark/management/service/configuration")
-                                        .property(JERSEY_CLIENT_CONNECT_TIMEOUT, 2)
-                                        .property(JERSEY_CLIENT_READ_TIMEOUT, 10)
+                                        .path("/management/service/configuration")
+                                        .property(JERSEY_CLIENT_CONNECT_TIMEOUT, 2000)
+                                        .property(JERSEY_CLIENT_READ_TIMEOUT, 10000)
                                         .request(MediaType.APPLICATION_JSON)
                                         .post(Entity.entity(configureServiceRequest, MediaType.APPLICATION_JSON));
 
-                                // give instance 30 minutes lease
                                 instanceEntry.setValue(newExpiration);
                             } catch (Exception e) {
                                 if (System.currentTimeMillis() > instanceEntry.getValue()) {
-                                    logger.severe(String.format(
-                                            "Terminating instance at ip [%s]. Cause: Could not poll its state",
-                                            instanceEntry.getKey().getPublicIpAddress()));
-
-                                    String az = instanceEntry.getKey().getPlacement().getAvailabilityZone();
-                                    Regions region = Regions.fromName(az.substring(az.lastIndexOf(' ') + 1));
-                                    tagAndTerminateEc2Instance(getAmazonEc2Client(region), instanceEntry.getKey().getInstanceId());
-
                                     expiredInstances.add(instanceEntry.getKey());
                                 }
                             }
                         }
 
                         for (Instance expiredInstance : expiredInstances) {
+                            logger.severe(String.format("Terminating instance at ip [%s]. " +
+                                            "Cause: Could not contact it to announce its new lease in the last %s minutes",
+                                    expiredInstance.getPublicIpAddress(), workerLeaseInMinutes));
+
+                            String az = expiredInstance.getPlacement().getAvailabilityZone();
+                            Regions region = Regions.fromName(az.substring(az.lastIndexOf(' ') + 1));
+                            tagAndTerminateEC2Instance(getAmazonEc2Client(region), expiredInstance.getInstanceId());
+
                             relatedInstances.remove(expiredInstance);
                         }
                     }
 
-                    // once a minute lease updates are more than enough
+                    // upsate leases once a minute (or less often occasionally)
                     long waitMillis = timeStart + 60 * 1000 - System.currentTimeMillis();
                     if (waitMillis > 0) {
                         try {
-                            Thread.sleep(waitMillis);
+                            synchronized (executorService) {
+                                executorService.wait(waitMillis);
+                            }
                         } catch (InterruptedException ie) {
                             break;
                         }
@@ -317,28 +330,31 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
         }
     }
 
-    private void tagAndTerminateEc2Instance(AmazonEC2 amazonEC2, String instanceId) {
+    private void tagAndTerminateEC2Instance(AmazonEC2 amazonEC2, String instanceId) {
         amazonEC2.createTags(new CreateTagsRequest().withResources(instanceId)
-                .withTags(new Tag().withKey("State").withValue("Terminated by Benchmark Orchestrator")));
+                .withTags(new Tag().withKey("State").withValue("Stopped by Benchmark Orchestrator")));
 
         amazonEC2.terminateInstances(new TerminateInstancesRequest().withInstanceIds(instanceId));
     }
 
-    private Collection<Instance> startRunningEc2Instances(
+    private Collection<Instance> startRunningEC2Instances(
             AmazonEC2 amazonEC2, String optionalImageId, InstanceType instanceType,
             int count, String sshKeyName, String userData, String tag) throws IOException {
+
 
         RunInstancesRequest runInstancesRequest = new RunInstancesRequest()
                 .withImageId(optionalImageId != null ? optionalImageId : EC2MetadataUtils.getAmiId())
                 .withInstanceType(instanceType)
                 .withMinCount(count)
                 .withMaxCount(count)
-                .withIamInstanceProfile(new IamInstanceProfileSpecification().withName("RouplexBenchmarkRole"))
+                .withIamInstanceProfile(new IamInstanceProfileSpecification()
+                        .withName(configuration.get(BenchmarkConfigurationKey.WorkerInstanceProfileName)))
                 .withSubnetId("subnet-9f1784c7")
                 .withSecurityGroupIds("sg-bef226c5")
                 .withKeyName(sshKeyName)
                 .withUserData(userData)
-                .withTagSpecifications(new TagSpecification().withResourceType(ResourceType.Instance).withTags(new Tag("Name", tag)));
+                .withTagSpecifications(new TagSpecification()
+                        .withResourceType(ResourceType.Instance).withTags(new Tag("Name", tag)));
 
         List<Instance> instances = amazonEC2.runInstances(runInstancesRequest).getReservation().getInstances();
         if (instances.size() != count) {
@@ -350,8 +366,8 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
         return instances;
     }
 
-    private Collection<Instance> ensureEc2InstancesRunning(
-            AmazonEC2 amazonEC2, Collection<Instance> instances) throws IOException {
+    private Collection<Instance> ensureEC2InstancesRunning(
+            AmazonEC2 amazonEC2, Collection<Instance> instances) throws Exception {
 
         Collection<String> instanceIds = new ArrayList<String>();
         for (Instance instance : instances) {
@@ -360,11 +376,7 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
 
         DescribeInstanceStatusRequest describeInstanceRequest = new DescribeInstanceStatusRequest().withInstanceIds(instanceIds);
         while (amazonEC2.describeInstanceStatus(describeInstanceRequest).getInstanceStatuses().size() < instanceIds.size()) {
-            try {
-                Thread.sleep(1000);
-            } catch (InterruptedException e) {
-                throw new IOException("interrupted");
-            }
+            Thread.sleep(1000);
         }
 
         instances = new ArrayList<Instance>();
@@ -380,13 +392,13 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
         for (Instance instance : instances) {
             Entity<GetServiceStateRequest> requestEntity = Entity.entity(new GetServiceStateRequest(), MediaType.APPLICATION_JSON);
             WebTarget benchmarkWebTarget = jaxrsClient.target(String.format(
-                    "https://%s:8088/benchmark-service-provider-jersey-1.0-SNAPSHOT/rouplex", instance.getPublicIpAddress()))
-                    .path("/benchmark/management/service/state")
+                    configuration.get(BenchmarkConfigurationKey.ServiceHttpDescriptor), instance.getPublicIpAddress()))
+                    .path("/management/service/state")
                     .property(JERSEY_CLIENT_CONNECT_TIMEOUT, 2000)
                     .property(JERSEY_CLIENT_READ_TIMEOUT, 10000);
 
             long expirationTimestamp = System.currentTimeMillis() + 10 * 60 * 1000; // 10 minutes
-            while (!isClosed()) {
+            while (!executorService.isShutdown()) {
                 try {
                     if (benchmarkWebTarget.request(MediaType.APPLICATION_JSON)
                             .post(requestEntity, GetServiceStateResponse.class).getServiceState() == ServiceState.RUNNING) {
@@ -405,9 +417,9 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
 
     @Override
     public void close() throws IOException {
-    }
-
-    public boolean isClosed() {
-        return false;
+        executorService.shutdown();
+        synchronized (executorService) {
+            executorService.notifyAll();
+        }
     }
 }
