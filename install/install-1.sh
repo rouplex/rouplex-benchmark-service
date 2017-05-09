@@ -1,11 +1,18 @@
 #!/bin/bash
 
+setup_tomcat_ssl_certificate() {
+    echo "=========== Rouplex ============= Setting up the tomcat's ssl certificate"
+    aws s3 cp s3://rouplex/deploys/services/benchmark/environments/"$environment"/server_key.p12 $TOMCAT_PATH/conf > /dev/null 2>&1
+    aws s3 cp s3://rouplex/deploys/services/benchmark/environments/"$environment"/server_key.password rouplex-environment > /dev/null 2>&1
+
+    TOMCAT_CERT_PATH=$TOMCAT_PATH/conf/server_key.p12
+    TOMCAT_CERT_PASS=`cat rouplex-environment/server_key.password`
+}
+
 setup_tomcat_ssl_connector() {
     echo "=========== Rouplex ============= Setting up the tomcat's ssl connector"
-    aws s3 cp s3://rouplex/deploys/services/benchmark/environments/"$environment"/server_key.p12 rouplex-environment > /dev/null 2>&1
-    aws s3 cp s3://rouplex/deploys/services/benchmark/environments/"$environment"/server_key.password rouplex-environment > /dev/null 2>&1
-    search_and_replace rouplex-benchmark-service/install/server-template.xml "#sslConnector-keystoreFile#" rouplex-environment/server_key.p12
-    search_and_replace rouplex-benchmark-service/install/server-template.xml "#sslConnector-keystorePass#" `cat rouplex-environment/server_key.password`
+    search_and_replace rouplex-benchmark-service/install/server-template.xml "#sslConnector-keystoreFile#" $TOMCAT_CERT_PATH
+    search_and_replace rouplex-benchmark-service/install/server-template.xml "#sslConnector-keystorePass#" $TOMCAT_CERT_PASS
     cp rouplex-benchmark-service/install/server-template.xml "$TOMCAT_FOLDER"/conf/server.xml
 }
 
@@ -22,10 +29,8 @@ setup_tomcat_manager() {
 
 setup_tomcat_environment() {
     echo "=========== Rouplex ============= Setting up tomcat environment"
-    aws s3 cp s3://rouplex/deploys/services/benchmark/environments/"$environment"/server_key.p12 rouplex-environment > /dev/null 2>&1
-    aws s3 cp s3://rouplex/deploys/services/benchmark/environments/"$environment"/server_key.password rouplex-environment > /dev/null 2>&1
-    search_and_replace rouplex-benchmark-service/install/setenv-template.sh "#keystoreFile#" `pwd`/rouplex-environment/server_key.p12
-    search_and_replace rouplex-benchmark-service/install/setenv-template.sh "#keystorePass#" `cat rouplex-environment/server_key.password`
+    search_and_replace rouplex-benchmark-service/install/setenv-template.sh "#keystoreFile#" $TOMCAT_CERT_PATH
+    search_and_replace rouplex-benchmark-service/install/setenv-template.sh "#keystorePass#" $TOMCAT_CERT_PASS
 
     cp rouplex-benchmark-service/install/setenv-template.sh "$TOMCAT_FOLDER"/bin/setenv.sh
     chmod 500 "$TOMCAT_FOLDER"/bin/setenv.sh
