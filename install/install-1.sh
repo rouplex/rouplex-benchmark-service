@@ -27,7 +27,7 @@ setup_tomcat_manager() {
     cp rouplex-benchmark-service/install/manager-context.xml "$TOMCAT_FOLDER"/webapps/manager/META-INF/context.xml
 }
 
-setup_tomcat_environment() {
+setup_tomcat_run_environment() {
     echo "=========== Rouplex ============= Setting up tomcat environment"
     search_and_replace rouplex-benchmark-service/install/setenv-template.sh "#keystoreFile#" $TOMCAT_CERT_PATH
     search_and_replace rouplex-benchmark-service/install/setenv-template.sh "#keystorePass#" $TOMCAT_CERT_PASS
@@ -59,9 +59,10 @@ install() {
     install_jdk8
     install_tomcat "8.5.12" "catalina-jmx-remote.jar"
 
+    setup_tomcat_ssl_certificate
     setup_tomcat_ssl_connector
     setup_tomcat_manager
-    setup_tomcat_environment
+    setup_tomcat_run_environment
     setup_tomcat_initd
 }
 
