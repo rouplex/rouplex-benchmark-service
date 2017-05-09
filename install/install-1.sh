@@ -2,19 +2,19 @@
 
 setup_tomcat_ssl_connector() {
     echo "=========== Rouplex ============= Setting up the tomcat's ssl connector"
-    aws s3 cp s3://rouplex/deploys/services/benchmark/environments/"$environment"/server_key.p12 ./"$environment" > /dev/null 2>&1
-    aws s3 cp s3://rouplex/deploys/services/benchmark/environments/"$environment"/server_key.password ./"$environment" > /dev/null 2>&1
-    search_and_replace rouplex-benchmark-service/install/server-template.xml "#sslConnector-keystoreFile#" "$environment"/server_key.p12
-    search_and_replace rouplex-benchmark-service/install/server-template.xml "#sslConnector-keystorePass#" `cat "$environment"/server_key.password`
+    aws s3 cp s3://rouplex/deploys/services/benchmark/environments/"$environment"/server_key.p12 rouplex-environment > /dev/null 2>&1
+    aws s3 cp s3://rouplex/deploys/services/benchmark/environments/"$environment"/server_key.password rouplex-environment > /dev/null 2>&1
+    search_and_replace rouplex-benchmark-service/install/server-template.xml "#sslConnector-keystoreFile#" rouplex-environment/server_key.p12
+    search_and_replace rouplex-benchmark-service/install/server-template.xml "#sslConnector-keystorePass#" `cat rouplex-environment/server_key.password`
     cp rouplex-benchmark-service/install/server-template.xml "$TOMCAT_FOLDER"/conf/server.xml
 }
 
 setup_tomcat_manager() {
     echo "=========== Rouplex ============= Setting up tomcat manager"
-    aws s3 cp s3://rouplex/deploys/services/benchmark/environments/"$environment"/tomcat_manager.username ./"$environment" > /dev/null 2>&1
-    aws s3 cp s3://rouplex/deploys/services/benchmark/environments/"$environment"/tomcat_manager.password ./"$environment" > /dev/null 2>&1
-    search_and_replace rouplex-benchmark-service/install/tomcat-users-template.xml "#manager-username#" `cat "$environment"/tomcat_manager.username`
-    search_and_replace rouplex-benchmark-service/install/tomcat-users-template.xml "#manager-password#" `cat "$environment"/tomcat_manager.password`
+    aws s3 cp s3://rouplex/deploys/services/benchmark/environments/"$environment"/tomcat_manager.username rouplex-environment > /dev/null 2>&1
+    aws s3 cp s3://rouplex/deploys/services/benchmark/environments/"$environment"/tomcat_manager.password rouplex-environment > /dev/null 2>&1
+    search_and_replace rouplex-benchmark-service/install/tomcat-users-template.xml "#manager-username#" `cat rouplex-environment/tomcat_manager.username`
+    search_and_replace rouplex-benchmark-service/install/tomcat-users-template.xml "#manager-password#" `cat rouplex-environment/tomcat_manager.password`
     cp rouplex-benchmark-service/install/tomcat-users-template.xml "$TOMCAT_FOLDER"/conf/tomcat-users.xml
 
     cp rouplex-benchmark-service/install/manager-context.xml "$TOMCAT_FOLDER"/webapps/manager/META-INF/context.xml
@@ -22,10 +22,10 @@ setup_tomcat_manager() {
 
 setup_tomcat_environment() {
     echo "=========== Rouplex ============= Setting up tomcat environment"
-    aws s3 cp s3://rouplex/deploys/services/benchmark/environments/"$environment"/server_key.p12 ./"$environment" > /dev/null 2>&1
-    aws s3 cp s3://rouplex/deploys/services/benchmark/environments/"$environment"/server_key.password ./"$environment" > /dev/null 2>&1
-    search_and_replace rouplex-benchmark-service/install/setenv-template.sh "#keystoreFile#" `pwd`/"$environment"/server_key.p12
-    search_and_replace rouplex-benchmark-service/install/setenv-template.sh "#keystorePass#" `cat "$environment"/server_key.password`
+    aws s3 cp s3://rouplex/deploys/services/benchmark/environments/"$environment"/server_key.p12 rouplex-environment > /dev/null 2>&1
+    aws s3 cp s3://rouplex/deploys/services/benchmark/environments/"$environment"/server_key.password rouplex-environment > /dev/null 2>&1
+    search_and_replace rouplex-benchmark-service/install/setenv-template.sh "#keystoreFile#" `pwd`/rouplex-environment/server_key.p12
+    search_and_replace rouplex-benchmark-service/install/setenv-template.sh "#keystorePass#" `cat rouplex-environment/server_key.password`
 
     cp rouplex-benchmark-service/install/setenv-template.sh "$TOMCAT_FOLDER"/bin/setenv.sh
     chmod 500 "$TOMCAT_FOLDER"/bin/setenv.sh
@@ -48,6 +48,8 @@ setup_tomcat_initd() {
 install() {
     git clone https://github.com/rouplex/rouplex-deploy.git --single-branch
     source rouplex-deploy/scripts/library.sh
+
+    mkdir rouplex-environment
 
     install_jdk8
     install_tomcat "8.5.12" "catalina-jmx-remote.jar"
