@@ -2,8 +2,8 @@
 
 setup_tomcat_ssl_certificate() {
     echo "=========== Rouplex ============= Setting up the tomcat's ssl certificate"
-    aws s3 cp s3://rouplex/deploys/services/benchmark/environments/"$environment"/server_key.p12 $TOMCAT_PATH/conf > /dev/null 2>&1
-    aws s3 cp s3://rouplex/deploys/services/benchmark/environments/"$environment"/server_key.password rouplex-environment > /dev/null 2>&1
+    aws s3 cp s3://rouplex/deploys/services/benchmark/environments/"$ENV"/server_key.p12 $TOMCAT_PATH/conf > /dev/null 2>&1
+    aws s3 cp s3://rouplex/deploys/services/benchmark/environments/"$ENV"/server_key.password rouplex-environment > /dev/null 2>&1
 
     TOMCAT_CERT_PATH=$TOMCAT_PATH/conf/server_key.p12
     TOMCAT_CERT_PASS=`cat rouplex-environment/server_key.password`
@@ -18,8 +18,8 @@ setup_tomcat_ssl_connector() {
 
 setup_tomcat_manager() {
     echo "=========== Rouplex ============= Setting up tomcat manager"
-    aws s3 cp s3://rouplex/deploys/services/benchmark/environments/"$environment"/tomcat_manager.username rouplex-environment > /dev/null 2>&1
-    aws s3 cp s3://rouplex/deploys/services/benchmark/environments/"$environment"/tomcat_manager.password rouplex-environment > /dev/null 2>&1
+    aws s3 cp s3://rouplex/deploys/services/benchmark/environments/"$ENV"/tomcat_manager.username rouplex-environment > /dev/null 2>&1
+    aws s3 cp s3://rouplex/deploys/services/benchmark/environments/"$ENV"/tomcat_manager.password rouplex-environment > /dev/null 2>&1
     search_and_replace rouplex-benchmark-service/install/tomcat-users-template.xml "#manager-username#" `cat rouplex-environment/tomcat_manager.username`
     search_and_replace rouplex-benchmark-service/install/tomcat-users-template.xml "#manager-password#" `cat rouplex-environment/tomcat_manager.password`
     cp rouplex-benchmark-service/install/tomcat-users-template.xml "$TOMCAT_FOLDER"/conf/tomcat-users.xml
@@ -51,6 +51,13 @@ setup_tomcat_initd() {
 # SYNOPSIS
 #  install <environment>
 install() {
+    if [ "$#" -lt 1 ]; then
+        echo "=========== Rouplex ============= Exiting. Missing <environment> param in install()"
+        exit 1
+    fi
+
+    ENV=$1
+
     git clone https://github.com/rouplex/rouplex-deploy.git --single-branch
     source rouplex-deploy/scripts/library.sh
 
@@ -66,5 +73,4 @@ install() {
     setup_tomcat_initd
 }
 
-environment=prod
-install
+install $1
