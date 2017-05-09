@@ -85,6 +85,10 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
     public StartDistributedTcpBenchmarkResponse
         startDistributedTcpBenchmark(StartDistributedTcpBenchmarkRequest request) throws Exception {
 
+        if (!"ma".equals(request.getMagicWord())) {
+            throw new Exception("Ask admin for the magic word");
+        }
+
         if (request.getOptionalBenchmarkRequestId() == null) {
             request.setOptionalBenchmarkRequestId(UUID.randomUUID().toString());
         }
@@ -341,7 +345,6 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
             AmazonEC2 amazonEC2, String optionalImageId, InstanceType instanceType,
             int count, String sshKeyName, String userData, String tag) throws IOException {
 
-
         RunInstancesRequest runInstancesRequest = new RunInstancesRequest()
                 .withImageId(optionalImageId != null ? optionalImageId : EC2MetadataUtils.getAmiId())
                 .withInstanceType(instanceType)
@@ -349,8 +352,8 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
                 .withMaxCount(count)
                 .withIamInstanceProfile(new IamInstanceProfileSpecification()
                         .withName(configuration.get(BenchmarkConfigurationKey.WorkerInstanceProfileName)))
-                .withSubnetId("subnet-9f1784c7")
-                .withSecurityGroupIds("sg-bef226c5")
+                .withSubnetId("subnet-9f1784c7") // auto create this in a later impl
+                .withSecurityGroupIds("sg-bef226c5") // auto create this in a later impl
                 .withKeyName(sshKeyName)
                 .withUserData(userData)
                 .withTagSpecifications(new TagSpecification()

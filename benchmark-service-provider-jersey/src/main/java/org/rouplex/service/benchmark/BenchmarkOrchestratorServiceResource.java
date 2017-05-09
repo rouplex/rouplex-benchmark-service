@@ -1,9 +1,6 @@
 package org.rouplex.service.benchmark;
 
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
-import io.swagger.annotations.ApiResponse;
-import io.swagger.annotations.ApiResponses;
+import io.swagger.annotations.*;
 import org.glassfish.jersey.server.ResourceConfig;
 import org.rouplex.service.benchmark.orchestrator.BenchmarkOrchestratorService;
 import org.rouplex.service.benchmark.orchestrator.BenchmarkOrchestratorServiceProvider;
@@ -14,12 +11,17 @@ import org.rouplex.service.benchmark.orchestrator.StartDistributedTcpBenchmarkRe
 public class BenchmarkOrchestratorServiceResource extends ResourceConfig implements BenchmarkOrchestratorService {
 
     @ApiOperation(value = "Start a distributed benchmarking scenario with one server and a number of client instances")
+//    @ApiImplicitParams({
+//            @ApiImplicitParam(name = "Authorization", value = "Authorization token",
+//                    required = true, dataType = "string", paramType = "header")
+//    })
     @ApiResponses(value = {
             @ApiResponse(code = 200, message = "Success"),
             @ApiResponse(code = 500, message = "Error handling request")})
     @Override
 //    @Consumes(MediaType.APPLICATION_JSON) @Produces(MediaType.APPLICATION_JSON)
-    public StartDistributedTcpBenchmarkResponse startDistributedTcpBenchmark(StartDistributedTcpBenchmarkRequest request) throws Exception {
+    public StartDistributedTcpBenchmarkResponse startDistributedTcpBenchmark(
+            StartDistributedTcpBenchmarkRequest request) throws Exception {
         return BenchmarkOrchestratorServiceProvider.get().startDistributedTcpBenchmark(request);
     }
 }
