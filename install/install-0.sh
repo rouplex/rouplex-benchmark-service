@@ -18,8 +18,19 @@ install() {
         exit 1
     fi
 
+    echo "=========== Rouplex =============Installing git"
+    sudo yum install git
+
+    echo "=========== Rouplex =============Switching to ec2-user home"
     cd /home/ec2-user
-    git clone https://github.com/rouplex/"$1".git --branch "$2" --single-branch
+
+    echo "=========== Rouplex =============Downloading known_hosts from s3"
+    aws s3 cp s3://rouplex/deploys/access-keys/known_hosts ~/.ssh
+
+    echo "=========== Rouplex =============Clonning service deployment scripts"
+    git clone ssh://github.com/rouplex/"$1".git --branch "$2" --single-branch
+
+    echo "=========== Rouplex =============Executing service deployment scripts"
     "$1"/install/install-1.sh "$3"
 }
 
