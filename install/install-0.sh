@@ -33,7 +33,7 @@ rouplex_install() {
     echo "=========== Rouplex ============= Executing service deployment scripts"
     "$1"/install/install-1.sh "$3"
 
-    rm -rf "$1"
+#    rm -rf "$1"
 }
 
 rouplex_install rouplex-benchmark-service feature/distributed-testing prod
