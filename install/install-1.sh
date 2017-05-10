@@ -78,6 +78,7 @@ install() {
     setup_tomcat_initd
     start_tomcat
 
+    chown -R ec2-user:ec2-user $TOMCAT_PATH
     rm -rf rouplex-environment
     rm -rf rouplex-deploy
 }
