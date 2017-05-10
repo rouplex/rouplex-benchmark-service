@@ -48,6 +48,11 @@ setup_tomcat_initd() {
     sudo chkconfig tomcat on
 }
 
+start_tomcat() {
+    echo "=========== Rouplex ============= Starting tomcat service"
+    sudo service tomcat restart
+}
+
 # SYNOPSIS
 #  install <environment>
 install() {
@@ -71,6 +76,7 @@ install() {
     setup_tomcat_manager
     setup_tomcat_run_environment
     setup_tomcat_initd
+    start_tomcat
 }
 
 install $1
