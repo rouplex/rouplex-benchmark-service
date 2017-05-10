@@ -49,6 +49,9 @@ setup_tomcat_initd() {
 }
 
 start_tomcat() {
+    echo "=========== Rouplex ============= Changing tomcat ownership to ec2-user"
+    chown -R ec2-user:ec2-user $TOMCAT_PATH
+
     echo "=========== Rouplex ============= Starting tomcat service"
     service tomcat restart
 }
@@ -76,10 +79,9 @@ install() {
     setup_tomcat_manager
     setup_tomcat_run_environment
     setup_tomcat_initd
-
-    chown -R ec2-user:ec2-user $TOMCAT_PATH
     start_tomcat
 
+    echo "=========== Rouplex ============= Cleaning up"
     rm -rf rouplex-environment
     rm -rf rouplex-deploy
 }

@@ -32,6 +32,8 @@ rouplex_install() {
 
     echo "=========== Rouplex ============= Executing service deployment scripts"
     "$1"/install/install-1.sh "$3"
+
+    echo "=========== Rouplex ============= Cleaning up"
     rm -rf "$1"
 }
 
