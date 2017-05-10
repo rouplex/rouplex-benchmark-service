@@ -33,7 +33,7 @@ setup_tomcat_run_environment() {
     search_and_replace rouplex-benchmark-service/install/setenv-template.sh "#keystorePass#" $TOMCAT_CERT_PASS
 
     cp rouplex-benchmark-service/install/setenv-template.sh "$TOMCAT_FOLDER"/bin/setenv.sh
-    chmod 500 "$TOMCAT_FOLDER"/bin/setenv.sh
+    chmod 700 "$TOMCAT_FOLDER"/bin/setenv.sh
 }
 
 setup_tomcat_initd() {
