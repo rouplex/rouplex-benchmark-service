@@ -50,7 +50,7 @@ setup_tomcat_initd() {
 
 start_tomcat() {
     echo "=========== Rouplex ============= Starting tomcat service"
-    sudo service tomcat restart
+    service tomcat restart
 }
 
 # SYNOPSIS
