@@ -122,14 +122,14 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
         int ramMB = EC2Metadata.get().getEc2InstanceTypes().get(getHostType(request, true)).getRamMB();
         String userData = buildSystemTuningScript(2000000, ramMB);
         InstanceType serverEC2InstanceType = getEC2InstanceType(request, true);
-        Collection<Instance> serverInstances = startRunningEC2Instances1(
+        Collection<Instance> serverInstances = startRunningEC2Instances(
                 amazonEC2ForServer, request.getOptionalImageId(), serverEC2InstanceType, 1,
                 request.getOptionalKeyName(), userData, "server-" + request.getOptionalBenchmarkRequestId());
 
         ramMB = EC2Metadata.get().getEc2InstanceTypes().get(getHostType(request, false)).getRamMB();
         userData = buildSystemTuningScript(2000000, ramMB);
         InstanceType clientsEC2InstanceType = getEC2InstanceType(request, false);
-        Collection<Instance> clientInstances = startRunningEC2Instances1(
+        Collection<Instance> clientInstances = startRunningEC2Instances(
                 amazonEC2ForClients, request.getOptionalImageId(), clientsEC2InstanceType, clientInstanceCount,
                 request.getOptionalKeyName(), userData, "client-" + request.getOptionalBenchmarkRequestId());
 
@@ -353,15 +353,15 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
         String scriptTemplate = "#!/bin/bash\n\n" +
 
         "setup_system_socket_limits() {\n" +
-            "echo \"=== Rouplex === Allowing more open file descriptors, tcp sockets, tcp memory\"\n" +
-            "echo \"* hard nofile %s\" | sudo tee -a /etc/security/limits.conf\n" +
-            "echo \"* soft nofile %s\" | sudo tee -a /etc/security/limits.conf\n" +
-            "echo \"\" | sudo tee -a /etc/sysctl.conf\n" +
-            "echo \"# Allow use of 64000 ports from 1100 to 65100\" | sudo tee -a /etc/sysctl.conf\n" +
-            "echo \"net.ipv4.ip_local_port_range = 1100 65100\" | sudo tee -a /etc/sysctl.conf\n" +
-            "echo \"\" | sudo tee -a /etc/sysctl.conf\n" +
-            "echo \"# Setup bigger tcp memory\" | sudo tee -a /etc/sysctl.conf\n" +
-            "echo \"net.ipv4.tcp_mem = 383865 %s %s\" | sudo tee -a /etc/sysctl.conf\n" +
+            "\techo \"=== Rouplex === Allowing more open file descriptors, tcp sockets, tcp memory\"\n" +
+            "\techo \"* hard nofile %s\" | sudo tee -a /etc/security/limits.conf\n" +
+            "\techo \"* soft nofile %s\" | sudo tee -a /etc/security/limits.conf\n" +
+            "\techo \"\" | sudo tee -a /etc/sysctl.conf\n" +
+            "\techo \"# Allow use of 64000 ports from 1100 to 65100\" | sudo tee -a /etc/sysctl.conf\n" +
+            "\techo \"net.ipv4.ip_local_port_range = 1100 65100\" | sudo tee -a /etc/sysctl.conf\n" +
+            "\techo \"\" | sudo tee -a /etc/sysctl.conf\n" +
+            "\techo \"# Setup bigger tcp memory\" | sudo tee -a /etc/sysctl.conf\n" +
+            "\techo \"net.ipv4.tcp_mem = 383865 %s %s\" | sudo tee -a /etc/sysctl.conf\n" +
         "}\n\n" +
 
         "setup_system_socket_limits\n";
@@ -369,7 +369,7 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
         return String.format(scriptTemplate, maxFD, maxFD, tcpMemPages, tcpMemPages);
     }
 
-    private Collection<Instance> startRunningEC2Instances1(
+    private Collection<Instance> startRunningEC2Instances(
             AmazonEC2 amazonEC2, String optionalImageId, InstanceType instanceType,
             int count, String sshKeyName, String userData, String tag) throws IOException {
 
