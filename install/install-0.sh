@@ -2,7 +2,7 @@
 
 # SYNOPSIS
 #  install <service> <branch> <environment>
-install() {
+rouplex_install() {
     if [ "$#" -lt 1 ]; then
         echo "=========== Rouplex ============= Exiting. Missing <service> param in install()"
         exit 1
@@ -34,4 +34,4 @@ install() {
     "$1"/install/install-1.sh "$3"
 }
 
-install rouplex-benchmark-service "feature/distributed-testing" prod
+rouplex_install rouplex-benchmark-service feature/distributed-testing prod
