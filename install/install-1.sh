@@ -65,7 +65,7 @@ install() {
     mkdir $ENV
 
     git clone https://github.com/rouplex/rouplex-deploy.git --single-branch $ENV
-    source $ENV/rouplex-deploy/scripts/library.sh
+    source $ENV/scripts/library.sh
 
     install_jdk8
     install_tomcat "8.5.12" "catalina-jmx-remote.jar"
