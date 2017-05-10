@@ -38,8 +38,8 @@ setup_tomcat_run_environment() {
 
 setup_tomcat_initd() {
     echo "=========== Rouplex ============= Setting up tomcat as a service (initd)"
-    search_and_replace rouplex-benchmark-service/install/tomcat-initd-template.sh "#CATALINA_HOME#" $TOMCAT_PATH
-    search_and_replace rouplex-benchmark-service/install/tomcat-initd-template.sh "#CATALINA_BASE#" $TOMCAT_PATH
+    search_and_replace rouplex-benchmark-service/install/tomcat-initd-template "#CATALINA_HOME#" $TOMCAT_PATH
+    search_and_replace rouplex-benchmark-service/install/tomcat-initd-template "#CATALINA_BASE#" $TOMCAT_PATH
 
     sudo cp rouplex-benchmark-service/install/tomcat-initd-template /etc/init.d/tomcat
     sudo chmod 500 /etc/init.d/tomcat
