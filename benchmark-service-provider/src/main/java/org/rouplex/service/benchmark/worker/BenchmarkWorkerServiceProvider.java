@@ -6,6 +6,7 @@ import org.rouplex.platform.tcp.RouplexTcpBinder;
 import org.rouplex.platform.tcp.RouplexTcpClient;
 import org.rouplex.platform.tcp.RouplexTcpClientListener;
 import org.rouplex.platform.tcp.RouplexTcpServer;
+import org.rouplex.service.benchmark.Util;
 import org.rouplex.service.benchmark.management.SnapCounter;
 import org.rouplex.service.benchmark.management.SnapHistogram;
 import org.rouplex.service.benchmark.management.SnapMeter;
@@ -139,9 +140,7 @@ public class BenchmarkWorkerServiceProvider implements BenchmarkWorkerService, C
 
     @Override
     public StartTcpServerResponse startTcpServer(StartTcpServerRequest request) throws Exception {
-        if (request.getProvider() == null) {
-            throw new IllegalArgumentException("Provider cannot be null");
-        }
+        Util.checkNonNullArg(request.getProvider(), "Provider");
 
         try {
             logger.info(String.format("Creating EchoServer at %s:%s", request.getHostname(), request.getPort()));
@@ -210,9 +209,22 @@ public class BenchmarkWorkerServiceProvider implements BenchmarkWorkerService, C
 
     @Override
     public StartTcpClientsResponse startTcpClients(final StartTcpClientsRequest request) throws Exception {
-        if (request.getProvider() == null) {
-            throw new IllegalArgumentException("Provider cannot be null");
-        }
+        Util.checkNonNullArg(request.getProvider(), "Provider");
+
+        Util.checkNonNegativeArg(request.getClientCount(), "ClientCount");
+        Util.checkNonNegativeArg(request.getMinClientLifeMillis(), "MinClientLifeMillis");
+        Util.checkNonNegativeArg(request.getMinDelayMillisBeforeCreatingClient(), "MinDelayMillisBeforeCreatingClient");
+        Util.checkNonNegativeArg(request.getMinDelayMillisBetweenSends(), "MinDelayMillisBetweenSends");
+        Util.checkNonNegativeArg(request.getMinPayloadSize(), "MinPayloadSize");
+
+        Util.checkPositiveArg(request.getMaxClientLifeMillis() - request.getMinClientLifeMillis(),
+                "MinClientLifeMillis", "MaxClientLifeMillis");
+        Util.checkPositiveArg(request.getMaxDelayMillisBeforeCreatingClient() - request.getMinDelayMillisBeforeCreatingClient(),
+                "MinDelayMillisBeforeCreatingClient", "MaxDelayMillisBeforeCreatingClient");
+        Util.checkPositiveArg(request.getMaxDelayMillisBetweenSends() - request.getMinDelayMillisBetweenSends(),
+                "MinDelayMillisBetweenSends", "MaxDelayMillisBetweenSends");
+        Util.checkPositiveArg(request.getMaxPayloadSize() - request.getMinPayloadSize(),
+                "MinPayloadSize", "MaxPayloadSize");
 
         InetSocketAddress inetSocketAddress = new InetSocketAddress(request.getHostname(), request.getPort());
         if (inetSocketAddress.isUnresolved()) {

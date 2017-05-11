@@ -34,9 +34,9 @@ export CATALINA_HOME=#CATALINA_HOME#
 #CATALINA_BASE is the location of the configuration files of this instance of Tomcat
 export CATALINA_BASE=#CATALINA_BASE#
 
-# Use 80% of the free memory
-free_mem_kb=`free -t | grep Mem | awk '{print $2}'`
-catalina_mem_mb=$(( free_mem_kb / 3 / 1024 ))m
+# Use 40% of the free memory
+total_mem_kb=`free -t | grep Mem | awk '{print $2}'`
+catalina_mem_mb=$(( total_mem_kb * 4 / 10 / 1024 ))m
 
 # Ec2 call to get the public ip address, which is needed to expose the jmx ip/port for jconsole to connect to
 public_ipv4=`curl http://169.254.169.254/latest/meta-data/public-ipv4`

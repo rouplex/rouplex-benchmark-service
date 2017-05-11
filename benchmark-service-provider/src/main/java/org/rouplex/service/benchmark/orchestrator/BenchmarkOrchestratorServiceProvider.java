@@ -26,6 +26,7 @@ import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.MediaType;
 import java.io.Closeable;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -84,6 +85,22 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
     @Override
     public StartDistributedTcpBenchmarkResponse
         startDistributedTcpBenchmark(StartDistributedTcpBenchmarkRequest request) throws Exception {
+        Util.checkNonNullArg(request.getProvider(), "Provider");
+
+        Util.checkNonNegativeArg(request.getClientCount(), "ClientCount");
+        Util.checkNonNegativeArg(request.getMinClientLifeMillis(), "MinClientLifeMillis");
+        Util.checkNonNegativeArg(request.getMinDelayMillisBeforeCreatingClient(), "MinDelayMillisBeforeCreatingClient");
+        Util.checkNonNegativeArg(request.getMinDelayMillisBetweenSends(), "MinDelayMillisBetweenSends");
+        Util.checkNonNegativeArg(request.getMinPayloadSize(), "MinPayloadSize");
+
+        Util.checkPositiveArg(request.getMaxClientLifeMillis() - request.getMinClientLifeMillis(),
+                "MinClientLifeMillis", "MaxClientLifeMillis");
+        Util.checkPositiveArg(request.getMaxDelayMillisBeforeCreatingClient() - request.getMinDelayMillisBeforeCreatingClient(),
+                "MinDelayMillisBeforeCreatingClient", "MaxDelayMillisBeforeCreatingClient");
+        Util.checkPositiveArg(request.getMaxDelayMillisBetweenSends() - request.getMinDelayMillisBetweenSends(),
+                "MinDelayMillisBetweenSends", "MaxDelayMillisBetweenSends");
+        Util.checkPositiveArg(request.getMaxPayloadSize() - request.getMinPayloadSize(),
+                "MinPayloadSize", "MaxPayloadSize");
 
         if (!"ma".equals(request.getMagicWord())) {
             throw new Exception("Ask admin for the magic word");
@@ -119,15 +136,13 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
         Regions clientsEC2Region = getEC2Region(request, false);
         AmazonEC2 amazonEC2ForClients = getAmazonEc2Client(clientsEC2Region);
 
-        int ramMB = EC2Metadata.get().getEc2InstanceTypes().get(getHostType(request, true)).getRamMB();
-        String userData = buildSystemTuningScript(2000000, ramMB);
+        String userData = Base64.getEncoder().encodeToString(buildSystemTuningScript(1000000).getBytes(StandardCharsets.UTF_8));
         InstanceType serverEC2InstanceType = getEC2InstanceType(request, true);
         Collection<Instance> serverInstances = startRunningEC2Instances(
                 amazonEC2ForServer, request.getOptionalImageId(), serverEC2InstanceType, 1,
                 request.getOptionalKeyName(), userData, "server-" + request.getOptionalBenchmarkRequestId());
 
-        ramMB = EC2Metadata.get().getEc2InstanceTypes().get(getHostType(request, false)).getRamMB();
-        userData = buildSystemTuningScript(2000000, ramMB);
+        userData = Base64.getEncoder().encodeToString(buildSystemTuningScript(1000000).getBytes(StandardCharsets.UTF_8));
         InstanceType clientsEC2InstanceType = getEC2InstanceType(request, false);
         Collection<Instance> clientInstances = startRunningEC2Instances(
                 amazonEC2ForClients, request.getOptionalImageId(), clientsEC2InstanceType, clientInstanceCount,
@@ -248,7 +263,7 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
             AmazonEC2 amazonEC2Client = amazonEC2Clients.get(region);
 
             if (amazonEC2Client == null) {
-                amazonEC2Client = AmazonEC2ClientBuilder.defaultClient();
+                amazonEC2Client = AmazonEC2ClientBuilder.standard().withRegion(region).build();
                 amazonEC2Clients.put(region, amazonEC2Client);
             }
 
@@ -346,27 +361,31 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
         amazonEC2.terminateInstances(new TerminateInstancesRequest().withInstanceIds(instanceId));
     }
 
-    private String buildSystemTuningScript(int maxFD, long ramMB) {
-        long tcpMemPages = ramMB * 1024 * 1024 / 4096;
-
+    private String buildSystemTuningScript(int maxFD) {
         // consider net.core.somaxconn = 1000 as well
         String scriptTemplate = "#!/bin/bash\n\n" +
 
-        "setup_system_socket_limits() {\n" +
+        "configure_system_limits() {\n" +
             "\techo \"=== Rouplex === Allowing more open file descriptors, tcp sockets, tcp memory\"\n" +
-            "\techo \"* hard nofile %s\" | sudo tee -a /etc/security/limits.conf\n" +
-            "\techo \"* soft nofile %s\" | sudo tee -a /etc/security/limits.conf\n" +
-            "\techo \"\" | sudo tee -a /etc/sysctl.conf\n" +
-            "\techo \"# Allow use of 64000 ports from 1100 to 65100\" | sudo tee -a /etc/sysctl.conf\n" +
-            "\techo \"net.ipv4.ip_local_port_range = 1100 65100\" | sudo tee -a /etc/sysctl.conf\n" +
-            "\techo \"\" | sudo tee -a /etc/sysctl.conf\n" +
-            "\techo \"# Setup bigger tcp memory\" | sudo tee -a /etc/sysctl.conf\n" +
-            "\techo \"net.ipv4.tcp_mem = 383865 %s %s\" | sudo tee -a /etc/sysctl.conf\n" +
+            "\techo \"* hard nofile %s\" | tee -a /etc/security/limits.conf\n" +
+            "\techo \"* soft nofile %s\" | tee -a /etc/security/limits.conf\n" +
+            "\techo \"\" | tee -a /etc/sysctl.conf\n" +
+            "\techo \"# Allow use of 64000 ports from 1100 to 65100\" | tee -a /etc/sysctl.conf\n" +
+            "\techo \"net.ipv4.ip_local_port_range = 1100 65100\" | tee -a /etc/sysctl.conf\n" +
+            "\techo \"\" | tee -a /etc/sysctl.conf\n" +
+            "\ttotal_mem_kb=`free -t | grep Mem | awk '{print $2}'`\n" +
+            "\thalf_mem_in_pages=$(( total_mem_kb / 2 / 4))\n" +
+            "\techo \"# Setup bigger tcp memory\" | tee -a /etc/sysctl.conf\n" +
+            "\techo \"net.ipv4.tcp_mem = 383865 $half_mem_in_pages $half_mem_in_pages\" | tee -a /etc/sysctl.conf\n" +
+            "\techo \"# Setup greater open files\" | tee -a /etc/sysctl.conf\n" +
+            "\techo \"fs.file-max = 1000000\" | tee -a /etc/sysctl.conf\n\n" +
+            "\tsysctl -p\n" +
         "}\n\n" +
 
-        "setup_system_socket_limits\n";
+        "configure_system_limits\n" +
+        "service tomcat restart\n";
 
-        return String.format(scriptTemplate, maxFD, maxFD, tcpMemPages, tcpMemPages);
+        return String.format(scriptTemplate, maxFD, maxFD);
     }
 
     private Collection<Instance> startRunningEC2Instances(
