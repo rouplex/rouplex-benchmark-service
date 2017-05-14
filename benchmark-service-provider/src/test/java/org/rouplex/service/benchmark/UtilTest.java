@@ -10,7 +10,7 @@ public class UtilTest {
     @Test
     public void testConvertIsoInstantToString() throws Exception {
         long nowMillisBefore = System.currentTimeMillis();
-        long nowMillisAfter = Util.convertIsoInstantToMillis(Util.convertIsoInstantToString(nowMillisBefore));
+        long nowMillisAfter = Util.convertIsoInstantToMillis(Util.convertMillisToIsoInstant(nowMillisBefore));
         Assert.assertEquals(nowMillisBefore, nowMillisAfter);
     }
 }

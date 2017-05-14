@@ -32,6 +32,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.logging.Logger;
 
+//import com.amazonaws.regions.Regions;
+
 /**
  * @author Andi Mullaraj (andimullaraj at gmail.com)
  */
@@ -65,13 +67,13 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
     }
 
     // for distributed benchmarking, we need to manage ec2 instance lifecycle
-    private final Map<Regions, AmazonEC2> amazonEC2Clients = new HashMap<Regions, AmazonEC2>();
+    private final Map<Region, AmazonEC2> amazonEC2Clients = new HashMap<Region, AmazonEC2>();
 
     // for distributed benchmarking, we need to manage remote benchmark instances
     private final Client jaxrsClient; // rouplex platform will provide a specific version of this soon
 
     // Targeting jdk6 we cannot use the nice LocalDateTime of jdk8
-    private final Map<String, Map<Instance, Long>> distributedTcpBenchmarks = new HashMap<String, Map<Instance, Long>>();
+    private final Map<String, BenchmarkDescriptor> distributedTcpBenchmarks = new HashMap<String, BenchmarkDescriptor>();
 
     private final ExecutorService executorService = Executors.newSingleThreadExecutor();
     private final Configuration configuration;
@@ -82,38 +84,46 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
         startMonitoringBenchmarkInstances();
     }
 
-    @Override
-    public StartDistributedTcpBenchmarkResponse
-        startDistributedTcpBenchmark(StartDistributedTcpBenchmarkRequest request) throws Exception {
+    private void checkAndSanitize(StartDistributedTcpBenchmarkRequest request) {
         Util.checkNonNullArg(request.getProvider(), "Provider");
 
         Util.checkNonNegativeArg(request.getClientCount(), "ClientCount");
         Util.checkNonNegativeArg(request.getMinClientLifeMillis(), "MinClientLifeMillis");
         Util.checkNonNegativeArg(request.getMinDelayMillisBeforeCreatingClient(), "MinDelayMillisBeforeCreatingClient");
         Util.checkNonNegativeArg(request.getMinDelayMillisBetweenSends(), "MinDelayMillisBetweenSends");
-        Util.checkNonNegativeArg(request.getMinPayloadSize(), "MinPayloadSize");
+        Util.checkPositiveArg(request.getMinPayloadSize(), "MinPayloadSize");
 
-        Util.checkPositiveArg(request.getMaxClientLifeMillis() - request.getMinClientLifeMillis(),
+        Util.checkPositiveArgDiff(request.getMaxClientLifeMillis() - request.getMinClientLifeMillis(),
                 "MinClientLifeMillis", "MaxClientLifeMillis");
-        Util.checkPositiveArg(request.getMaxDelayMillisBeforeCreatingClient() - request.getMinDelayMillisBeforeCreatingClient(),
+        Util.checkPositiveArgDiff(request.getMaxDelayMillisBeforeCreatingClient() - request.getMinDelayMillisBeforeCreatingClient(),
                 "MinDelayMillisBeforeCreatingClient", "MaxDelayMillisBeforeCreatingClient");
-        Util.checkPositiveArg(request.getMaxDelayMillisBetweenSends() - request.getMinDelayMillisBetweenSends(),
+        Util.checkPositiveArgDiff(request.getMaxDelayMillisBetweenSends() - request.getMinDelayMillisBetweenSends(),
                 "MinDelayMillisBetweenSends", "MaxDelayMillisBetweenSends");
-        Util.checkPositiveArg(request.getMaxPayloadSize() - request.getMinPayloadSize(),
+        Util.checkPositiveArgDiff(request.getMaxPayloadSize() - request.getMinPayloadSize(),
                 "MinPayloadSize", "MaxPayloadSize");
 
         if (!"ma".equals(request.getMagicWord())) {
-            throw new Exception("Ask admin for the magic word");
+            throw new IllegalArgumentException("Ask admin for the magic word");
         }
 
         if (request.getOptionalBenchmarkRequestId() == null) {
             request.setOptionalBenchmarkRequestId(UUID.randomUUID().toString());
         }
+    }
+
+    @Override
+    public StartDistributedTcpBenchmarkResponse
+    startDistributedTcpBenchmark(StartDistributedTcpBenchmarkRequest request) throws Exception {
+
+        checkAndSanitize(request);
+
+        int clientInstanceCount = (request.getClientCount() - 1) / request.getClientsPerHost() + 1;
+        BenchmarkDescriptor benchmarkDescriptor = new BenchmarkDescriptor();
 
         synchronized (this) {
             // the underlying host just became an orchestrator and is granted unlimited lease
             ConfigureServiceRequest configureServiceRequest = new ConfigureServiceRequest();
-            configureServiceRequest.setLeaseEndAsIsoInstant(Util.convertIsoInstantToString(Long.MAX_VALUE));
+            configureServiceRequest.setLeaseEndAsIsoInstant(Util.convertMillisToIsoInstant(Long.MAX_VALUE));
             BenchmarkManagementServiceProvider.get().configureService(configureServiceRequest);
 
             if (distributedTcpBenchmarks.get(request.getOptionalBenchmarkRequestId()) != null) {
@@ -121,120 +131,91 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
                         request.getOptionalBenchmarkRequestId()));
             }
 
-            distributedTcpBenchmarks.put(request.getOptionalBenchmarkRequestId(), new HashMap<Instance, Long>());
+            distributedTcpBenchmarks.put(request.getOptionalBenchmarkRequestId(), benchmarkDescriptor);
         }
 
-        int clientInstanceCount = (request.getClientCount() - 1) / request.getClientsPerHost() + 1;
-
         logger.info(String.format(
-                "Starting Distributed Benchmark [%s]. 1 server ec2 instance and %s client ec2 instances",
+                "Starting Distributed Benchmark [%s]. 1 ec2 server instance and %s ec2 client instances",
                 request.getOptionalBenchmarkRequestId(), clientInstanceCount));
-
-        Regions serverEC2Region = getEC2Region(request, true);
-        AmazonEC2 amazonEC2ForServer = getAmazonEc2Client(serverEC2Region);
-
-        Regions clientsEC2Region = getEC2Region(request, false);
-        AmazonEC2 amazonEC2ForClients = getAmazonEc2Client(clientsEC2Region);
 
         String userData = Base64.getEncoder().encodeToString(buildSystemTuningScript(1000000).getBytes(StandardCharsets.UTF_8));
         InstanceType serverEC2InstanceType = getEC2InstanceType(request, true);
-        Collection<Instance> serverInstances = startRunningEC2Instances(
-                amazonEC2ForServer, request.getOptionalImageId(), serverEC2InstanceType, 1,
+        Map<String, InstanceDescriptor> serverDescriptors = startRunningEC2Instances(
+                getEC2Region(request, true), request.getOptionalImageId(), serverEC2InstanceType, 1,
                 request.getOptionalKeyName(), userData, "server-" + request.getOptionalBenchmarkRequestId());
 
         userData = Base64.getEncoder().encodeToString(buildSystemTuningScript(1000000).getBytes(StandardCharsets.UTF_8));
         InstanceType clientsEC2InstanceType = getEC2InstanceType(request, false);
-        Collection<Instance> clientInstances = startRunningEC2Instances(
-                amazonEC2ForClients, request.getOptionalImageId(), clientsEC2InstanceType, clientInstanceCount,
+        Map<String, InstanceDescriptor> clientDescriptors = startRunningEC2Instances(
+                getEC2Region(request, false), request.getOptionalImageId(), clientsEC2InstanceType, clientInstanceCount,
                 request.getOptionalKeyName(), userData, "client-" + request.getOptionalBenchmarkRequestId());
 
-        serverInstances = ensureEC2InstancesRunning(amazonEC2ForServer, serverInstances);
-        clientInstances = ensureEC2InstancesRunning(amazonEC2ForClients, clientInstances);
+        ensureEC2InstancesRunning(serverDescriptors);
+        ensureBenchmarkServiceRunning(serverDescriptors.values());
+        InstanceDescriptor serverDescriptor = serverDescriptors.values().iterator().next();
+        benchmarkDescriptor.getBenchmarkInstances().putAll(serverDescriptors);
 
-        Instance serverInstance = serverInstances.iterator().next();
-        Collection<Instance> relatedInstances = new ArrayList<Instance>();
-        relatedInstances.addAll(serverInstances);
-        relatedInstances.addAll(clientInstances);
-
-        ensureBenchmarkServiceRunning(relatedInstances);
-        long leaseExpiration = System.currentTimeMillis() +
-                configuration.getAsInteger(BenchmarkConfigurationKey.WorkerLeaseInMinutes) * 60 * 1000;
-        for (Instance instance : relatedInstances) {
-            distributedTcpBenchmarks.get(request.getOptionalBenchmarkRequestId()).put(instance, leaseExpiration);
-        }
+        ensureEC2InstancesRunning(clientDescriptors);
+        ensureBenchmarkServiceRunning(clientDescriptors.values());
+        InstanceDescriptor firstClientDescriptor = clientDescriptors.values().iterator().next();
+        benchmarkDescriptor.getBenchmarkInstances().putAll(clientDescriptors);
 
         // start server remotely
-        StartTcpServerRequest startTcpServerRequest = new StartTcpServerRequest();
-        startTcpServerRequest.setProvider(request.getProvider());
-        startTcpServerRequest.setHostname(serverInstance.getPrivateIpAddress());
-        startTcpServerRequest.setPort(request.getPort());
-        startTcpServerRequest.setSsl(request.isSsl());
-        startTcpServerRequest.setSocketReceiveBufferSize(request.getOptionalSocketReceiveBufferSize());
-        startTcpServerRequest.setSocketSendBufferSize(request.getOptionalSocketSendBufferSize());
-        startTcpServerRequest.setMetricsAggregation(request.getMetricsAggregation());
-        startTcpServerRequest.setBacklog(request.getOptionalBacklog());
-
-        Entity<StartTcpServerRequest> startTcpServerEntity = Entity.entity(startTcpServerRequest, MediaType.APPLICATION_JSON);
         StartTcpServerResponse startTcpServerResponse = jaxrsClient.target(String.format(
-                configuration.get(BenchmarkConfigurationKey.ServiceHttpDescriptor), serverInstance.getPublicIpAddress()))
+                configuration.get(BenchmarkConfigurationKey.ServiceHttpDescriptor), serverDescriptor.getPublicIpAddress()))
                 .path("/worker/tcp/server/start")
                 .request(MediaType.APPLICATION_JSON)
-                .post(startTcpServerEntity, StartTcpServerResponse.class);
+                .post(Entity.entity(buildStartTcpServerRequest(request, serverDescriptor.getPrivateIpAddress()),
+                        MediaType.APPLICATION_JSON), StartTcpServerResponse.class);
 
         // start clients remotely
-        StartTcpClientsRequest startTcpClientsRequest = new StartTcpClientsRequest();
-        startTcpClientsRequest.setProvider(request.getProvider());
-        startTcpClientsRequest.setHostname(startTcpServerResponse.getHostaddress());
-        startTcpClientsRequest.setPort(startTcpServerResponse.getPort());
-        startTcpClientsRequest.setSsl(request.isSsl());
-
-        startTcpClientsRequest.setClientCount(request.getClientsPerHost());
-        startTcpClientsRequest.setMinPayloadSize(request.getMinPayloadSize());
-        startTcpClientsRequest.setMaxPayloadSize(request.getMaxPayloadSize());
-        startTcpClientsRequest.setMinDelayMillisBetweenSends(request.getMinDelayMillisBetweenSends());
-        startTcpClientsRequest.setMaxDelayMillisBetweenSends(request.getMaxDelayMillisBetweenSends());
-        startTcpClientsRequest.setMinDelayMillisBeforeCreatingClient(request.getMinDelayMillisBeforeCreatingClient());
-        startTcpClientsRequest.setMaxDelayMillisBeforeCreatingClient(request.getMaxDelayMillisBeforeCreatingClient());
-        startTcpClientsRequest.setMinClientLifeMillis(request.getMinClientLifeMillis());
-        startTcpClientsRequest.setMaxClientLifeMillis(request.getMaxClientLifeMillis());
-
-        startTcpClientsRequest.setSocketReceiveBufferSize(request.getOptionalSocketReceiveBufferSize());
-        startTcpClientsRequest.setSocketSendBufferSize(request.getOptionalSocketSendBufferSize());
-        startTcpClientsRequest.setMetricsAggregation(request.getMetricsAggregation());
+        Entity<StartTcpClientsRequest> startTcpClientsEntity = Entity.entity(buildStartTcpClientsRequestRequest(
+                request, startTcpServerResponse.getHostaddress(), startTcpServerResponse.getPort()), MediaType.APPLICATION_JSON);
 
         List<String> clientIpAddresses = new ArrayList<String>();
-        Entity<StartTcpClientsRequest> startTcpClientsEntity = Entity.entity(startTcpClientsRequest, MediaType.APPLICATION_JSON);
-
-        for (Instance clientInstance : clientInstances) {
-            clientIpAddresses.add(clientInstance.getPublicIpAddress());
+        for (InstanceDescriptor clientDescriptor : clientDescriptors.values()) {
+            clientIpAddresses.add(clientDescriptor.getPublicIpAddress());
 
             jaxrsClient.target(String.format(
-                    configuration.get(BenchmarkConfigurationKey.ServiceHttpDescriptor), clientInstance.getPublicIpAddress()))
+                    configuration.get(BenchmarkConfigurationKey.ServiceHttpDescriptor), clientDescriptor.getPublicIpAddress()))
                     .path("/worker/tcp/clients/start")
                     .request(MediaType.APPLICATION_JSON)
                     .post(startTcpClientsEntity);
         }
 
+        TcpMetricsExpectation clientsExpectation = buildClientsTcpMetricsExpectation(request);
+        TcpMetricsExpectation serverExpectation = buildServerTcpMetricsExpectation(clientInstanceCount, clientsExpectation);
+        benchmarkDescriptor.setTcpMetricsExpectation(serverExpectation);
+
         // prepare and return response
         StartDistributedTcpBenchmarkResponse response = new StartDistributedTcpBenchmarkResponse();
         response.setBenchmarkRequestId(request.getOptionalBenchmarkRequestId());
-        response.setImageId(serverInstance.getImageId());
+        response.setImageId(serverDescriptor.getImageId());
         response.setServerHostType(HostType.fromString(serverEC2InstanceType.toString()));
-        response.setServerGeoLocation(GeoLocation.fromString(serverEC2Region.getName()));
-        response.setServerIpAddress(serverInstance.getPublicIpAddress());
+        response.setServerGeoLocation(GeoLocation.fromString(serverDescriptor.getEc2Region().getRegionName()));
+        response.setServerIpAddress(serverDescriptor.getPublicIpAddress());
 
         response.setClientsHostType(HostType.fromString(clientsEC2InstanceType.toString()));
-        response.setClientsGeoLocation(GeoLocation.fromString(clientsEC2Region.getName()));
+        response.setClientsGeoLocation(GeoLocation.fromString(firstClientDescriptor.getEc2Region().getRegionName()));
 
         StringBuilder jconsoleJmxLink = new StringBuilder("jconsole");
-        for (Instance instance : relatedInstances) {
-            jconsoleJmxLink.append(String.format(" service:jmx:rmi://%s:1705/jndi/rmi://%s:1706/jmxrmi",
-                    instance.getPublicIpAddress(), instance.getPublicIpAddress()));
+        addToJmxLink(jconsoleJmxLink, serverDescriptor);
+        for (InstanceDescriptor clientDescriptor : clientDescriptors.values()) {
+            addToJmxLink(jconsoleJmxLink, clientDescriptor);
         }
 
         response.setClientIpAddresses(clientIpAddresses);
         response.setJconsoleJmxLink(jconsoleJmxLink.toString());
+
+        response.setTcpClientsExpectation(clientsExpectation);
+        response.setTcpServerExpectation(serverExpectation);
+
         return response;
+    }
+
+    private void addToJmxLink(StringBuilder jmxLink, InstanceDescriptor instanceDescriptor) {
+        jmxLink.append(String.format(" service:jmx:rmi://%s:1705/jndi/rmi://%s:1706/jmxrmi",
+                instanceDescriptor.getPublicIpAddress(), instanceDescriptor.getPublicIpAddress()));
     }
 
     private Client createJaxRsClient() throws IOException {
@@ -258,12 +239,14 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
         return clientBuilder.build();
     }
 
-    private AmazonEC2 getAmazonEc2Client(Regions region) {
+    private AmazonEC2 getAmazonEc2Client(Region region) {
         synchronized (amazonEC2Clients) {
             AmazonEC2 amazonEC2Client = amazonEC2Clients.get(region);
 
             if (amazonEC2Client == null) {
-                amazonEC2Client = AmazonEC2ClientBuilder.standard().withRegion(region).build();
+                amazonEC2Client = AmazonEC2ClientBuilder.standard()
+                        .withRegion(Regions.fromName(region.getRegionName())).build();
+
                 amazonEC2Clients.put(region, amazonEC2Client);
             }
 
@@ -277,48 +260,19 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
             public void run() {
 
                 while (!executorService.isShutdown()) {
+                    // we note timeStart since the loop may take time to execute
                     long timeStart = System.currentTimeMillis();
-                    int workerLeaseInMinutes = configuration.getAsInteger(BenchmarkConfigurationKey.WorkerLeaseInMinutes);
-                    long newExpiration = timeStart + workerLeaseInMinutes * 60 * 1000;
 
-                    for (Map<Instance, Long> relatedInstances : distributedTcpBenchmarks.values()) {
-                        Set<Instance> expiredInstances = new HashSet<Instance>();
-                        for (Map.Entry<Instance, Long> instanceEntry : relatedInstances.entrySet()) {
-                            try {
-                                ConfigureServiceRequest configureServiceRequest = new ConfigureServiceRequest();
-                                configureServiceRequest.setLeaseEndAsIsoInstant(Util.convertIsoInstantToString(newExpiration));
-
-                                jaxrsClient.target(String.format(
-                                        configuration.get(BenchmarkConfigurationKey.ServiceHttpDescriptor),
-                                        instanceEntry.getKey().getPublicIpAddress()))
-                                        .path("/management/service/configuration")
-                                        .property(JERSEY_CLIENT_CONNECT_TIMEOUT, 2000)
-                                        .property(JERSEY_CLIENT_READ_TIMEOUT, 10000)
-                                        .request(MediaType.APPLICATION_JSON)
-                                        .post(Entity.entity(configureServiceRequest, MediaType.APPLICATION_JSON));
-
-                                instanceEntry.setValue(newExpiration);
-                            } catch (Exception e) {
-                                if (System.currentTimeMillis() > instanceEntry.getValue()) {
-                                    expiredInstances.add(instanceEntry.getKey());
-                                }
-                            }
+                    try {
+                        for (Map.Entry<String, BenchmarkDescriptor> descriptorEntry : distributedTcpBenchmarks.entrySet()) {
+                            monitorBenchmarkInstance(descriptorEntry.getValue());
+                            // remove later
                         }
-
-                        for (Instance expiredInstance : expiredInstances) {
-                            logger.severe(String.format("Terminating instance at ip [%s]. " +
-                                            "Cause: Could not contact it to announce its new lease in the last %s minutes",
-                                    expiredInstance.getPublicIpAddress(), workerLeaseInMinutes));
-
-                            String az = expiredInstance.getPlacement().getAvailabilityZone();
-                            Regions region = Regions.fromName(az.substring(az.lastIndexOf(' ') + 1));
-                            tagAndTerminateEC2Instance(getAmazonEc2Client(region), expiredInstance.getInstanceId());
-
-                            relatedInstances.remove(expiredInstance);
-                        }
+                    } catch (RuntimeException re) {
+                        // ConcurrentModification ... will be retried in one minute anyway
                     }
 
-                    // upsate leases once a minute (or less often occasionally)
+                    // update leases once a minute (or less often occasionally)
                     long waitMillis = timeStart + 60 * 1000 - System.currentTimeMillis();
                     if (waitMillis > 0) {
                         try {
@@ -334,12 +288,74 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
         });
     }
 
-    private Regions getEC2Region(StartDistributedTcpBenchmarkRequest request, boolean server) {
+    private void monitorBenchmarkInstance(BenchmarkDescriptor benchmarkDescriptor) {
+        long benchmarkExpiration;
+
+        try {
+            benchmarkExpiration = Util.convertIsoInstantToMillis(
+                    benchmarkDescriptor.getTcpMetricsExpectation().getFinishAsIsoInstant()) + 5 * 60 * 1000;
+        } catch (Exception e) {
+            benchmarkExpiration = Long.MAX_VALUE;
+        }
+
+        if (System.currentTimeMillis() > benchmarkExpiration) {
+            for (Map.Entry<String, InstanceDescriptor> instanceDescriptor : benchmarkDescriptor.benchmarkInstances.entrySet()) {
+                logger.info(String.format(
+                        "Terminating instance [%s] at ip [%s]. Cause: Benchmark has reached maximum time",
+                        instanceDescriptor.getKey(), instanceDescriptor.getValue().getPublicIpAddress()));
+
+                tagAndTerminateEC2Instance(getAmazonEc2Client(instanceDescriptor.getValue().getEc2Region()),
+                        instanceDescriptor.getKey());
+            }
+
+            benchmarkDescriptor.benchmarkInstances.clear();
+        } else {
+            int workerLeaseInMinutes = configuration.getAsInteger(BenchmarkConfigurationKey.WorkerLeaseInMinutes);
+            long workerExpiration = System.currentTimeMillis() + workerLeaseInMinutes * 60 * 1000;
+            Collection<String> expiredInstanceIds = new ArrayList<String>();
+
+            for (Map.Entry<String, InstanceDescriptor> entry : benchmarkDescriptor.benchmarkInstances.entrySet()) {
+                InstanceDescriptor instanceDescriptor = entry.getValue();
+                try {
+                    ConfigureServiceRequest configureServiceRequest = new ConfigureServiceRequest();
+                    configureServiceRequest.setLeaseEndAsIsoInstant(Util.convertMillisToIsoInstant(workerExpiration));
+
+                    jaxrsClient.target(String.format(
+                            configuration.get(BenchmarkConfigurationKey.ServiceHttpDescriptor),
+                            instanceDescriptor.getPublicIpAddress()))
+                            .path("/management/service/configuration")
+                            .property(JERSEY_CLIENT_CONNECT_TIMEOUT, 2000)
+                            .property(JERSEY_CLIENT_READ_TIMEOUT, 10000)
+                            .request(MediaType.APPLICATION_JSON)
+                            .post(Entity.entity(configureServiceRequest, MediaType.APPLICATION_JSON));
+
+                    instanceDescriptor.setExpiration(workerExpiration);
+                } catch (Exception e) {
+                    if (System.currentTimeMillis() > instanceDescriptor.getExpiration()) {
+                        expiredInstanceIds.add(entry.getKey());
+
+                        logger.severe(String.format("Terminating instance [%s] at ip [%s]. " +
+                                        "Cause: Could not contact it to announce its new lease in the last %s minutes",
+                                entry.getKey(), instanceDescriptor.getPublicIpAddress(), workerLeaseInMinutes));
+
+                        tagAndTerminateEC2Instance(getAmazonEc2Client(
+                                instanceDescriptor.getEc2Region()), entry.getKey());
+                    }
+                }
+            }
+
+            for (String instanceId : expiredInstanceIds) {
+                benchmarkDescriptor.benchmarkInstances.remove(instanceId);
+            }
+        }
+    }
+
+    private Region getEC2Region(StartDistributedTcpBenchmarkRequest request, boolean server) {
         try {
             GeoLocation geoLocation = server ? request.getOptionalServerGeoLocation() : request.getOptionalClientsGeoLocation();
-            return Regions.fromName(geoLocation.toString());
+            return new Region().withRegionName(geoLocation.toString());
         } catch (Exception e) {
-            return Regions.US_WEST_2;
+            return new Region().withRegionName(Regions.US_WEST_2.toString());
         }
     }
 
@@ -365,31 +381,31 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
         // consider net.core.somaxconn = 1000 as well
         String scriptTemplate = "#!/bin/bash\n\n" +
 
-        "configure_system_limits() {\n" +
-            "\techo \"=== Rouplex === Allowing more open file descriptors, tcp sockets, tcp memory\"\n" +
-            "\techo \"* hard nofile %s\" | tee -a /etc/security/limits.conf\n" +
-            "\techo \"* soft nofile %s\" | tee -a /etc/security/limits.conf\n" +
-            "\techo \"\" | tee -a /etc/sysctl.conf\n" +
-            "\techo \"# Allow use of 64000 ports from 1100 to 65100\" | tee -a /etc/sysctl.conf\n" +
-            "\techo \"net.ipv4.ip_local_port_range = 1100 65100\" | tee -a /etc/sysctl.conf\n" +
-            "\techo \"\" | tee -a /etc/sysctl.conf\n" +
-            "\ttotal_mem_kb=`free -t | grep Mem | awk '{print $2}'`\n" +
-            "\thalf_mem_in_pages=$(( total_mem_kb / 2 / 4))\n" +
-            "\techo \"# Setup bigger tcp memory\" | tee -a /etc/sysctl.conf\n" +
-            "\techo \"net.ipv4.tcp_mem = 383865 $half_mem_in_pages $half_mem_in_pages\" | tee -a /etc/sysctl.conf\n" +
-            "\techo \"# Setup greater open files\" | tee -a /etc/sysctl.conf\n" +
-            "\techo \"fs.file-max = 1000000\" | tee -a /etc/sysctl.conf\n\n" +
-            "\tsysctl -p\n" +
-        "}\n\n" +
+                "configure_system_limits() {\n" +
+                "\techo \"=== Rouplex === Allowing more open file descriptors, tcp sockets, tcp memory\"\n" +
+                "\techo \"* hard nofile %s\" | tee -a /etc/security/limits.conf\n" +
+                "\techo \"* soft nofile %s\" | tee -a /etc/security/limits.conf\n" +
+                "\techo \"\" | tee -a /etc/sysctl.conf\n" +
+                "\techo \"# Allow use of 64000 ports from 1100 to 65100\" | tee -a /etc/sysctl.conf\n" +
+                "\techo \"net.ipv4.ip_local_port_range = 1100 65100\" | tee -a /etc/sysctl.conf\n" +
+                "\techo \"\" | tee -a /etc/sysctl.conf\n" +
+                "\ttotal_mem_kb=`free -t | grep Mem | awk '{print $2}'`\n" +
+                "\thalf_mem_in_pages=$(( total_mem_kb / 2 / 4))\n" +
+                "\techo \"# Setup bigger tcp memory\" | tee -a /etc/sysctl.conf\n" +
+                "\techo \"net.ipv4.tcp_mem = 383865 $half_mem_in_pages $half_mem_in_pages\" | tee -a /etc/sysctl.conf\n" +
+                "\techo \"# Setup greater open files\" | tee -a /etc/sysctl.conf\n" +
+                "\techo \"fs.file-max = 1000000\" | tee -a /etc/sysctl.conf\n\n" +
+                "\tsysctl -p\n" +
+                "}\n\n" +
 
-        "configure_system_limits\n" +
-        "service tomcat restart\n";
+                "configure_system_limits\n" +
+                "service tomcat restart\n";
 
         return String.format(scriptTemplate, maxFD, maxFD);
     }
 
-    private Collection<Instance> startRunningEC2Instances(
-            AmazonEC2 amazonEC2, String optionalImageId, InstanceType instanceType,
+    private Map<String, InstanceDescriptor> startRunningEC2Instances(
+            Region ec2Region, String optionalImageId, InstanceType instanceType,
             int count, String sshKeyName, String userData, String tag) throws IOException {
 
         RunInstancesRequest runInstancesRequest = new RunInstancesRequest()
@@ -406,43 +422,52 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
                 .withTagSpecifications(new TagSpecification()
                         .withResourceType(ResourceType.Instance).withTags(new Tag("Name", tag)));
 
-        List<Instance> instances = amazonEC2.runInstances(runInstancesRequest).getReservation().getInstances();
-        if (instances.size() != count) {
-            // most likely EC2 already checks this, but won't hurt to recheck
-            throw new IOException(String.format(
-                    "Could only run %s EC2 instances out of %s requested", instances.size(), count));
+        Map<String, InstanceDescriptor> instanceDescriptors = new HashMap<String, InstanceDescriptor>();
+        for (Instance instance : getAmazonEc2Client(ec2Region)
+                .runInstances(runInstancesRequest).getReservation().getInstances()) {
+
+            InstanceDescriptor instanceDescriptor = new InstanceDescriptor();
+            instanceDescriptors.put(instance.getInstanceId(), instanceDescriptor);
+            instanceDescriptor.setPrivateIpAddress(instance.getPrivateIpAddress());
+            instanceDescriptor.setImageId(instance.getImageId());
+            instanceDescriptor.setEc2Region(ec2Region);
         }
 
-        return instances;
+        return instanceDescriptors;
     }
 
-    private Collection<Instance> ensureEC2InstancesRunning(
-            AmazonEC2 amazonEC2, Collection<Instance> instances) throws Exception {
-
-        Collection<String> instanceIds = new ArrayList<String>();
-        for (Instance instance : instances) {
-            instanceIds.add(instance.getInstanceId());
+    /**
+     * Wait for instances to start and fill the publicIp for each of them
+     *
+     * @param instanceDescriptors
+     * @throws Exception
+     */
+    private void ensureEC2InstancesRunning(Map<String, InstanceDescriptor> instanceDescriptors) throws Exception {
+        if (instanceDescriptors.isEmpty()) {
+            return;
         }
 
-        DescribeInstanceStatusRequest describeInstanceRequest = new DescribeInstanceStatusRequest().withInstanceIds(instanceIds);
-        while (amazonEC2.describeInstanceStatus(describeInstanceRequest).getInstanceStatuses().size() < instanceIds.size()) {
+        // all instances are in same region
+        AmazonEC2 amazonEC2 = getAmazonEc2Client(instanceDescriptors.values().iterator().next().getEc2Region());
+        DescribeInstanceStatusRequest request = new DescribeInstanceStatusRequest().withInstanceIds(instanceDescriptors.keySet());
+        while (amazonEC2.describeInstanceStatus(request).getInstanceStatuses().size() < instanceDescriptors.size()) {
             Thread.sleep(1000);
         }
 
-        instances = new ArrayList<Instance>();
         for (Reservation reservation : amazonEC2.describeInstances(
-                new DescribeInstancesRequest().withInstanceIds(instanceIds)).getReservations()) {
-            instances.addAll(reservation.getInstances());
-        }
+                new DescribeInstancesRequest().withInstanceIds(instanceDescriptors.keySet())).getReservations()) {
 
-        return instances;
+            for (Instance instance : reservation.getInstances()) {
+                instanceDescriptors.get(instance.getInstanceId()).setPublicIpAddress(instance.getPublicIpAddress());
+            }
+        }
     }
 
-    private void ensureBenchmarkServiceRunning(Collection<Instance> instances) throws Exception {
-        for (Instance instance : instances) {
+    private void ensureBenchmarkServiceRunning(Collection<InstanceDescriptor> instanceDescriptors) throws Exception {
+        for (InstanceDescriptor instanceDescriptor : instanceDescriptors) {
             Entity<GetServiceStateRequest> requestEntity = Entity.entity(new GetServiceStateRequest(), MediaType.APPLICATION_JSON);
             WebTarget benchmarkWebTarget = jaxrsClient.target(String.format(
-                    configuration.get(BenchmarkConfigurationKey.ServiceHttpDescriptor), instance.getPublicIpAddress()))
+                    configuration.get(BenchmarkConfigurationKey.ServiceHttpDescriptor), instanceDescriptor.getPublicIpAddress()))
                     .path("/management/service/state")
                     .property(JERSEY_CLIENT_CONNECT_TIMEOUT, 2000)
                     .property(JERSEY_CLIENT_READ_TIMEOUT, 10000);
@@ -463,6 +488,83 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
                 Thread.sleep(1000);
             }
         }
+    }
+
+    private StartTcpServerRequest buildStartTcpServerRequest(StartDistributedTcpBenchmarkRequest request, String ipAddress) {
+        StartTcpServerRequest startTcpServerRequest = new StartTcpServerRequest();
+
+        startTcpServerRequest.setProvider(request.getProvider());
+        startTcpServerRequest.setHostname(ipAddress);
+        startTcpServerRequest.setPort(request.getPort());
+        startTcpServerRequest.setSsl(request.isSsl());
+        startTcpServerRequest.setSocketReceiveBufferSize(request.getOptionalSocketReceiveBufferSize());
+        startTcpServerRequest.setSocketSendBufferSize(request.getOptionalSocketSendBufferSize());
+        startTcpServerRequest.setMetricsAggregation(request.getMetricsAggregation());
+        startTcpServerRequest.setBacklog(request.getOptionalBacklog());
+
+        return startTcpServerRequest;
+    }
+
+    private StartTcpClientsRequest buildStartTcpClientsRequestRequest(
+            StartDistributedTcpBenchmarkRequest request, String remoteIpAddress, int remoteIpPort) {
+
+        StartTcpClientsRequest startTcpClientsRequest = new StartTcpClientsRequest();
+        startTcpClientsRequest.setProvider(request.getProvider());
+        startTcpClientsRequest.setHostname(remoteIpAddress);
+        startTcpClientsRequest.setPort(remoteIpPort);
+        startTcpClientsRequest.setSsl(request.isSsl());
+
+        startTcpClientsRequest.setClientCount(request.getClientsPerHost());
+        startTcpClientsRequest.setMinPayloadSize(request.getMinPayloadSize());
+        startTcpClientsRequest.setMaxPayloadSize(request.getMaxPayloadSize());
+        startTcpClientsRequest.setMinDelayMillisBetweenSends(request.getMinDelayMillisBetweenSends());
+        startTcpClientsRequest.setMaxDelayMillisBetweenSends(request.getMaxDelayMillisBetweenSends());
+        startTcpClientsRequest.setMinDelayMillisBeforeCreatingClient(request.getMinDelayMillisBeforeCreatingClient());
+        startTcpClientsRequest.setMaxDelayMillisBeforeCreatingClient(request.getMaxDelayMillisBeforeCreatingClient());
+        startTcpClientsRequest.setMinClientLifeMillis(request.getMinClientLifeMillis());
+        startTcpClientsRequest.setMaxClientLifeMillis(request.getMaxClientLifeMillis());
+
+        startTcpClientsRequest.setSocketReceiveBufferSize(request.getOptionalSocketReceiveBufferSize());
+        startTcpClientsRequest.setSocketSendBufferSize(request.getOptionalSocketSendBufferSize());
+        startTcpClientsRequest.setMetricsAggregation(request.getMetricsAggregation());
+
+        return startTcpClientsRequest;
+    }
+
+    private TcpMetricsExpectation buildClientsTcpMetricsExpectation(StartDistributedTcpBenchmarkRequest request) {
+        TcpMetricsExpectation clientsExpectation = new TcpMetricsExpectation();
+
+        int connectionRampUpMillis = request.getMaxDelayMillisBeforeCreatingClient() - request.getMinDelayMillisBeforeCreatingClient();
+        int clientAvgLifetimeMillis = (request.getMaxClientLifeMillis() + request.getMinClientLifeMillis()) / 2;
+        int rampUpAsMillis = Math.min(connectionRampUpMillis, clientAvgLifetimeMillis);
+
+        clientsExpectation.setRampUpAsMillis(rampUpAsMillis);
+        clientsExpectation.setFinishRampUpAsIsoInstant(Util.convertMillisToIsoInstant(System.currentTimeMillis() + rampUpAsMillis));
+        clientsExpectation.setConnectionsPerSecond(request.getClientsPerHost() * 1000 / connectionRampUpMillis);
+        clientsExpectation.setMaxSimultaneousConnections(request.getClientsPerHost() * rampUpAsMillis / connectionRampUpMillis);
+
+        int avgPayloadSize = (request.getMaxPayloadSize() - 1 + request.getMinPayloadSize()) / 2;
+        clientsExpectation.setMaxUploadSpeedAsBitsPerSecond(avgPayloadSize * clientsExpectation.getMaxSimultaneousConnections() * 8);
+        clientsExpectation.setMaxDownloadSpeedAsBitsPerSecond(avgPayloadSize * clientsExpectation.getMaxSimultaneousConnections() * 8);
+
+        long durationAsMillis = request.getMinDelayMillisBeforeCreatingClient() + connectionRampUpMillis + request.getMaxClientLifeMillis();
+        clientsExpectation.setFinishAsIsoInstant(Util.convertMillisToIsoInstant(System.currentTimeMillis() + durationAsMillis));
+        return clientsExpectation;
+    }
+
+    private TcpMetricsExpectation buildServerTcpMetricsExpectation(
+            int clientHostsCount, TcpMetricsExpectation clientsExpectation) {
+
+        TcpMetricsExpectation serverExpectation = new TcpMetricsExpectation();
+        serverExpectation.setRampUpAsMillis(clientsExpectation.getRampUpAsMillis());
+        serverExpectation.setFinishRampUpAsIsoInstant(clientsExpectation.getFinishRampUpAsIsoInstant());
+        serverExpectation.setConnectionsPerSecond(clientHostsCount * clientsExpectation.getConnectionsPerSecond());
+        serverExpectation.setMaxSimultaneousConnections(clientHostsCount * clientsExpectation.getMaxSimultaneousConnections());
+        serverExpectation.setMaxUploadSpeedAsBitsPerSecond(clientHostsCount * clientsExpectation.getMaxUploadSpeedAsBitsPerSecond());
+        serverExpectation.setMaxDownloadSpeedAsBitsPerSecond(clientHostsCount * clientsExpectation.getMaxDownloadSpeedAsBitsPerSecond());
+        serverExpectation.setFinishAsIsoInstant(clientsExpectation.getFinishRampUpAsIsoInstant());
+
+        return serverExpectation;
     }
 
     @Override

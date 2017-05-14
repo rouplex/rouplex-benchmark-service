@@ -3,7 +3,7 @@ package org.rouplex.service.benchmark.worker;
 /**
  * @author Andi Mullaraj (andimullaraj at gmail.com)
  */
-public class StartTcpServerResponse {
+public class StartTcpServerResponse extends StartTcpEndPointResponse {
     String hostaddress;
     String hostname;
     int port;

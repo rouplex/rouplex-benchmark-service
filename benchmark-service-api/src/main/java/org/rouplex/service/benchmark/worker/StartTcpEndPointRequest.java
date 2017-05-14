@@ -4,6 +4,7 @@ package org.rouplex.service.benchmark.worker;
  * @author Andi Mullaraj (andimullaraj at gmail.com)
  */
 public class StartTcpEndPointRequest {
+    String optionalJobId;
     Provider provider;
     String hostname;
     int port;
@@ -13,6 +14,14 @@ public class StartTcpEndPointRequest {
     int socketReceiveBufferSize;
 
     MetricsAggregation metricsAggregation = new MetricsAggregation();
+
+    public String getOptionalJobId() {
+        return optionalJobId;
+    }
+
+    public void setOptionalJobId(String optionalJobId) {
+        this.optionalJobId = optionalJobId;
+    }
 
     public Provider getProvider() {
         return provider;
