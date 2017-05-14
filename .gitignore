@@ -3,3 +3,4 @@
 
 benchmark-service-provider-jersey/.extract/*
 
+*.iml
