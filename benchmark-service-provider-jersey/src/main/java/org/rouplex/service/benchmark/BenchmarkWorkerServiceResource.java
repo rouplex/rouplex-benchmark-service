@@ -27,6 +27,11 @@ public class BenchmarkWorkerServiceResource extends ResourceConfig implements Be
         return BenchmarkWorkerServiceProvider.get().stopTcpServer(request);
     }
 
+    @Override
+    public PollTcpEndPointStateResponse pollTcpServerState(PollTcpEndPointStateRequest request) throws Exception {
+        return BenchmarkWorkerServiceProvider.get().pollTcpServerState(request);
+    }
+
     @ApiOperation(value = "Start a number of RouplexTcpClients on this host and connect them to a remote echo tcp server")
     @ApiResponses(value = {
             @ApiResponse(code = 200, message = "Success"),
@@ -34,6 +39,11 @@ public class BenchmarkWorkerServiceResource extends ResourceConfig implements Be
     @Override
     public StartTcpClientsResponse startTcpClients(StartTcpClientsRequest request) throws Exception {
         return BenchmarkWorkerServiceProvider.get().startTcpClients(request);
+    }
+
+    @Override
+    public PollTcpEndPointStateResponse pollTcpClientsState(PollTcpEndPointStateRequest request) throws Exception {
+        return BenchmarkWorkerServiceProvider.get().pollTcpClientsState(request);
     }
 
     @ApiOperation(value = "Get snapshot metrics of the servers and clients running on this host")

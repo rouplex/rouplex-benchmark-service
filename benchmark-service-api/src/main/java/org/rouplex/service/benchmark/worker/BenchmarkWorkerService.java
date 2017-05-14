@@ -14,8 +14,16 @@ public interface BenchmarkWorkerService {
     StopTcpServerResponse stopTcpServer(StopTcpServerRequest request) throws Exception;
 
     @POST
+    @Path("/tcp/server/state")
+    PollTcpEndPointStateResponse pollTcpServerState(PollTcpEndPointStateRequest request) throws Exception;
+
+    @POST
     @Path("/tcp/clients/start")
     StartTcpClientsResponse startTcpClients(StartTcpClientsRequest request) throws Exception;
+
+    @POST
+    @Path("/tcp/clients/state")
+    PollTcpEndPointStateResponse pollTcpClientsState(PollTcpEndPointStateRequest request) throws Exception;
 
     @POST
     @Path("/metrics")

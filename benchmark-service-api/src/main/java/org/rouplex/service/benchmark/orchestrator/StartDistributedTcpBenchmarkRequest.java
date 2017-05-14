@@ -7,6 +7,7 @@ import org.rouplex.service.benchmark.worker.Provider;
  * @author Andi Mullaraj (andimullaraj at gmail.com)
  */
 public class StartDistributedTcpBenchmarkRequest {
+    String magicWord;
     String optionalBenchmarkRequestId;
     HostType optionalServerHostType;
     GeoLocation optionalServerGeoLocation;
@@ -35,6 +36,14 @@ public class StartDistributedTcpBenchmarkRequest {
     public int maxClientLifeMillis = 10000;
 
     MetricsAggregation metricsAggregation = new MetricsAggregation();
+
+    public String getMagicWord() {
+        return magicWord;
+    }
+
+    public void setMagicWord(String magicWord) {
+        this.magicWord = magicWord;
+    }
 
     public String getOptionalBenchmarkRequestId() {
         return optionalBenchmarkRequestId;

@@ -25,64 +25,62 @@ public enum HostType {
     EC2_M42xlarge,
     EC2_M44xlarge,
     EC2_M410xlarge,
-    EC2_M416xlarge;
-
-//    removing these temporary till we have authentication/authorization in place
-//    M2Xlarge("m2.xlarge"),
-//    M22xlarge("m2.2xlarge"),
-//    M24xlarge("m2.4xlarge"),
-//    Cr18xlarge("cr1.8xlarge"),
-//    R3Large("r3.large"),
-//    R3Xlarge("r3.xlarge"),
-//    R32xlarge("r3.2xlarge"),
-//    R34xlarge("r3.4xlarge"),
-//    R38xlarge("r3.8xlarge"),
-//    R4Large("r4.large"),
-//    R4Xlarge("r4.xlarge"),
-//    R42xlarge("r4.2xlarge"),
-//    R44xlarge("r4.4xlarge"),
-//    R48xlarge("r4.8xlarge"),
-//    R416xlarge("r4.16xlarge"),
-//    X116xlarge("x1.16xlarge"),
-//    X132xlarge("x1.32xlarge"),
-//    I2Xlarge("i2.xlarge"),
-//    I22xlarge("i2.2xlarge"),
-//    I24xlarge("i2.4xlarge"),
-//    I28xlarge("i2.8xlarge"),
-//    I3Large("i3.large"),
-//    I3Xlarge("i3.xlarge"),
-//    I32xlarge("i3.2xlarge"),
-//    I34xlarge("i3.4xlarge"),
-//    I38xlarge("i3.8xlarge"),
-//    I316xlarge("i3.16xlarge"),
-//    Hi14xlarge("hi1.4xlarge"),
-//    Hs18xlarge("hs1.8xlarge"),
-//    C1Medium("c1.medium"),
-//    C1Xlarge("c1.xlarge"),
-//    C3Large("c3.large"),
-//    C3Xlarge("c3.xlarge"),
-//    C32xlarge("c3.2xlarge"),
-//    C34xlarge("c3.4xlarge"),
-//    C38xlarge("c3.8xlarge"),
-//    C4Large("c4.large"),
-//    C4Xlarge("c4.xlarge"),
-//    C42xlarge("c4.2xlarge"),
-//    C44xlarge("c4.4xlarge"),
-//    C48xlarge("c4.8xlarge"),
-//    Cc14xlarge("cc1.4xlarge"),
-//    Cc28xlarge("cc2.8xlarge"),
-//    G22xlarge("g2.2xlarge"),
-//    G28xlarge("g2.8xlarge"),
-//    Cg14xlarge("cg1.4xlarge"),
-//    P2Xlarge("p2.xlarge"),
-//    P28xlarge("p2.8xlarge"),
-//    P216xlarge("p2.16xlarge"),
-//    D2Xlarge("d2.xlarge"),
-//    D22xlarge("d2.2xlarge"),
-//    D24xlarge("d2.4xlarge"),
-//    D28xlarge("d2.8xlarge"),
-//    F12xlarge("f1.2xlarge"),
-//    F116xlarge("f1.16xlarge");
+    EC2_M416xlarge,
+    EC2_M2Xlarge,
+    EC2_M22xlarge,
+    EC2_M24xlarge,
+    EC2_Cr18xlarge,
+    EC2_R3Large,
+    EC2_R3Xlarge,
+    EC2_R32xlarge,
+    EC2_R34xlarge,
+    EC2_R38xlarge,
+    EC2_R4Large,
+    EC2_R4Xlarge,
+    EC2_R42xlarge,
+    EC2_R44xlarge,
+    EC2_R48xlarge,
+    EC2_R416xlarge,
+    EC2_X116xlarge,
+    EC2_X132xlarge,
+    EC2_I2Xlarge,
+    EC2_I22xlarge,
+    EC2_I24xlarge,
+    EC2_I28xlarge,
+    EC2_I3Large,
+    EC2_I3Xlarge,
+    EC2_I32xlarge,
+    EC2_I34xlarge,
+    EC2_I38xlarge,
+    EC2_I316xlarge,
+    EC2_Hi14xlarge,
+    EC2_Hs18xlarge,
+    EC2_C1Medium,
+    EC2_C1Xlarge,
+    EC2_C3Large,
+    EC2_C3Xlarge,
+    EC2_C32xlarge,
+    EC2_C34xlarge,
+    EC2_C38xlarge,
+    EC2_C4Large,
+    EC2_C4Xlarge,
+    EC2_C42xlarge,
+    EC2_C44xlarge,
+    EC2_C48xlarge,
+    EC2_Cc14xlarge,
+    EC2_Cc28xlarge,
+    EC2_G22xlarge,
+    EC2_G28xlarge,
+    EC2_Cg14xlarge,
+    EC2_P2Xlarge,
+    EC2_P28xlarge,
+    EC2_P216xlarge,
+    EC2_D2Xlarge,
+    EC2_D22xlarge,
+    EC2_D24xlarge,
+    EC2_D28xlarge,
+    EC2_F12xlarge,
+    EC2_F116xlarge;
 
     static final Map<HostType, String> enumToString = new HashMap<HostType, String>() {{
         put(EC2_T2Nano, "t2.nano");
@@ -106,6 +104,61 @@ public enum HostType {
         put(EC2_M44xlarge, "m4.4xlarge");
         put(EC2_M410xlarge, "m4.10xlarge");
         put(EC2_M416xlarge, "m4.16xlarge");
+        put(EC2_M2Xlarge, "m2.xlarge");
+        put(EC2_M22xlarge, "m2.2xlarge");
+        put(EC2_M24xlarge, "m2.4xlarge");
+        put(EC2_Cr18xlarge, "cr1.8xlarge");
+        put(EC2_R3Large, "r3.large");
+        put(EC2_R3Xlarge, "r3.xlarge");
+        put(EC2_R32xlarge, "r3.2xlarge");
+        put(EC2_R34xlarge, "r3.4xlarge");
+        put(EC2_R38xlarge, "r3.8xlarge");
+        put(EC2_R4Large, "r4.large");
+        put(EC2_R4Xlarge, "r4.xlarge");
+        put(EC2_R42xlarge, "r4.2xlarge");
+        put(EC2_R44xlarge, "r4.4xlarge");
+        put(EC2_R48xlarge, "r4.8xlarge");
+        put(EC2_R416xlarge, "r4.16xlarge");
+        put(EC2_X116xlarge, "x1.16xlarge");
+        put(EC2_X132xlarge, "x1.32xlarge");
+        put(EC2_I2Xlarge, "i2.xlarge");
+        put(EC2_I22xlarge, "i2.2xlarge");
+        put(EC2_I24xlarge, "i2.4xlarge");
+        put(EC2_I28xlarge, "i2.8xlarge");
+        put(EC2_I3Large, "i3.large");
+        put(EC2_I3Xlarge, "i3.xlarge");
+        put(EC2_I32xlarge, "i3.2xlarge");
+        put(EC2_I34xlarge, "i3.4xlarge");
+        put(EC2_I38xlarge, "i3.8xlarge");
+        put(EC2_I316xlarge, "i3.16xlarge");
+        put(EC2_Hi14xlarge, "hi1.4xlarge");
+        put(EC2_Hs18xlarge, "hs1.8xlarge");
+        put(EC2_C1Medium, "c1.medium");
+        put(EC2_C1Xlarge, "c1.xlarge");
+        put(EC2_C3Large, "c3.large");
+        put(EC2_C3Xlarge, "c3.xlarge");
+        put(EC2_C32xlarge, "c3.2xlarge");
+        put(EC2_C34xlarge, "c3.4xlarge");
+        put(EC2_C38xlarge, "c3.8xlarge");
+        put(EC2_C4Large, "c4.large");
+        put(EC2_C4Xlarge, "c4.xlarge");
+        put(EC2_C42xlarge, "c4.2xlarge");
+        put(EC2_C44xlarge, "c4.4xlarge");
+        put(EC2_C48xlarge, "c4.8xlarge");
+        put(EC2_Cc14xlarge, "cc1.4xlarge");
+        put(EC2_Cc28xlarge, "cc2.8xlarge");
+        put(EC2_G22xlarge, "g2.2xlarge");
+        put(EC2_G28xlarge, "g2.8xlarge");
+        put(EC2_Cg14xlarge, "cg1.4xlarge");
+        put(EC2_P2Xlarge, "p2.xlarge");
+        put(EC2_P28xlarge, "p2.8xlarge");
+        put(EC2_P216xlarge, "p2.16xlarge");
+        put(EC2_D2Xlarge, "d2.xlarge");
+        put(EC2_D22xlarge, "d2.2xlarge");
+        put(EC2_D24xlarge, "d2.4xlarge");
+        put(EC2_D28xlarge, "d2.8xlarge");
+        put(EC2_F12xlarge, "f1.2xlarge");
+        put(EC2_F116xlarge, "f1.16xlarge");
     }};
 
     static final Map<String, HostType> stringToEnum = new HashMap<String, HostType>() {{

@@ -6,6 +6,7 @@ import org.rouplex.platform.tcp.RouplexTcpBinder;
 import org.rouplex.platform.tcp.RouplexTcpClient;
 import org.rouplex.platform.tcp.RouplexTcpClientListener;
 import org.rouplex.platform.tcp.RouplexTcpServer;
+import org.rouplex.service.benchmark.Util;
 import org.rouplex.service.benchmark.management.SnapCounter;
 import org.rouplex.service.benchmark.management.SnapHistogram;
 import org.rouplex.service.benchmark.management.SnapMeter;
@@ -47,7 +48,10 @@ public class BenchmarkWorkerServiceProvider implements BenchmarkWorkerService, C
     final MetricsUtil metricsUtil = new MetricsUtil(TimeUnit.SECONDS);
     final AtomicInteger incrementalId = new AtomicInteger();
     final Random random = new Random();
-    Map<String, Closeable> closeables = new HashMap<String, Closeable>();
+    Set<Closeable> closeables = new HashSet<Closeable>();
+
+    Map<String, Object> jobs = new HashMap<String, Object>(); // add implementation later
+    Map<String, RouplexTcpServer> tcpServers = new HashMap<String, RouplexTcpServer>();
 
     final RouplexTcpClientListener rouplexTcpClientListener = new RouplexTcpClientListener() {
         @Override
@@ -139,8 +143,10 @@ public class BenchmarkWorkerServiceProvider implements BenchmarkWorkerService, C
 
     @Override
     public StartTcpServerResponse startTcpServer(StartTcpServerRequest request) throws Exception {
-        if (request.getProvider() == null) {
-            throw new IllegalArgumentException("Provider cannot be null");
+        Util.checkNonNullArg(request.getProvider(), "Provider");
+
+        if (request.getOptionalJobId() == null) {
+            request.setOptionalJobId(UUID.randomUUID().toString());
         }
 
         try {
@@ -184,9 +190,10 @@ public class BenchmarkWorkerServiceProvider implements BenchmarkWorkerService, C
                     isa.getAddress().getHostAddress().replace('.', '-'), isa.getPort()));
 
             String hostPort = String.format("%s:%s", isa.getHostName().replace('.', '-'), isa.getPort());
-            addCloseable(hostPort, rouplexTcpServer);
+            tcpServers.put(hostPort, rouplexTcpServer);
 
             StartTcpServerResponse response = new StartTcpServerResponse();
+            response.setJobId(request.getOptionalJobId());
             response.setHostaddress(isa.getAddress().getHostAddress());
             response.setHostname(isa.getHostName());
             response.setPort(isa.getPort());
@@ -201,17 +208,42 @@ public class BenchmarkWorkerServiceProvider implements BenchmarkWorkerService, C
     @Override
     public StopTcpServerResponse stopTcpServer(StopTcpServerRequest request) throws Exception {
         String hostPort = String.format("%s:%s", request.getHostname().replace('.', '-'), request.getPort());
-        if (!closeAndRemove(hostPort)) {
+        RouplexTcpServer tcpServer = tcpServers.remove(hostPort);
+
+        if (tcpServer == null) {
             throw new IOException("There is no EchoServer listening at " + hostPort);
         }
 
+        tcpServer.close();
         return new StopTcpServerResponse();
     }
 
     @Override
+    public PollTcpEndPointStateResponse pollTcpServerState(PollTcpEndPointStateRequest request) throws Exception {
+        throw new RuntimeException("Not implemented yet");
+    }
+
+    @Override
     public StartTcpClientsResponse startTcpClients(final StartTcpClientsRequest request) throws Exception {
-        if (request.getProvider() == null) {
-            throw new IllegalArgumentException("Provider cannot be null");
+        Util.checkNonNullArg(request.getProvider(), "Provider");
+
+        Util.checkNonNegativeArg(request.getClientCount(), "ClientCount");
+        Util.checkNonNegativeArg(request.getMinClientLifeMillis(), "MinClientLifeMillis");
+        Util.checkNonNegativeArg(request.getMinDelayMillisBeforeCreatingClient(), "MinDelayMillisBeforeCreatingClient");
+        Util.checkNonNegativeArg(request.getMinDelayMillisBetweenSends(), "MinDelayMillisBetweenSends");
+        Util.checkNonNegativeArg(request.getMinPayloadSize(), "MinPayloadSize");
+
+        Util.checkPositiveArgDiff(request.getMaxClientLifeMillis() - request.getMinClientLifeMillis(),
+                "MinClientLifeMillis", "MaxClientLifeMillis");
+        Util.checkPositiveArgDiff(request.getMaxDelayMillisBeforeCreatingClient() - request.getMinDelayMillisBeforeCreatingClient(),
+                "MinDelayMillisBeforeCreatingClient", "MaxDelayMillisBeforeCreatingClient");
+        Util.checkPositiveArgDiff(request.getMaxDelayMillisBetweenSends() - request.getMinDelayMillisBetweenSends(),
+                "MinDelayMillisBetweenSends", "MaxDelayMillisBetweenSends");
+        Util.checkPositiveArgDiff(request.getMaxPayloadSize() - request.getMinPayloadSize(),
+                "MinPayloadSize", "MaxPayloadSize");
+
+        if (request.getOptionalJobId() == null) {
+            request.setOptionalJobId(UUID.randomUUID().toString());
         }
 
         InetSocketAddress inetSocketAddress = new InetSocketAddress(request.getHostname(), request.getPort());
@@ -238,7 +270,14 @@ public class BenchmarkWorkerServiceProvider implements BenchmarkWorkerService, C
             }, startClientMillis, TimeUnit.MILLISECONDS);
         }
 
-        return new StartTcpClientsResponse();
+        StartTcpClientsResponse response = new StartTcpClientsResponse();
+        response.setJobId(request.getOptionalJobId());
+        return response;
+    }
+
+    @Override
+    public PollTcpEndPointStateResponse pollTcpClientsState(PollTcpEndPointStateRequest request) throws Exception {
+        throw new RuntimeException("Not implemented yet");
     }
 
     @Override
@@ -291,27 +330,23 @@ public class BenchmarkWorkerServiceProvider implements BenchmarkWorkerService, C
         return addCloseable(rouplexTcpBinder);
     }
 
+//    protected boolean closeAndRemove(String closeableId) throws IOException {
+//        Closeable closeable = closeables.remove(closeableId);
+//        if (closeable == null) {
+//            return false;
+//        }
+//
+//        closeable.close();
+//        return true;
+//    }
+
     protected <T extends Closeable> T addCloseable(T t) {
-        return addCloseable(UUID.randomUUID().toString(), t);
-    }
-
-    protected boolean closeAndRemove(String closeableId) throws IOException {
-        Closeable closeable = closeables.remove(closeableId);
-        if (closeable == null) {
-            return false;
-        }
-
-        closeable.close();
-        return true;
-    }
-
-    protected <T extends Closeable> T addCloseable(String id, T t) {
         synchronized (scheduledExecutor) {
             if (isClosed()) {
                 throw new IllegalStateException("Already closed.");
             }
 
-            closeables.put(id, t);
+            closeables.add(t);
             return t;
         }
     }
@@ -319,7 +354,7 @@ public class BenchmarkWorkerServiceProvider implements BenchmarkWorkerService, C
     @Override
     public void close() throws IOException {
         synchronized (scheduledExecutor) {
-            for (Closeable closeable : closeables.values()) {
+            for (Closeable closeable : closeables) {
                 try {
                     closeable.close();
                 } catch (IOException e) {

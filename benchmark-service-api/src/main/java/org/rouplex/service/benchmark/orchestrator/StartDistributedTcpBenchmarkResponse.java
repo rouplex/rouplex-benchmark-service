@@ -19,6 +19,9 @@ public class StartDistributedTcpBenchmarkResponse {
 
     String jconsoleJmxLink;
 
+    TcpMetricsExpectation tcpServerExpectation;
+    TcpMetricsExpectation tcpClientsExpectation;
+
     public String getBenchmarkRequestId() {
         return benchmarkRequestId;
     }
@@ -89,5 +92,21 @@ public class StartDistributedTcpBenchmarkResponse {
 
     public void setJconsoleJmxLink(String jconsoleJmxLink) {
         this.jconsoleJmxLink = jconsoleJmxLink;
+    }
+
+    public TcpMetricsExpectation getTcpServerExpectation() {
+        return tcpServerExpectation;
+    }
+
+    public void setTcpServerExpectation(TcpMetricsExpectation tcpServerExpectation) {
+        this.tcpServerExpectation = tcpServerExpectation;
+    }
+
+    public TcpMetricsExpectation getTcpClientsExpectation() {
+        return tcpClientsExpectation;
+    }
+
+    public void setTcpClientsExpectation(TcpMetricsExpectation tcpClientsExpectation) {
+        this.tcpClientsExpectation = tcpClientsExpectation;
     }
 }

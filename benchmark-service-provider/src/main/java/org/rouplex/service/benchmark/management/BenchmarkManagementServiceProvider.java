@@ -1,6 +1,5 @@
 package org.rouplex.service.benchmark.management;
 
-import com.amazonaws.auth.InstanceProfileCredentialsProvider;
 import com.amazonaws.services.ec2.AmazonEC2;
 import com.amazonaws.services.ec2.AmazonEC2ClientBuilder;
 import com.amazonaws.services.ec2.model.CreateTagsRequest;
@@ -48,19 +47,22 @@ public class BenchmarkManagementServiceProvider implements BenchmarkManagementSe
                     if (System.currentTimeMillis() > leaseEnd) {
                         logger.severe("Terminating self. Cause: Expired lease");
 
-                        AmazonEC2 amazonEC2Client = AmazonEC2ClientBuilder.standard()
-                                .withCredentials(new InstanceProfileCredentialsProvider(false))
-                                .withRegion(EC2MetadataUtils.getEC2InstanceRegion())
-                                .build();
+                        try {
+                            AmazonEC2 amazonEC2Client = AmazonEC2ClientBuilder.standard()
+                                    .withRegion(EC2MetadataUtils.getEC2InstanceRegion()).build();
 
-                        amazonEC2Client.createTags(new CreateTagsRequest()
-                                .withResources(EC2MetadataUtils.getInstanceId())
-                                .withTags(new Tag()
-                                        .withKey("State")
-                                        .withValue("Self teminated due to lease expiration")));
+                            amazonEC2Client.createTags(new CreateTagsRequest()
+                                    .withResources(EC2MetadataUtils.getInstanceId())
+                                    .withTags(new Tag()
+                                            .withKey("State")
+                                            .withValue("Self terminated due to lease expiration")));
 
-                        amazonEC2Client.terminateInstances(
-                                new TerminateInstancesRequest().withInstanceIds(EC2MetadataUtils.getInstanceId()));
+                            amazonEC2Client.terminateInstances(new TerminateInstancesRequest()
+                                    .withInstanceIds(EC2MetadataUtils.getInstanceId()));
+                        } catch (RuntimeException re) {
+                            logger.severe(String.format(
+                                    "Could not terminate self. Cause: %s: %s", re.getClass(), re.getMessage()));
+                        }
                     }
 
                     // once a minute lease updates are more than enough
