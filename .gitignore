@@ -2,3 +2,6 @@
 !.idea/runConfigurations/
 
 benchmark-service-provider-jersey/.extract/*
+
+*.iml
+
