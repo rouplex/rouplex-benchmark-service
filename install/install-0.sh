@@ -37,4 +37,5 @@ rouplex_install() {
     rm -rf "$1"
 }
 
-rouplex_install rouplex-benchmark-service feature/distributed-testing prod
+# branch (master or feature/some_feature), and environment (dev, prod, whatever configured at s3://rouplex/deploy ...)
+rouplex_install rouplex-benchmark-service master prod
