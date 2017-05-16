@@ -8,6 +8,7 @@ import org.rouplex.service.benchmark.worker.Provider;
  */
 public class StartDistributedTcpBenchmarkRequest {
     String magicWord;
+    String echoRatio;
     String optionalBenchmarkRequestId;
     HostType optionalServerHostType;
     GeoLocation optionalServerGeoLocation;
@@ -36,6 +37,14 @@ public class StartDistributedTcpBenchmarkRequest {
     public int maxClientLifeMillis = 10000;
 
     MetricsAggregation metricsAggregation = new MetricsAggregation();
+
+    public String getEchoRatio() {
+        return echoRatio;
+    }
+
+    public void setEchoRatio(String echoRatio) {
+        this.echoRatio = echoRatio;
+    }
 
     public String getMagicWord() {
         return magicWord;

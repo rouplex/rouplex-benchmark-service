@@ -5,12 +5,15 @@ package org.rouplex.service.benchmark.orchestrator;
  */
 public class TcpMetricsExpectation {
     int rampUpAsMillis;
-    String finishRampUpAsIsoInstant;
     double connectionsPerSecond;
     int maxSimultaneousConnections;
-    int maxUploadSpeedAsBitsPerSecond;
-    int maxDownloadSpeedAsBitsPerSecond;
+    long maxUploadSpeedAsBitsPerSecond;
+    long maxDownloadSpeedAsBitsPerSecond;
+    String startAsIsoInstant;
+    String finishRampUpAsIsoInstant;
     String finishAsIsoInstant;
+    String maxUploadSpeed;
+    String maxDownloadSpeed;
 
     public int getRampUpAsMillis() {
         return rampUpAsMillis;
@@ -18,14 +21,6 @@ public class TcpMetricsExpectation {
 
     public void setRampUpAsMillis(int rampUpAsMillis) {
         this.rampUpAsMillis = rampUpAsMillis;
-    }
-
-    public String getFinishRampUpAsIsoInstant() {
-        return finishRampUpAsIsoInstant;
-    }
-
-    public void setFinishRampUpAsIsoInstant(String finishRampUpAsIsoInstant) {
-        this.finishRampUpAsIsoInstant = finishRampUpAsIsoInstant;
     }
 
     public double getConnectionsPerSecond() {
@@ -44,20 +39,36 @@ public class TcpMetricsExpectation {
         this.maxSimultaneousConnections = maxSimultaneousConnections;
     }
 
-    public int getMaxUploadSpeedAsBitsPerSecond() {
+    public long getMaxUploadSpeedAsBitsPerSecond() {
         return maxUploadSpeedAsBitsPerSecond;
     }
 
-    public void setMaxUploadSpeedAsBitsPerSecond(int maxUploadSpeedAsBitsPerSecond) {
+    public void setMaxUploadSpeedAsBitsPerSecond(long maxUploadSpeedAsBitsPerSecond) {
         this.maxUploadSpeedAsBitsPerSecond = maxUploadSpeedAsBitsPerSecond;
     }
 
-    public int getMaxDownloadSpeedAsBitsPerSecond() {
+    public long getMaxDownloadSpeedAsBitsPerSecond() {
         return maxDownloadSpeedAsBitsPerSecond;
     }
 
-    public void setMaxDownloadSpeedAsBitsPerSecond(int maxDownloadSpeedAsBitsPerSecond) {
+    public void setMaxDownloadSpeedAsBitsPerSecond(long maxDownloadSpeedAsBitsPerSecond) {
         this.maxDownloadSpeedAsBitsPerSecond = maxDownloadSpeedAsBitsPerSecond;
+    }
+
+    public String getStartAsIsoInstant() {
+        return startAsIsoInstant;
+    }
+
+    public void setStartAsIsoInstant(String startAsIsoInstant) {
+        this.startAsIsoInstant = startAsIsoInstant;
+    }
+
+    public String getFinishRampUpAsIsoInstant() {
+        return finishRampUpAsIsoInstant;
+    }
+
+    public void setFinishRampUpAsIsoInstant(String finishRampUpAsIsoInstant) {
+        this.finishRampUpAsIsoInstant = finishRampUpAsIsoInstant;
     }
 
     public String getFinishAsIsoInstant() {
@@ -66,5 +77,21 @@ public class TcpMetricsExpectation {
 
     public void setFinishAsIsoInstant(String finishAsIsoInstant) {
         this.finishAsIsoInstant = finishAsIsoInstant;
+    }
+
+    public String getMaxUploadSpeed() {
+        return maxUploadSpeed;
+    }
+
+    public void setMaxUploadSpeed(String maxUploadSpeed) {
+        this.maxUploadSpeed = maxUploadSpeed;
+    }
+
+    public String getMaxDownloadSpeed() {
+        return maxDownloadSpeed;
+    }
+
+    public void setMaxDownloadSpeed(String maxDownloadSpeed) {
+        this.maxDownloadSpeed = maxDownloadSpeed;
     }
 }

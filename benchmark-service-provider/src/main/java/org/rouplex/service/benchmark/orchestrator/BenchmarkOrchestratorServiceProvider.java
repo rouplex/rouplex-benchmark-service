@@ -534,20 +534,26 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
     private TcpMetricsExpectation buildClientsTcpMetricsExpectation(StartDistributedTcpBenchmarkRequest request) {
         TcpMetricsExpectation clientsExpectation = new TcpMetricsExpectation();
 
+        clientsExpectation.setStartAsIsoInstant(Util.convertMillisToIsoInstant(System.currentTimeMillis()));
+
         int connectionRampUpMillis = request.getMaxDelayMillisBeforeCreatingClient() - request.getMinDelayMillisBeforeCreatingClient();
         int clientAvgLifetimeMillis = (request.getMaxClientLifeMillis() + request.getMinClientLifeMillis()) / 2;
         int rampUpAsMillis = Math.min(connectionRampUpMillis, clientAvgLifetimeMillis);
 
         clientsExpectation.setRampUpAsMillis(rampUpAsMillis);
         clientsExpectation.setFinishRampUpAsIsoInstant(Util.convertMillisToIsoInstant(System.currentTimeMillis() + rampUpAsMillis));
-        clientsExpectation.setConnectionsPerSecond(request.getClientsPerHost() * 1000 / connectionRampUpMillis);
-        clientsExpectation.setMaxSimultaneousConnections(request.getClientsPerHost() * rampUpAsMillis / connectionRampUpMillis);
+        clientsExpectation.setConnectionsPerSecond((double) request.getClientsPerHost() * 1000 / connectionRampUpMillis);
+        clientsExpectation.setMaxSimultaneousConnections((int) (((long) request.getClientsPerHost() * rampUpAsMillis) / connectionRampUpMillis));
 
-        int avgPayloadSize = (request.getMaxPayloadSize() - 1 + request.getMinPayloadSize()) / 2;
-        clientsExpectation.setMaxUploadSpeedAsBitsPerSecond(avgPayloadSize * clientsExpectation.getMaxSimultaneousConnections() * 8);
-        clientsExpectation.setMaxDownloadSpeedAsBitsPerSecond(avgPayloadSize * clientsExpectation.getMaxSimultaneousConnections() * 8);
+        long avgPayloadSize = (request.getMaxPayloadSize() - 1 + request.getMinPayloadSize()) / 2;
+        long transferSpeedBps = avgPayloadSize * clientsExpectation.getMaxSimultaneousConnections() * 8;
+        String transferSpeedHuman = convertBpsUp(transferSpeedBps);
+        clientsExpectation.setMaxUploadSpeedAsBitsPerSecond(transferSpeedBps);
+        clientsExpectation.setMaxDownloadSpeedAsBitsPerSecond(transferSpeedBps);
+        clientsExpectation.setMaxUploadSpeed(transferSpeedHuman);
+        clientsExpectation.setMaxDownloadSpeed(transferSpeedHuman);
 
-        long durationAsMillis = request.getMinDelayMillisBeforeCreatingClient() + connectionRampUpMillis + request.getMaxClientLifeMillis();
+        int durationAsMillis = request.getMaxDelayMillisBeforeCreatingClient() + request.getMaxClientLifeMillis();
         clientsExpectation.setFinishAsIsoInstant(Util.convertMillisToIsoInstant(System.currentTimeMillis() + durationAsMillis));
         return clientsExpectation;
     }
@@ -556,15 +562,34 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
             int clientHostsCount, TcpMetricsExpectation clientsExpectation) {
 
         TcpMetricsExpectation serverExpectation = new TcpMetricsExpectation();
+        serverExpectation.setStartAsIsoInstant(clientsExpectation.getStartAsIsoInstant());
         serverExpectation.setRampUpAsMillis(clientsExpectation.getRampUpAsMillis());
         serverExpectation.setFinishRampUpAsIsoInstant(clientsExpectation.getFinishRampUpAsIsoInstant());
         serverExpectation.setConnectionsPerSecond(clientHostsCount * clientsExpectation.getConnectionsPerSecond());
         serverExpectation.setMaxSimultaneousConnections(clientHostsCount * clientsExpectation.getMaxSimultaneousConnections());
-        serverExpectation.setMaxUploadSpeedAsBitsPerSecond(clientHostsCount * clientsExpectation.getMaxUploadSpeedAsBitsPerSecond());
-        serverExpectation.setMaxDownloadSpeedAsBitsPerSecond(clientHostsCount * clientsExpectation.getMaxDownloadSpeedAsBitsPerSecond());
-        serverExpectation.setFinishAsIsoInstant(clientsExpectation.getFinishRampUpAsIsoInstant());
+
+        long transferSpeedBps = clientHostsCount * clientsExpectation.getMaxUploadSpeedAsBitsPerSecond();
+        String transferSpeedHuman = convertBpsUp(transferSpeedBps);
+        serverExpectation.setMaxUploadSpeedAsBitsPerSecond(transferSpeedBps);
+        serverExpectation.setMaxDownloadSpeedAsBitsPerSecond(transferSpeedBps);
+        serverExpectation.setMaxUploadSpeed(transferSpeedHuman);
+        serverExpectation.setMaxDownloadSpeed(transferSpeedHuman);
+
+        serverExpectation.setFinishAsIsoInstant(clientsExpectation.getFinishAsIsoInstant());
 
         return serverExpectation;
+    }
+
+    private String convertBpsUp(long bpsValue) {
+        String[] units = {" Bps", " Kbps", " Mbps", " Gbps", " Tbps"};
+
+        int index = 0;
+        while (bpsValue >= 10_000) {
+            index++;
+            bpsValue /= 1000;
+        }
+
+        return bpsValue + units[index];
     }
 
     @Override

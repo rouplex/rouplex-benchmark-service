@@ -5,6 +5,7 @@ package org.rouplex.service.benchmark.worker;
  */
 public class StartTcpServerRequest extends StartTcpEndPointRequest {
     int backlog;
+    String echoRatio;
 
     public int getBacklog() {
         return backlog;
@@ -12,5 +13,13 @@ public class StartTcpServerRequest extends StartTcpEndPointRequest {
 
     public void setBacklog(int backlog) {
         this.backlog = backlog;
+    }
+
+    public String getEchoRatio() {
+        return echoRatio;
+    }
+
+    public void setEchoRatio(String echoRatio) {
+        this.echoRatio = echoRatio;
     }
 }
