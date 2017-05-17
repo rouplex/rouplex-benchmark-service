@@ -56,6 +56,14 @@ start_tomcat() {
     service tomcat restart
 }
 
+install_tools() {
+    echo "=========== Rouplex ============= Installing sysstat"
+    yum install sysstat
+
+    echo "=========== Rouplex ============= Installing htop"
+    yum install htop
+}
+
 # SYNOPSIS
 #  install <environment>
 install() {
@@ -73,6 +81,7 @@ install() {
 
     install_jdk8
     install_tomcat "8.5.12" "catalina-jmx-remote.jar"
+    install_tools
 
     setup_tomcat_ssl_certificate
     setup_tomcat_ssl_connector

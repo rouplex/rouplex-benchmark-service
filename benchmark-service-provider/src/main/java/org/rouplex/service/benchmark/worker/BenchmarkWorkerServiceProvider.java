@@ -2,6 +2,7 @@ package org.rouplex.service.benchmark.worker;
 
 import com.codahale.metrics.*;
 import com.codahale.metrics.Timer;
+import org.rouplex.commons.Supplier;
 import org.rouplex.platform.tcp.RouplexTcpBinder;
 import org.rouplex.platform.tcp.RouplexTcpClient;
 import org.rouplex.platform.tcp.RouplexTcpClientListener;
@@ -310,35 +311,34 @@ public class BenchmarkWorkerServiceProvider implements BenchmarkWorkerService, C
         return response;
     }
 
-    private RouplexTcpBinder createRouplexTcpBinder(Provider provider) throws Exception {
-        Selector selector = null;
+    private RouplexTcpBinder createRouplexTcpBinder(final Provider provider) throws Exception {
+        RouplexTcpBinder rouplexTcpBinder = new RouplexTcpBinder(new Supplier<Selector>() {
+            @Override
+            public Selector get() {
+                try {
+                    switch (provider) {
+                        case CLASSIC_NIO:
+                            return java.nio.channels.Selector.open();
+                        case ROUPLEX_NIOSSL:
+                            return org.rouplex.nio.channels.SSLSelector.open();
+                        case SCALABLE_SSL:
+                            return scalablessl.SSLSelector.open(SSLContext.getDefault());
+                        default:
+                            throw new Exception("Provider not found");
+                    }
+                } catch (Exception e) {
+                    String errorMessage = String.format("Provider [%s] could not create selector. Cause: %s %s",
+                            provider, e.getClass(), e.getMessage());
 
-        switch (provider) {
-            case CLASSIC_NIO:
-                selector = java.nio.channels.Selector.open();
-                break;
-            case ROUPLEX_NIOSSL:
-                selector = org.rouplex.nio.channels.SSLSelector.open();
-                break;
-            case SCALABLE_SSL:
-                selector = scalablessl.SSLSelector.open(SSLContext.getDefault());
-                break;
-        }
+                    logger.severe(errorMessage);
+                    throw new RuntimeException(errorMessage, e);
+                }
+            }
+        });
 
-        RouplexTcpBinder rouplexTcpBinder = new RouplexTcpBinder(selector);
         rouplexTcpBinder.setRouplexTcpClientListener(rouplexTcpClientListener);
         return addCloseable(rouplexTcpBinder);
     }
-
-//    protected boolean closeAndRemove(String closeableId) throws IOException {
-//        Closeable closeable = closeables.remove(closeableId);
-//        if (closeable == null) {
-//            return false;
-//        }
-//
-//        closeable.close();
-//        return true;
-//    }
 
     protected <T extends Closeable> T addCloseable(T t) {
         synchronized (scheduledExecutor) {
