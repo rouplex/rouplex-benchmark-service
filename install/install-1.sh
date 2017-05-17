@@ -58,10 +58,10 @@ start_tomcat() {
 
 install_tools() {
     echo "=========== Rouplex ============= Installing sysstat"
-    yum install sysstat
+    yum -y install sysstat
 
     echo "=========== Rouplex ============= Installing htop"
-    yum install htop
+    yum -y install htop
 }
 
 # SYNOPSIS
