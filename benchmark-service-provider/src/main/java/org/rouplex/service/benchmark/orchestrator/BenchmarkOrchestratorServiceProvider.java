@@ -122,7 +122,7 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
 
         checkAndSanitize(request);
 
-        int clientInstanceCount = (request.getClientCount() - 1) / request.getClientsPerHost() + 1;
+        int clientHostCount = (request.getClientCount() - 1) / request.getClientsPerHost() + 1;
         BenchmarkDescriptor benchmarkDescriptor = new BenchmarkDescriptor();
 
         synchronized (this) {
@@ -142,11 +142,11 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
         TcpMetricsExpectation clientsExpectation = buildClientsTcpMetricsExpectation(request);
 
         logger.info(String.format(
-                "Starting Distributed Benchmark [%s]. 1 ec2 server instance and %s ec2 client instances",
-                request.getOptionalBenchmarkRequestId(), clientInstanceCount));
+                "Starting Distributed Benchmark [%s]. 1 ec2 server host and %s ec2 client hosts",
+                request.getOptionalBenchmarkRequestId(), clientHostCount));
 
         String serverData = Base64.getEncoder().encodeToString(buildSystemTuningScript(
-                clientsExpectation.getMaxSimultaneousConnections() * 2,
+                clientsExpectation.getMaxSimultaneousConnections() * clientHostCount * 2,
                 request.getOptionalTcpMemoryAsPercentOfTotal()).getBytes(StandardCharsets.UTF_8));
         InstanceType serverEC2InstanceType = getEC2InstanceType(request, true);
         Map<String, InstanceDescriptor> serverDescriptors = startRunningEC2Instances(
@@ -154,11 +154,11 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
                 request.getOptionalKeyName(), serverData, "server-" + request.getOptionalBenchmarkRequestId());
 
         String clientData = Base64.getEncoder().encodeToString(buildSystemTuningScript(
-                clientsExpectation.getMaxSimultaneousConnections() * 2 / clientInstanceCount,
+                clientsExpectation.getMaxSimultaneousConnections() * 2,
                 request.getOptionalTcpMemoryAsPercentOfTotal()).getBytes(StandardCharsets.UTF_8));
         InstanceType clientsEC2InstanceType = getEC2InstanceType(request, false);
         Map<String, InstanceDescriptor> clientDescriptors = startRunningEC2Instances(
-                getEC2Region(request, false), request.getOptionalImageId(), clientsEC2InstanceType, clientInstanceCount,
+                getEC2Region(request, false), request.getOptionalImageId(), clientsEC2InstanceType, clientHostCount,
                 request.getOptionalKeyName(), clientData, "client-" + request.getOptionalBenchmarkRequestId());
 
         ensureEC2InstancesRunning(serverDescriptors);
@@ -194,7 +194,7 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
                     .post(startTcpClientsEntity);
         }
 
-        TcpMetricsExpectation serverExpectation = buildServerTcpMetricsExpectation(clientInstanceCount, clientsExpectation);
+        TcpMetricsExpectation serverExpectation = buildServerTcpMetricsExpectation(clientHostCount, clientsExpectation);
         benchmarkDescriptor.setTcpMetricsExpectation(serverExpectation);
 
         // prepare and return response
@@ -558,7 +558,9 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
         clientsExpectation.setMaxSimultaneousConnections((int) (((long) request.getClientsPerHost() * rampUpAsMillis) / connectionRampUpMillis));
 
         long avgPayloadSize = (request.getMaxPayloadSize() - 1 + request.getMinPayloadSize()) / 2;
-        long transferSpeedBps = avgPayloadSize * clientsExpectation.getMaxSimultaneousConnections() * 8;
+        long avgPayloadPeriodMillis = (request.getMaxDelayMillisBetweenSends() - 1 + request.getMinDelayMillisBetweenSends()) / 2;
+        long transferSpeedBps = avgPayloadSize * clientsExpectation.getMaxSimultaneousConnections() / avgPayloadPeriodMillis * 8 * 1000;
+
         String transferSpeedHuman = convertBpsUp(transferSpeedBps);
         clientsExpectation.setMaxUploadSpeedAsBitsPerSecond(transferSpeedBps);
         clientsExpectation.setMaxDownloadSpeedAsBitsPerSecond(transferSpeedBps);
