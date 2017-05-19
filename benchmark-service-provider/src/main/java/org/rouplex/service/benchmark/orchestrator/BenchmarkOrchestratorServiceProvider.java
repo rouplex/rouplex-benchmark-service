@@ -109,6 +109,11 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
         if (request.getOptionalBenchmarkRequestId() == null) {
             request.setOptionalBenchmarkRequestId(UUID.randomUUID().toString());
         }
+
+        if (request.getOptionalTcpMemoryAsPercentOfTotal() < 1) {
+            request.setOptionalTcpMemoryAsPercentOfTotal(50); // 50%
+        }
+
     }
 
     @Override
@@ -134,21 +139,27 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
             distributedTcpBenchmarks.put(request.getOptionalBenchmarkRequestId(), benchmarkDescriptor);
         }
 
+        TcpMetricsExpectation clientsExpectation = buildClientsTcpMetricsExpectation(request);
+
         logger.info(String.format(
                 "Starting Distributed Benchmark [%s]. 1 ec2 server instance and %s ec2 client instances",
                 request.getOptionalBenchmarkRequestId(), clientInstanceCount));
 
-        String userData = Base64.getEncoder().encodeToString(buildSystemTuningScript(1000000).getBytes(StandardCharsets.UTF_8));
+        String serverData = Base64.getEncoder().encodeToString(buildSystemTuningScript(
+                clientsExpectation.getMaxSimultaneousConnections() * 2,
+                request.getOptionalTcpMemoryAsPercentOfTotal()).getBytes(StandardCharsets.UTF_8));
         InstanceType serverEC2InstanceType = getEC2InstanceType(request, true);
         Map<String, InstanceDescriptor> serverDescriptors = startRunningEC2Instances(
                 getEC2Region(request, true), request.getOptionalImageId(), serverEC2InstanceType, 1,
-                request.getOptionalKeyName(), userData, "server-" + request.getOptionalBenchmarkRequestId());
+                request.getOptionalKeyName(), serverData, "server-" + request.getOptionalBenchmarkRequestId());
 
-        userData = Base64.getEncoder().encodeToString(buildSystemTuningScript(1000000).getBytes(StandardCharsets.UTF_8));
+        String clientData = Base64.getEncoder().encodeToString(buildSystemTuningScript(
+                clientsExpectation.getMaxSimultaneousConnections() * 2 / clientInstanceCount,
+                request.getOptionalTcpMemoryAsPercentOfTotal()).getBytes(StandardCharsets.UTF_8));
         InstanceType clientsEC2InstanceType = getEC2InstanceType(request, false);
         Map<String, InstanceDescriptor> clientDescriptors = startRunningEC2Instances(
                 getEC2Region(request, false), request.getOptionalImageId(), clientsEC2InstanceType, clientInstanceCount,
-                request.getOptionalKeyName(), userData, "client-" + request.getOptionalBenchmarkRequestId());
+                request.getOptionalKeyName(), clientData, "client-" + request.getOptionalBenchmarkRequestId());
 
         ensureEC2InstancesRunning(serverDescriptors);
         ensureBenchmarkServiceRunning(serverDescriptors.values());
@@ -183,7 +194,6 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
                     .post(startTcpClientsEntity);
         }
 
-        TcpMetricsExpectation clientsExpectation = buildClientsTcpMetricsExpectation(request);
         TcpMetricsExpectation serverExpectation = buildServerTcpMetricsExpectation(clientInstanceCount, clientsExpectation);
         benchmarkDescriptor.setTcpMetricsExpectation(serverExpectation);
 
@@ -377,12 +387,13 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
         amazonEC2.terminateInstances(new TerminateInstancesRequest().withInstanceIds(instanceId));
     }
 
-    private String buildSystemTuningScript(int maxFD) {
+    private String buildSystemTuningScript(int maxFileDescriptors, int tcpAsPercentOfTotalMemory) {
         // consider net.core.somaxconn = 1000 as well
         String scriptTemplate = "#!/bin/bash\n\n" +
 
                 "configure_system_limits() {\n" +
                 "\techo \"=== Rouplex === Allowing more open file descriptors, tcp sockets, tcp memory\"\n" +
+                "\techo %s > /proc/sys/fs/nr_open\n" +
                 "\techo \"* hard nofile %s\" | tee -a /etc/security/limits.conf\n" +
                 "\techo \"* soft nofile %s\" | tee -a /etc/security/limits.conf\n" +
                 "\techo \"\" | tee -a /etc/sysctl.conf\n" +
@@ -390,18 +401,19 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
                 "\techo \"net.ipv4.ip_local_port_range = 1100 65100\" | tee -a /etc/sysctl.conf\n" +
                 "\techo \"\" | tee -a /etc/sysctl.conf\n" +
                 "\ttotal_mem_kb=`free -t | grep Mem | awk '{print $2}'`\n" +
-                "\thalf_mem_in_pages=$(( total_mem_kb / 2 / 4))\n" +
+                "\ttcp_mem_in_pages=$(( total_mem_kb * %s / 100 / 4))\n" +
                 "\techo \"# Setup bigger tcp memory\" | tee -a /etc/sysctl.conf\n" +
-                "\techo \"net.ipv4.tcp_mem = 383865 $half_mem_in_pages $half_mem_in_pages\" | tee -a /etc/sysctl.conf\n" +
+                "\techo \"net.ipv4.tcp_mem = 383865 tcp_mem_in_pages tcp_mem_in_pages\" | tee -a /etc/sysctl.conf\n" +
                 "\techo \"# Setup greater open files\" | tee -a /etc/sysctl.conf\n" +
-                "\techo \"fs.file-max = 1000000\" | tee -a /etc/sysctl.conf\n\n" +
+                "\techo \"fs.file-max = %s\" | tee -a /etc/sysctl.conf\n\n" +
                 "\tsysctl -p\n" +
                 "}\n\n" +
 
                 "configure_system_limits\n" +
                 "service tomcat restart\n";
 
-        return String.format(scriptTemplate, maxFD, maxFD);
+        return String.format(scriptTemplate, maxFileDescriptors, maxFileDescriptors,
+                maxFileDescriptors, tcpAsPercentOfTotalMemory, maxFileDescriptors);
     }
 
     private Map<String, InstanceDescriptor> startRunningEC2Instances(

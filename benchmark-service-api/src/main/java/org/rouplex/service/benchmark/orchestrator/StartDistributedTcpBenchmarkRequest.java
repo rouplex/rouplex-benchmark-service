@@ -8,7 +8,7 @@ import org.rouplex.service.benchmark.worker.Provider;
  */
 public class StartDistributedTcpBenchmarkRequest {
     String magicWord;
-    String echoRatio;
+    String echoRatio; // not implemented yet
     String optionalBenchmarkRequestId;
     HostType optionalServerHostType;
     GeoLocation optionalServerGeoLocation;
@@ -16,6 +16,8 @@ public class StartDistributedTcpBenchmarkRequest {
     GeoLocation optionalClientsGeoLocation;
     String optionalImageId;
     String optionalKeyName;
+
+    int optionalTcpMemoryAsPercentOfTotal; // experimental for now
 
     Provider provider;
     int port;
@@ -244,5 +246,13 @@ public class StartDistributedTcpBenchmarkRequest {
 
     public void setMetricsAggregation(MetricsAggregation metricsAggregation) {
         this.metricsAggregation = metricsAggregation;
+    }
+
+    public int getOptionalTcpMemoryAsPercentOfTotal() {
+        return optionalTcpMemoryAsPercentOfTotal;
+    }
+
+    public void setOptionalTcpMemoryAsPercentOfTotal(int optionalTcpMemoryAsPercentOfTotal) {
+        this.optionalTcpMemoryAsPercentOfTotal = optionalTcpMemoryAsPercentOfTotal;
     }
 }

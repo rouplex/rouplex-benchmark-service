@@ -62,6 +62,10 @@ install_tools() {
 
     echo "=========== Rouplex ============= Installing htop"
     yum -y install htop
+
+    # echo "=========== Rouplex ============= Installing jhiccup"
+    # curl -o jHiccup http://www.azul.com/files/jHiccup-2.0.7-dist.tar.gz
+    # ...
 }
 
 # SYNOPSIS
