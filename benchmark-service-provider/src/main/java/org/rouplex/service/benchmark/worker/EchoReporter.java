@@ -51,11 +51,11 @@ public class EchoReporter {
         this.benchmarkerMetrics = benchmarkerMetrics;
         this.actor = clazz.getSimpleName();
 
-        InetSocketAddress localIsa = (InetSocketAddress) tcpClient.getLocalAddress(true);
+        InetSocketAddress localIsa = (InetSocketAddress) tcpClient.getLocalAddress();
         clientAddress = localIsa.getAddress().getHostAddress().replace('.', '-');
         clientPort = "" + localIsa.getPort();
 
-        InetSocketAddress remoteIsa = (InetSocketAddress) tcpClient.getRemoteAddress(true);
+        InetSocketAddress remoteIsa = (InetSocketAddress) tcpClient.getRemoteAddress();
         serverAddress = remoteIsa.getAddress().getHostAddress().replace('.', '-');
         serverPort = "" + remoteIsa.getPort();
 

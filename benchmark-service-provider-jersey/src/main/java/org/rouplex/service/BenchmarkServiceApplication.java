@@ -3,22 +3,33 @@ package org.rouplex.service;
 import com.amazonaws.services.ec2.AmazonEC2Client;
 import com.amazonaws.services.ec2.model.DescribeInstancesRequest;
 import com.amazonaws.util.EC2MetadataUtils;
+import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeFlow;
+import com.google.api.client.http.javanet.NetHttpTransport;
+import com.google.api.client.json.jackson2.JacksonFactory;
+import com.google.api.services.oauth2.Oauth2Scopes;
+import org.rouplex.commons.configuration.Configuration;
+import org.rouplex.commons.configuration.ConfigurationManager;
 import org.rouplex.platform.jersey.RouplexJerseyApplication;
 import org.rouplex.service.benchmark.BenchmarkManagementServiceResource;
 import org.rouplex.service.benchmark.BenchmarkOrchestratorServiceResource;
 import org.rouplex.service.benchmark.BenchmarkWorkerServiceResource;
 import org.rouplex.service.benchmark.management.BenchmarkManagementServiceProvider;
+import org.rouplex.service.benchmark.orchestrator.BenchmarkConfigurationKey;
 import org.rouplex.service.benchmark.orchestrator.BenchmarkOrchestratorServiceProvider;
+import org.rouplex.service.benchmark.orchestrator.NotAuthorizedException;
 import org.rouplex.service.benchmark.worker.BenchmarkWorkerServiceProvider;
 
 import javax.servlet.ServletContext;
 import javax.ws.rs.ApplicationPath;
 import javax.ws.rs.core.Context;
+import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.ext.ExceptionMapper;
 import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
+import java.io.IOException;
 import java.io.PrintStream;
+import java.net.URI;
 import java.util.logging.Logger;
 
 /**
@@ -105,14 +116,35 @@ public class BenchmarkServiceApplication extends RouplexJerseyApplication implem
                 return Response.status(500).entity(new E(e)).build();
             }
         });
+
+        ConfigurationManager configurationManager = new ConfigurationManager();
+        configurationManager.putConfigurationEntry(BenchmarkConfigurationKey.Oauth2ClientId,
+                System.getenv(BenchmarkConfigurationKey.Oauth2ClientId.toString()));
+        configurationManager.putConfigurationEntry(BenchmarkConfigurationKey.Oauth2ClientPassword,
+                System.getenv(BenchmarkConfigurationKey.Oauth2ClientPassword.toString()));
+        final Configuration configuration = configurationManager.getConfiguration();
+
+        register(new ExceptionMapper<NotAuthorizedException>() {
+            @Override
+            public Response toResponse(NotAuthorizedException e) {
+                GoogleAuthorizationCodeFlow flow = new GoogleAuthorizationCodeFlow.Builder(
+                        new NetHttpTransport(), new JacksonFactory(),
+                        configuration.get(BenchmarkConfigurationKey.Oauth2ClientId),
+                        configuration.get(BenchmarkConfigurationKey.Oauth2ClientPassword),
+                        Oauth2Scopes.all()).setAccessType("online").setApprovalPrompt("force")
+                        .build();
+                String url = flow.newAuthorizationUrl().setRedirectUri("https://www.rouplex-demo.com:8088/benchmark-service-provider-jersey-1.0.0-SNAPSHOT/webjars/swagger-ui/2.2.5/index.html?url=https://www.rouplex-demo.com:8088/benchmark-service-provider-jersey-1.0.0-SNAPSHOT/rouplex/swagger.json").build();
+                return Response.temporaryRedirect(URI.create(url)).type(MediaType.TEXT_PLAIN_TYPE).build();
+            }
+        });
     }
 
-    private String getPublicIp() {
+    private String getPublicIp() throws IOException {
         try {
             return getPublicIpAssumingEC2Environment();
         } catch (Throwable t) {
             // add Google/Azure/Whatever related calls to get the public ip. Nothing for now, so we rethrow
-            throw t;
+            throw new IOException("Could not get public ip address", t);
         }
     }
 

@@ -186,7 +186,7 @@ public class BenchmarkWorkerServiceProvider implements BenchmarkWorkerService, C
                     .withAttachment(request)
                     .build();
 
-            InetSocketAddress isa = (InetSocketAddress) rouplexTcpServer.getLocalAddress(true);
+            InetSocketAddress isa = (InetSocketAddress) rouplexTcpServer.getLocalAddress();
             logger.info(String.format("Created EchoServer at %s:%s",
                     isa.getAddress().getHostAddress().replace('.', '-'), isa.getPort()));
 
@@ -330,7 +330,7 @@ public class BenchmarkWorkerServiceProvider implements BenchmarkWorkerService, C
                     String errorMessage = String.format("Provider [%s] could not create selector. Cause: %s %s",
                             provider, e.getClass(), e.getMessage());
 
-                    logger.severe(errorMessage);
+                    logger.warning(errorMessage);
                     throw new RuntimeException(errorMessage, e);
                 }
             }

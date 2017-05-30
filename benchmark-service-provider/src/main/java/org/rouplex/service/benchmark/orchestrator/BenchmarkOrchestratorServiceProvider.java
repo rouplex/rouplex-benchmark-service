@@ -8,6 +8,10 @@ import com.amazonaws.util.EC2MetadataUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.jaxrs.json.JacksonJaxbJsonProvider;
+import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeFlow;
+import com.google.api.client.http.javanet.NetHttpTransport;
+import com.google.api.client.json.jackson2.JacksonFactory;
+import com.google.api.services.oauth2.Oauth2Scopes;
 import org.rouplex.commons.configuration.Configuration;
 import org.rouplex.commons.configuration.ConfigurationManager;
 import org.rouplex.platform.tcp.RouplexTcpClient;
@@ -32,8 +36,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.logging.Logger;
 
-//import com.amazonaws.regions.Regions;
-
 /**
  * @author Andi Mullaraj (andimullaraj at gmail.com)
  */
@@ -41,10 +43,6 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
     private static final Logger logger = Logger.getLogger(BenchmarkOrchestratorServiceProvider.class.getSimpleName());
     private static final String JERSEY_CLIENT_READ_TIMEOUT = "jersey.config.client.readTimeout";
     private static final String JERSEY_CLIENT_CONNECT_TIMEOUT = "jersey.config.client.connectTimeout";
-
-    public enum BenchmarkConfigurationKey {
-        WorkerInstanceProfileName, WorkerLeaseInMinutes, ServiceHttpDescriptor
-    }
 
     private static BenchmarkOrchestratorService benchmarkOrchestratorService;
 
@@ -56,8 +54,14 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
                 configurationManager.putConfigurationEntry(BenchmarkConfigurationKey.WorkerInstanceProfileName,
                         "RouplexBenchmarkWorkerRole");
                 configurationManager.putConfigurationEntry(BenchmarkConfigurationKey.ServiceHttpDescriptor,
-                        "https://%s:8088/benchmark-service-provider-jersey-1.0-SNAPSHOT/rouplex/benchmark");
+                        "https://%s:8088/benchmark-service-provider-jersey-1.0.0-SNAPSHOT/rouplex/benchmark");
                 configurationManager.putConfigurationEntry(BenchmarkConfigurationKey.WorkerLeaseInMinutes, "30");
+
+                configurationManager.putConfigurationEntry(BenchmarkConfigurationKey.Oauth2ClientId,
+                        System.getenv(BenchmarkConfigurationKey.Oauth2ClientId.toString()));
+
+                configurationManager.putConfigurationEntry(BenchmarkConfigurationKey.Oauth2ClientPassword,
+                        System.getenv(BenchmarkConfigurationKey.Oauth2ClientPassword.toString()));
 
                 benchmarkOrchestratorService = new BenchmarkOrchestratorServiceProvider(configurationManager.getConfiguration());
             }
@@ -113,8 +117,86 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
         if (request.getOptionalTcpMemoryAsPercentOfTotal() < 1) {
             request.setOptionalTcpMemoryAsPercentOfTotal(50); // 50%
         }
-
     }
+
+//    @Override
+    public String oauth() throws Exception {
+        // work in progress
+        GoogleAuthorizationCodeFlow flow = new GoogleAuthorizationCodeFlow.Builder(
+                new NetHttpTransport(), new JacksonFactory(),
+                configuration.get(BenchmarkConfigurationKey.Oauth2ClientId),
+                configuration.get(BenchmarkConfigurationKey.Oauth2ClientPassword),
+                Oauth2Scopes.all()).setAccessType("online").setApprovalPrompt("force")
+                .build();
+
+        String url = flow.newAuthorizationUrl().setRedirectUri("https://www.rouplex-demo.com:8088/benchmark-service-provider-jersey-1.0-SNAPSHOT/webjars/swagger-ui/2.2.5/index.html?url=https://www.rouplex-demo.com:8088/benchmark-service-provider-jersey-1.0-SNAPSHOT/rouplex/swagger.json").build();
+
+        return url;
+//        HttpClient client = HttpClientBuilder.create().build();
+//        HttpGet request = new HttpGet(url);
+//
+//        request.addHeader("User-Agent", "Rouplex");
+//        HttpResponse response = client.execute(request);
+
+//        System.out.println("Response Code : "
+//                + response.getStatusLine().getStatusCode());
+//
+//        BufferedReader rd = new BufferedReader(
+//                new InputStreamReader(response.getEntity().getContent()));
+//
+//        StringBuffer result = new StringBuffer();
+//        String line = "";
+//        while ((line = rd.readLine()) != null) {
+//            result.append(line);
+//        }
+//        return "wwwwwwww";
+
+//
+//            try {
+//                GoogleTokenResponse response =
+//                        new GoogleAuthorizationCodeTokenRequest(new NetHttpTransport(), new JacksonFactory(),
+//                                clientId, clientPassword,
+//                                "4/P7q7W91a-oMsCeLvIaQm6bTrgtp7", "https://oauth2-login-demo.appspot.com/code")
+//                                .execute();
+//                System.out.println("Access token: " + response.getAccessToken());
+//            } catch (TokenResponseException e) {
+//                if (e.getDetails() != null) {
+//                    System.err.println("Error: " + e.getDetails().getError());
+//                    if (e.getDetails().getErrorDescription() != null) {
+//                        System.err.println(e.getDetails().getErrorDescription());
+//                    }
+//                    if (e.getDetails().getErrorUri() != null) {
+//                        System.err.println(e.getDetails().getErrorUri());
+//                    }
+//                } else {
+//                    System.err.println(e.getMessage());
+//                }
+//            }
+//
+//
+//            GoogleTokenResponse tokenResponse = new GoogleAuthorizationCodeTokenRequest(
+//                    httpTransport, jsonFactory, clientId, clientPassword, null, "https://www.rouplex-demo.com/code").execute();
+//
+//            GoogleCredential credential = new GoogleCredential.Builder()
+//                    .setJsonFactory(jsonFactory)
+//                    .setTransport(httpTransport)
+//                    .setClientSecrets(clientId, clientPassword).build()
+//                    .setFromTokenResponse(tokenResponse);
+//
+//            Oauth2 oauth2 = new Oauth2.Builder(httpTransport, jsonFactory, credential).setApplicationName("YourAppName").build();
+//            Tokeninfo tokenInfo = oauth2.tokeninfo().setAccessToken(credential.getAccessToken()).execute();
+//
+//            Userinfoplus userinfoplus = oauth2.userinfo().get().execute();
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//            throw e;
+//        }
+    }
+
+//    @Override
+//    public String oauth2callback() throws Exception {
+//        return "something";
+//    }
 
     @Override
     public StartDistributedTcpBenchmarkResponse
@@ -598,7 +680,7 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
         String[] units = {" Bps", " Kbps", " Mbps", " Gbps", " Tbps"};
 
         int index = 0;
-        while (bpsValue >= 10_000) {
+        while (bpsValue >= 10000) {
             index++;
             bpsValue /= 1000;
         }
