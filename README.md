@@ -30,7 +30,7 @@ be installed in your local maven repo.
 
 # Run #
 To run locally and mostly for debugging purposes, type `cd benchmark-service-provider-jersey; mvn tomcat7:run` then
-point your browser at http://localhost:8080/benchmark-service-provider-jersey/webjars/swagger-ui/2.2.5/index.html?url=http://localhost:8080/benchmark-service-provider-jersey-1.0-SNAPSHOT/rouplex/swagger.json
+point your browser at http://localhost:8080/benchmark-service-provider-jersey/webjars/swagger-ui/2.2.5/index.html?url=http://localhost:8080/benchmark-service-provider-jersey/rouplex/swagger.json
 Refer to the API section for details on requests and related responses.
 
 # Deploy #
