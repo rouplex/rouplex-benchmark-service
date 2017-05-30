@@ -88,7 +88,7 @@
             <dependency>
                 <groupId>org.rouplex</groupId>
                 <artifactId>rouplex-niossl</artifactId>
-                <version>${jdk}.2-SNAPSHOT</version>
+                <version>${jdk}.2</version>
             </dependency>
 
             <dependency>
