@@ -57,11 +57,11 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
                         "https://%s:8088/benchmark-service-provider-jersey-1.0.0-SNAPSHOT/rouplex/benchmark");
                 configurationManager.putConfigurationEntry(BenchmarkConfigurationKey.WorkerLeaseInMinutes, "30");
 
-                configurationManager.putConfigurationEntry(BenchmarkConfigurationKey.Oauth2ClientId,
-                        System.getenv(BenchmarkConfigurationKey.Oauth2ClientId.toString()));
+                configurationManager.putConfigurationEntry(BenchmarkConfigurationKey.GoogleCloudClientId,
+                        System.getenv(BenchmarkConfigurationKey.GoogleCloudClientId.toString()));
 
-                configurationManager.putConfigurationEntry(BenchmarkConfigurationKey.Oauth2ClientPassword,
-                        System.getenv(BenchmarkConfigurationKey.Oauth2ClientPassword.toString()));
+                configurationManager.putConfigurationEntry(BenchmarkConfigurationKey.GoogleCloudClientPassword,
+                        System.getenv(BenchmarkConfigurationKey.GoogleCloudClientPassword.toString()));
 
                 benchmarkOrchestratorService = new BenchmarkOrchestratorServiceProvider(configurationManager.getConfiguration());
             }
@@ -124,8 +124,8 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
         // work in progress
         GoogleAuthorizationCodeFlow flow = new GoogleAuthorizationCodeFlow.Builder(
                 new NetHttpTransport(), new JacksonFactory(),
-                configuration.get(BenchmarkConfigurationKey.Oauth2ClientId),
-                configuration.get(BenchmarkConfigurationKey.Oauth2ClientPassword),
+                configuration.get(BenchmarkConfigurationKey.GoogleCloudClientId),
+                configuration.get(BenchmarkConfigurationKey.GoogleCloudClientPassword),
                 Oauth2Scopes.all()).setAccessType("online").setApprovalPrompt("force")
                 .build();
 

@@ -1,12 +1,12 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="Run Benchmark" type="#com.intellij.j2ee.web.tomcat.TomcatRunConfigurationFactory" factoryName="Local" APPLICATION_SERVER_NAME="Tomcat 8.5.12" ALTERNATIVE_JRE_ENABLED="false">
-    <option name="OPEN_IN_BROWSER_URL" value="http://localhost:8080/benchmark-service-provider-jersey-1.0-SNAPSHOT/webjars/swagger-ui/2.2.5/index.html?url=http://localhost:8080/benchmark-service-provider-jersey-1.0-SNAPSHOT/rouplex/swagger.json" />
+    <option name="OPEN_IN_BROWSER_URL" value="http://localhost:8080/benchmark-service-provider-jersey-1.0.0-SNAPSHOT/webjars/swagger-ui/2.2.5/index.html?url=http://localhost:8080/benchmark-service-provider-jersey-1.0.0-SNAPSHOT/rouplex/swagger.json" />
     <option name="COMMON_VM_ARGUMENTS" value="-Djavax.net.ssl.keyStore=$PROJECT_DIR$/benchmark-service-provider/src/test/resources/server-keystore -Djavax.net.ssl.keyStorePassword=kotplot" />
-    <option name="UPDATING_POLICY" value="redeploy-artifacts" />
+    <option name="UPDATING_POLICY" value="restart-server" />
     <deployment>
-      <artifact name="benchmark-service-provider-jersey:war">
+      <artifact name="benchmark-service-provider-jersey:war exploded">
         <settings>
-          <option name="CONTEXT_PATH" value="/benchmark-service-provider-jersey-1.0-SNAPSHOT" />
+          <option name="CONTEXT_PATH" value="/benchmark-service-provider-jersey-1.0.0-SNAPSHOT" />
         </settings>
       </artifact>
     </deployment>

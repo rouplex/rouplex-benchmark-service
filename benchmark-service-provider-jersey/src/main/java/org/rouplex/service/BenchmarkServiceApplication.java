@@ -3,18 +3,13 @@ package org.rouplex.service;
 import com.amazonaws.services.ec2.AmazonEC2Client;
 import com.amazonaws.services.ec2.model.DescribeInstancesRequest;
 import com.amazonaws.util.EC2MetadataUtils;
-import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeFlow;
-import com.google.api.client.http.javanet.NetHttpTransport;
-import com.google.api.client.json.jackson2.JacksonFactory;
-import com.google.api.services.oauth2.Oauth2Scopes;
-import org.rouplex.commons.configuration.Configuration;
-import org.rouplex.commons.configuration.ConfigurationManager;
 import org.rouplex.platform.jersey.RouplexJerseyApplication;
+import org.rouplex.service.benchmark.BenchmarkAuthServiceResource;
 import org.rouplex.service.benchmark.BenchmarkManagementServiceResource;
 import org.rouplex.service.benchmark.BenchmarkOrchestratorServiceResource;
 import org.rouplex.service.benchmark.BenchmarkWorkerServiceResource;
+import org.rouplex.service.benchmark.auth.BenchmarkAuthServiceProvider;
 import org.rouplex.service.benchmark.management.BenchmarkManagementServiceProvider;
-import org.rouplex.service.benchmark.orchestrator.BenchmarkConfigurationKey;
 import org.rouplex.service.benchmark.orchestrator.BenchmarkOrchestratorServiceProvider;
 import org.rouplex.service.benchmark.orchestrator.NotAuthorizedException;
 import org.rouplex.service.benchmark.worker.BenchmarkWorkerServiceProvider;
@@ -43,10 +38,12 @@ public class BenchmarkServiceApplication extends RouplexJerseyApplication implem
 
     public BenchmarkServiceApplication(@Context ServletContext servletContext) {
         super(servletContext);
+    }
 
-        initExceptionMapper();
-
+    @Override
+    protected void postConstruct() {
         bindRouplexResource(BenchmarkManagementServiceResource.class, false);
+        bindRouplexResource(BenchmarkAuthServiceResource.class, true);
         bindRouplexResource(BenchmarkWorkerServiceResource.class, true);
         bindRouplexResource(BenchmarkOrchestratorServiceResource.class, true);
 
@@ -76,67 +73,40 @@ public class BenchmarkServiceApplication extends RouplexJerseyApplication implem
             logger.severe(errorMessage);
             getSwaggerBeanConfig().setDescription(errorMessage);
         }
+
+        super.postConstruct();
     }
 
     @Override
     protected void initExceptionMapper() {
-        class E {
-            String exceptionClass;
-            String exceptionMessage;
+        register(new SevereExceptionMapper());
+        register(new UnauthorizedExceptionMapper());
+    }
 
-            E(Exception exception) {
-                this.exceptionClass = exception.getClass().toString();
-                this.exceptionMessage = exception.getMessage();
-            }
+    private class SevereExceptionMapper implements ExceptionMapper<Exception> {
+        @Override
+        public Response toResponse(Exception exception) {
+            ByteArrayOutputStream os = new ByteArrayOutputStream();
+            exception.printStackTrace(new PrintStream(os));
+            logger.severe("Stack trace: " + new String(os.toByteArray()));
 
-            public String getExceptionClass() {
-                return exceptionClass;
-            }
+            return Response.status(500).entity(new ExceptionEntity(exception)).build();
+        }
+    }
 
-            public void setExceptionClass(String exceptionClass) {
-                this.exceptionClass = exceptionClass;
-            }
-
-            public String getExceptionMessage() {
-                return exceptionMessage;
-            }
-
-            public void setExceptionMessage(String exceptionMessage) {
-                this.exceptionMessage = exceptionMessage;
+    private class UnauthorizedExceptionMapper implements ExceptionMapper<NotAuthorizedException> {
+        final SevereExceptionMapper severeExceptionMapper = new SevereExceptionMapper();
+        @Override
+        public Response toResponse(NotAuthorizedException notAuthorizedException) {
+            try {
+                return Response
+                        .temporaryRedirect(URI.create(BenchmarkAuthServiceProvider.get().login()))
+                        .type(MediaType.TEXT_PLAIN_TYPE)
+                        .build();
+            } catch (Exception e) {
+                return severeExceptionMapper.toResponse(e);
             }
         }
-
-        register(new ExceptionMapper<Exception>() {
-            @Override
-            public Response toResponse(Exception e) {
-                ByteArrayOutputStream os = new ByteArrayOutputStream();
-                e.printStackTrace(new PrintStream(os));
-                logger.severe("Stack trace: " + new String(os.toByteArray()));
-
-                return Response.status(500).entity(new E(e)).build();
-            }
-        });
-
-        ConfigurationManager configurationManager = new ConfigurationManager();
-        configurationManager.putConfigurationEntry(BenchmarkConfigurationKey.Oauth2ClientId,
-                System.getenv(BenchmarkConfigurationKey.Oauth2ClientId.toString()));
-        configurationManager.putConfigurationEntry(BenchmarkConfigurationKey.Oauth2ClientPassword,
-                System.getenv(BenchmarkConfigurationKey.Oauth2ClientPassword.toString()));
-        final Configuration configuration = configurationManager.getConfiguration();
-
-        register(new ExceptionMapper<NotAuthorizedException>() {
-            @Override
-            public Response toResponse(NotAuthorizedException e) {
-                GoogleAuthorizationCodeFlow flow = new GoogleAuthorizationCodeFlow.Builder(
-                        new NetHttpTransport(), new JacksonFactory(),
-                        configuration.get(BenchmarkConfigurationKey.Oauth2ClientId),
-                        configuration.get(BenchmarkConfigurationKey.Oauth2ClientPassword),
-                        Oauth2Scopes.all()).setAccessType("online").setApprovalPrompt("force")
-                        .build();
-                String url = flow.newAuthorizationUrl().setRedirectUri("https://www.rouplex-demo.com:8088/benchmark-service-provider-jersey-1.0.0-SNAPSHOT/webjars/swagger-ui/2.2.5/index.html?url=https://www.rouplex-demo.com:8088/benchmark-service-provider-jersey-1.0.0-SNAPSHOT/rouplex/swagger.json").build();
-                return Response.temporaryRedirect(URI.create(url)).type(MediaType.TEXT_PLAIN_TYPE).build();
-            }
-        });
     }
 
     private String getPublicIp() throws IOException {

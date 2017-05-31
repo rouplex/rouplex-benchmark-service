@@ -26,7 +26,7 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
-        <jdk>1.7</jdk>
+        <jdk>1.8</jdk>
         <maven.compiler.source>${jdk}</maven.compiler.source>
         <maven.compiler.target>${jdk}</maven.compiler.target>
     </properties>
@@ -76,7 +76,7 @@
             <dependency>
                 <groupId>org.rouplex</groupId>
                 <artifactId>rouplex-platform-jersey</artifactId>
-                <version>1.0.0</version>
+                <version>1.0.2-SNAPSHOT</version>
             </dependency>
 
             <dependency>
