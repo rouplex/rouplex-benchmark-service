@@ -1,15 +1,11 @@
 package org.rouplex.service.benchmark;
 
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
-import io.swagger.annotations.ApiResponse;
-import io.swagger.annotations.ApiResponses;
+import io.swagger.annotations.*;
 import org.glassfish.jersey.server.ResourceConfig;
 import org.rouplex.service.benchmark.management.*;
 
-@Api(value = "Benchmark Orchestrator", description = "Service offering instance lifecycle functionality")
+@Api(value = "Benchmark Management", description = "Service offering instance lifecycle functionality")
 public class BenchmarkManagementServiceResource extends ResourceConfig implements BenchmarkManagementService {
-
     @ApiOperation(value = "Get the state of the benchmark service for this particular instance")
     @ApiResponses(value = {
             @ApiResponse(code = 200, message = "Success"),
@@ -24,7 +20,13 @@ public class BenchmarkManagementServiceResource extends ResourceConfig implement
             @ApiResponse(code = 200, message = "Success"),
             @ApiResponse(code = 500, message = "Error handling request")})
     @Override
-    public ConfigureServiceResponse configureService(ConfigureServiceRequest request) throws Exception {
+    public ConfigureServiceResponse configureService(
+            @ApiParam(
+                examples = @Example(value = {
+                    @ExampleProperty(value="{\n\t\"leaseEndAsIsoInstant\": \"" + ConfigureServiceRequest.LEASE_END_ISO_INSTANT_EXAMPLE + "\"\n}")
+                })
+            )
+            ConfigureServiceRequest request) throws Exception {
         return BenchmarkManagementServiceProvider.get().configureService(request);
     }
 }

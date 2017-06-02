@@ -7,11 +7,8 @@ import io.swagger.annotations.ApiResponses;
 import org.glassfish.jersey.server.ResourceConfig;
 import org.rouplex.service.benchmark.auth.BenchmarkAuthService;
 import org.rouplex.service.benchmark.auth.BenchmarkAuthServiceProvider;
+import org.rouplex.service.benchmark.auth.GoogleAuthResponse;
 
-import javax.ws.rs.GET;
-import javax.ws.rs.Path;
-import javax.ws.rs.Produces;
-import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
 @Api(value = "Benchmark Authenticator", description = "Service offering authentication and authorization of users")
@@ -21,18 +18,20 @@ public class BenchmarkAuthServiceResource extends ResourceConfig implements Benc
     @ApiResponses(value = {
             @ApiResponse(code = 200, message = "Success"),
             @ApiResponse(code = 500, message = "Error handling request")})
-
-    @GET
-    @Path("/login1")
-    @Produces(MediaType.TEXT_PLAIN)
-    public Response login1() throws Exception {
-        return Response.ok(BenchmarkAuthServiceProvider.get().login())
+    public Response googleAuthWithCorsHeaders(String code, String authUser, String sessionState, String prompt) throws Exception {
+        GoogleAuthResponse googleAuthResponse = BenchmarkAuthServiceProvider.get().googleAuth(code, authUser, sessionState, prompt);
+        return Response.ok(googleAuthResponse)
                 .header("Access-Control-Allow-Origin", "*")
                 .build();
     }
 
     @Override
-    public String login() throws Exception {
-        return BenchmarkAuthServiceProvider.get().login();
+    public GoogleAuthResponse googleAuth(String code, String authUser, String sessionState, String prompt) throws Exception {
+        return null;
+    }
+
+    @Override
+    public String rouplexAuth(String email, String password) throws Exception {
+        return null;
     }
 }
