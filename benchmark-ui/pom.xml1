@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.rouplex</groupId>
+        <artifactId>benchmark-service-parent</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>benchmark-ui</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <configuration>
+                    <mainClass>org.rouplex.service.OpenInBrowser</mainClass>
+                </configuration>
+            </plugin>
+
+
+            <plugin>
+                <groupId>com.github.eirslett</groupId>
+                <artifactId>frontend-maven-plugin</artifactId>
+                <version>0.0.24</version>
+                <configuration>
+                    <workingDirectory>${pom.basedir}/target/node</workingDirectory>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>frontend-step1-install-npm</id>
+                        <goals>
+                            <goal>install-node-and-npm</goal>
+                        </goals>
+                        <phase>initialize</phase>
+                        <configuration>
+                            <nodeVersion>v0.12.7</nodeVersion>
+                            <npmVersion>2.11.3</npmVersion>
+                            <installDirectory>${pom.basedir}/target/node</installDirectory>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>frontend-step2-install-jsx</id>
+                        <goals>
+                            <goal>npm</goal>
+                        </goals>
+                        <phase>initialize</phase>
+                        <configuration>
+                            <arguments>install -g react-tools</arguments>
+                            <installDirectory>${pom.basedir}/target/node</installDirectory>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>frontend-step3-run-jsx</id>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>exec</goal>
+                        </goals>
+                        <configuration>
+                            <executable>${basedir}/target/node/bin/jsx</executable>
+                            <environmentVariables>
+                                <PATH>${env.PATH}:${pom.basedir}/target/node/node</PATH>
+                            </environmentVariables>
+                            <arguments>
+                                <argument>--extension</argument>
+                                <argument>jsx</argument>
+                                <argument>${basedir}/src/main/resources/static/js</argument>
+                                <argument>${basedir}/target/classes/static/js</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>
