@@ -8,7 +8,6 @@ import com.google.api.client.http.HttpRequest;
 import com.google.api.client.http.HttpRequestFactory;
 import com.google.api.client.http.HttpTransport;
 import com.google.api.client.http.javanet.NetHttpTransport;
-import com.google.api.client.json.JsonFactory;
 import com.google.api.client.json.jackson2.JacksonFactory;
 import com.google.api.services.oauth2.Oauth2Scopes;
 import com.google.gson.Gson;
@@ -16,10 +15,10 @@ import org.rouplex.commons.configuration.Configuration;
 import org.rouplex.commons.configuration.ConfigurationManager;
 import org.rouplex.service.benchmark.orchestrator.BenchmarkConfigurationKey;
 
+import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import java.io.Closeable;
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.logging.Logger;
 
 /**
@@ -28,9 +27,9 @@ import java.util.logging.Logger;
 public class BenchmarkAuthServiceProvider implements BenchmarkAuthService, Closeable {
     private static final Logger logger = Logger.getLogger(BenchmarkAuthServiceProvider.class.getSimpleName());
     private static final Gson gson = new Gson();
+    private static final HttpTransport httpTransport = new NetHttpTransport();
 
     private static BenchmarkAuthService benchmarkAuthService;
-
     public static BenchmarkAuthService get() throws Exception {
         synchronized (BenchmarkAuthServiceProvider.class) {
             if (benchmarkAuthService == null) {
@@ -39,6 +38,10 @@ public class BenchmarkAuthServiceProvider implements BenchmarkAuthService, Close
                         System.getProperty(BenchmarkConfigurationKey.GoogleCloudClientId.toString()));
                 configurationManager.putConfigurationEntry(BenchmarkConfigurationKey.GoogleCloudClientPassword,
                         System.getProperty(BenchmarkConfigurationKey.GoogleCloudClientPassword.toString()));
+                configurationManager.putConfigurationEntry(BenchmarkConfigurationKey.BenchmarkMainUrl,
+                        "http://localhost:8080/benchmark-service-provider-jersey-1.0.0-SNAPSHOT/index.html");
+                configurationManager.putConfigurationEntry(BenchmarkConfigurationKey.GoogleUserInfoEndPoint,
+                        "https://www.googleapis.com/oauth2/v1/userinfo");
 
                 benchmarkAuthService = new BenchmarkAuthServiceProvider(configurationManager.getConfiguration());
             }
@@ -47,49 +50,47 @@ public class BenchmarkAuthServiceProvider implements BenchmarkAuthService, Close
         }
     }
 
-    private static final Iterable<String> SCOPE = Arrays.asList("https://www.googleapis.com/auth/userinfo.profile;https://www.googleapis.com/auth/userinfo.email".split(";"));
-    private static final String USER_INFO_URL = "https://www.googleapis.com/oauth2/v1/userinfo";
-    private static final JsonFactory JSON_FACTORY = new JacksonFactory();
-    private static final HttpTransport HTTP_TRANSPORT = new NetHttpTransport();
-
     private final Configuration configuration;
-    GoogleAuthorizationCodeFlow authClient;
+    private final GoogleAuthorizationCodeFlow authClient;
 
     BenchmarkAuthServiceProvider(Configuration configuration) {
         this.configuration = configuration;
 
         authClient = new GoogleAuthorizationCodeFlow.Builder(
-                new NetHttpTransport(), new JacksonFactory(),
+                httpTransport, new JacksonFactory(),
                 configuration.get(BenchmarkConfigurationKey.GoogleCloudClientId),
                 configuration.get(BenchmarkConfigurationKey.GoogleCloudClientPassword),
                 Oauth2Scopes.all()).setAccessType("online").setApprovalPrompt("force")
                 .build();
     }
 
+    private static class GoogleUserInfo {
+        String email;
+        String given_name;
+        String family_name;
+    }
+
     @Override
     public GoogleAuthResponse googleAuth(String authCode, String authUser, String sessionState, String prompt) throws Exception {
-        class UserInfo {
-            String email;
-            String given_name;
-            String family_name;
-        }
-
         GoogleAuthResponse googleAuthResponse = new GoogleAuthResponse();
 
         if (authCode != null) {
             try {
-                final GoogleTokenResponse response = authClient.newTokenRequest(authCode).setRedirectUri("https://www.rouplex-demo.com:8088/benchmark-service-provider-jersey-1.0.0-SNAPSHOT/webjars/swagger-ui/2.2.5/index.html?url=https://www.rouplex-demo.com:8088/benchmark-service-provider-jersey-1.0.0-SNAPSHOT/rouplex/swagger.json").execute();
-                final Credential credential = authClient.createAndStoreCredential(response, null);
-                final HttpRequestFactory requestFactory = HTTP_TRANSPORT.createRequestFactory(credential);
+                GoogleTokenResponse response = authClient.newTokenRequest(authCode)
+                        .setRedirectUri(configuration.get(BenchmarkConfigurationKey.BenchmarkMainUrl)).execute();
+                Credential credential = authClient.createAndStoreCredential(response, null);
+                HttpRequestFactory requestFactory = httpTransport.createRequestFactory(credential);
                 // Make an authenticated request
-                final GenericUrl url = new GenericUrl(USER_INFO_URL);
-                final HttpRequest request = requestFactory.buildGetRequest(url);
-                request.getHeaders().setContentType("application/json");
-                final String jsonIdentity = request.execute().parseAsString();
-                UserInfo userInfo = gson.fromJson(jsonIdentity, UserInfo.class);
-                googleAuthResponse.setUserEmail(userInfo.email);
-                googleAuthResponse.setUserGivenName(userInfo.given_name);
-                googleAuthResponse.setUserFamilyName(userInfo.family_name);
+
+                HttpRequest request = requestFactory.buildGetRequest(new GenericUrl(
+                        configuration.get(BenchmarkConfigurationKey.GoogleUserInfoEndPoint)));
+                request.getHeaders().setContentType(MediaType.APPLICATION_JSON);
+
+                String jsonIdentity = request.execute().parseAsString();
+                GoogleUserInfo googleUserInfo = gson.fromJson(jsonIdentity, GoogleUserInfo.class);
+                googleAuthResponse.setUserEmail(googleUserInfo.email);
+                googleAuthResponse.setUserGivenName(googleUserInfo.given_name);
+                googleAuthResponse.setUserFamilyName(googleUserInfo.family_name);
 
                 return googleAuthResponse;
             } catch (Exception e) {
@@ -98,7 +99,8 @@ public class BenchmarkAuthServiceProvider implements BenchmarkAuthService, Close
             }
         }
 
-        String url = authClient.newAuthorizationUrl().setRedirectUri("https://www.rouplex-demo.com:8088/benchmark-service-provider-jersey-1.0.0-SNAPSHOT/webjars/swagger-ui/2.2.5/index.html?url=https://www.rouplex-demo.com:8088/benchmark-service-provider-jersey-1.0.0-SNAPSHOT/rouplex/swagger.json").build();
+        String url = authClient.newAuthorizationUrl()
+                .setRedirectUri(configuration.get(BenchmarkConfigurationKey.BenchmarkMainUrl)).build();
         googleAuthResponse.setRedirectUrl(url);
         return googleAuthResponse;
     }

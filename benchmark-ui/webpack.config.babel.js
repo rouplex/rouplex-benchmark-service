@@ -4,7 +4,7 @@ import path from 'path';
 export default {
   entry: './src/App.js',
   output: {
-    path: path.join(__dirname, 'public'),
+    path: path.join(__dirname, 'target/public'),
     filename: 'bundle.js',
     publicPath: 'public/'
   },

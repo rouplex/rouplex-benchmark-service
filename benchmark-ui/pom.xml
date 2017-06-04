@@ -14,12 +14,12 @@
     <version>1.0.0-SNAPSHOT</version>
     <packaging>jar</packaging>
 
-
     <build>
         <plugins>
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>exec-maven-plugin</artifactId>
+                <version>1.6.0</version>
                 <executions>
                     <execution>
                         <id>install-dependencies</id>
@@ -54,15 +54,16 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-resources-plugin</artifactId>
+                <version>3.0.2</version>
                 <executions>
                     <execution>
                         <id>copy-index.html</id>
-                        <phase>validate</phase>
+                        <phase>prepare-package</phase>
                         <goals>
                             <goal>copy-resources</goal>
                         </goals>
                         <configuration>
-                            <outputDirectory>target/${build.finalName}/META-INF/resources</outputDirectory>
+                            <outputDirectory>target/${project.build.finalName}/META-INF/resources</outputDirectory>
                             <resources>
                                 <resource>
                                     <directory>.</directory>
@@ -78,15 +79,15 @@
 
                     <execution>
                         <id>copy-build-artifacts</id>
-                        <phase>validate</phase>
+                        <phase>prepare-package</phase>
                         <goals>
                             <goal>copy-resources</goal>
                         </goals>
                         <configuration>
-                            <outputDirectory>target/${build.finalName}/META-INF/resources/public</outputDirectory>
+                            <outputDirectory>target/${project.build.finalName}/META-INF/resources/public</outputDirectory>
                             <resources>
                                 <resource>
-                                    <directory>public</directory>
+                                    <directory>target/public</directory>
                                 </resource>
                             </resources>
                         </configuration>
@@ -96,10 +97,11 @@
 
             <plugin>
                 <artifactId>maven-jar-plugin</artifactId>
+                <version>3.0.2</version>
                 <configuration>
-                    <classesDirectory>target</classesDirectory>
+                    <classesDirectory>target/${project.build.finalName}</classesDirectory>
                     <includes>
-                        <include>${build.finalName}/**/*</include>
+                        <include>/**/*</include>
                     </includes>
                 </configuration>
             </plugin>

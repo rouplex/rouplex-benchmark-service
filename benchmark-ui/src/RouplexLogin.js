@@ -15,28 +15,21 @@ import ListGroup from 'react-bootstrap/lib/ListGroup';
 import ListGroupItem from 'react-bootstrap/lib/ListGroupItem';
 
 const leftMargin = {margin: '0px 0px 0px 5px'};
-const aroundMargin = {padding: '10px 10px 10px 10px'};
-//const rouplexLoginUrl = "https://www.rouplex-demo.com:8088/benchmark-service-provider-jersey-1.0.0-SNAPSHOT/rouplex/benchmark/auth/login1";
-const rouplexLoginUrl = "http://localhost:8080/benchmark-service-provider-jersey-1.0.0-SNAPSHOT/rouplex/benchmark/auth/google";
+const googleAuthUrl = "http://localhost:8080/benchmark-service-provider-jersey-1.0.0-SNAPSHOT/rouplex/benchmark/auth/google";
 
 export default class RouplexLogin extends React.Component {
     constructor() {
         super();
 
         this.state = {
+            userEmail: null,
             loggingIn: false,
             failedLogin: false,
             selecting: false,
         };
     }
 
-    getQueryStringValue(key) {
-        return decodeURIComponent(window.location.search
-            .replace(new RegExp("^(?:.*[&\\?]" + encodeURIComponent(key)
-                    .replace(/[\.\+\*]/g, "\\$&") + "(?:\\=([^&]*))?)?.*$", "i"), "$1"));
-    }
-
-    handleSignIn() {
+    handleSignInClicked() {
         this.setState({
             loggingIn: true,
             failedLogin: false,
@@ -52,45 +45,39 @@ export default class RouplexLogin extends React.Component {
         });
     }
 
-    handleRedirectToGoogleAuth() {
-        console.log("REDIRECT: " + this.responseText);
-        var userInfo = JSON.parse(this.responseText);
-        window.location.href = userInfo.redirectUrl;
-    }
-
-    handleUserProfile() {
-        console.log(this.responseText);
-        window.location.href = this.responseText;
-    }
-
     handleRouplexSignIn() {
-        //this.handleSignIn();
+        this.handleSignInClicked();
+
+        // implement
+    }
+
+    handleGoogleSignInClicked() {
+        this.handleSignInClicked();
 
         var getRequest = new XMLHttpRequest();
-        getRequest.addEventListener("load", this.handleUserProfile);
+        getRequest.addEventListener("load", this.handleGoogleAuthResponse);
         getRequest.addEventListener("error", () => {
             this.handleFailedSignIn()
         });
-        getRequest.open("GET", "http://localhost:8080/benchmark-service-provider-jersey-1.0.0-SNAPSHOT/rouplex/benchmark/auth/google?code=4/g3gSmKrfPUbwY9fI4FZHs0epZnnyEPLRETJ6qdwz1PA&authuser=0&session_state=e1c3e648c1e12096a0fad93c5403603c1fb316e4..a943&prompt=consent");
+        getRequest.open("GET", googleAuthUrl);
         getRequest.setRequestHeader('Accept', 'application/json');
         getRequest.send();
     }
 
-    handleGoogleSignIn() {
-        this.handleSignIn();
-
-        var getRequest = new XMLHttpRequest();
-        getRequest.addEventListener("load", this.handleRedirectToGoogleAuth);
-        getRequest.addEventListener("error", () => {
-            this.handleFailedSignIn()
-        });
-        getRequest.open("GET", rouplexLoginUrl);
-        getRequest.setRequestHeader('Accept', 'application/json');
-        getRequest.send();
+    handleGoogleAuthResponse() {
+        console.log("GoogleAuthResponse: " + this.responseText);
+        var userInfo = JSON.parse(this.responseText);
+        if (userInfo.redirectUrl) {
+            window.location.href = userInfo.redirectUrl;
+        } else {
+            this.setState({
+                userEmail: userInfo.userEmail
+            });
+        }
     }
 
     handleFacebookSignIn() {
-        this.handleSignIn();
+        this.handleSignInClicked();
 
         // implement
     }
@@ -106,11 +93,11 @@ export default class RouplexLogin extends React.Component {
                             onToggle={() => null}>
                 <MenuItem>
                     <FormGroup>
-                        <FormControl type="text" id="email" style={leftMargin} placeholder="Email"/>
-                        <FormControl type="password" style={leftMargin} placeholder="Password"/>
+                        <FormControl type="text" id="email" style={leftMargin} placeholder="Email" disabled/>
+                        <FormControl type="password" style={leftMargin} placeholder="Password" disabled/>
                         <Button bsStyle="primary" style={leftMargin}
-                                onClick={() => this.handleRouplexSignIn()}>
-                            Email / Password Sign In
+                                onClick={() => this.handleRouplexSignIn()} disabled>
+                            Email / Password Sign In1
                         </Button>
                     </FormGroup>
                 </MenuItem>
@@ -119,7 +106,7 @@ export default class RouplexLogin extends React.Component {
 
                 <MenuItem>
                     <Button bsStyle="primary" style={leftMargin} block
-                            onClick={() => this.handleGoogleSignIn()}>
+                            onClick={() => this.handleGoogleSignInClicked()}>
                         Google Auth Sign In
                     </Button>
                 </MenuItem>

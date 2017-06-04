@@ -5,6 +5,7 @@ public class GoogleAuthResponse {
     String userGivenName;
     String userFamilyName;
     String userEmail;
+    String idToken;
 
     public String getRedirectUrl() {
         return redirectUrl;
@@ -36,5 +37,13 @@ public class GoogleAuthResponse {
 
     public void setUserEmail(String userEmail) {
         this.userEmail = userEmail;
+    }
+
+    public String getIdToken() {
+        return idToken;
+    }
+
+    public void setIdToken(String idToken) {
+        this.idToken = idToken;
     }
 }

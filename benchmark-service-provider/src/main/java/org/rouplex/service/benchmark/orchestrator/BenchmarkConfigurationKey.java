@@ -7,6 +7,8 @@ public enum BenchmarkConfigurationKey {
     WorkerInstanceProfileName,
     WorkerLeaseInMinutes,
     ServiceHttpDescriptor,
+    BenchmarkMainUrl,
     GoogleCloudClientId,
-    GoogleCloudClientPassword
+    GoogleCloudClientPassword,
+    GoogleUserInfoEndPoint,
 }

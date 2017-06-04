@@ -43,13 +43,16 @@ export default class RouplexHeader extends React.Component {
             <Navbar fixedTop collapseOnSelect style={{padding: '10px 10px 10px 10px'}}>
                 <Navbar.Header>
                     <Navbar.Brand>
-                        <a href="#">Rouplex Demo</a>
+                        <a href="#">Rouplex Demo 1.0.0</a>
                     </Navbar.Brand>
                     <Navbar.Toggle />
                 </Navbar.Header>
                 <Navbar.Collapse>
-                    <Navbar.Form pullRight>
-                        {this.state.userEmail ? <RouplexLogout userEmail={this.state.userEmail}/> : <RouplexLogin/>}
+                    <Navbar.Form pullRight> {
+                            this.state.userEmail
+                                ? <RouplexLogout userEmail={this.state.userEmail}/>
+                                : <RouplexLogin userEmail={this.state.userEmail}/>
+                        }
                     </Navbar.Form>
                 </Navbar.Collapse>
             </Navbar>
