@@ -1,24 +1,14 @@
 package org.rouplex.service.benchmark.auth;
 
-import com.google.api.client.auth.oauth2.Credential;
-import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeFlow;
-import com.google.api.client.googleapis.auth.oauth2.GoogleTokenResponse;
-import com.google.api.client.http.GenericUrl;
-import com.google.api.client.http.HttpRequest;
-import com.google.api.client.http.HttpRequestFactory;
-import com.google.api.client.http.HttpTransport;
-import com.google.api.client.http.javanet.NetHttpTransport;
-import com.google.api.client.json.jackson2.JacksonFactory;
-import com.google.api.services.oauth2.Oauth2Scopes;
-import com.google.gson.Gson;
 import org.rouplex.commons.configuration.Configuration;
 import org.rouplex.commons.configuration.ConfigurationManager;
-import org.rouplex.service.benchmark.orchestrator.BenchmarkConfigurationKey;
+import org.rouplex.service.benchmark.BenchmarkConfigurationKey;
 
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 import java.util.logging.Logger;
 
 /**
@@ -26,11 +16,9 @@ import java.util.logging.Logger;
  */
 public class BenchmarkAuthServiceProvider implements BenchmarkAuthService, Closeable {
     private static final Logger logger = Logger.getLogger(BenchmarkAuthServiceProvider.class.getSimpleName());
-    private static final Gson gson = new Gson();
-    private static final HttpTransport httpTransport = new NetHttpTransport();
 
-    private static BenchmarkAuthService benchmarkAuthService;
-    public static BenchmarkAuthService get() throws Exception {
+    private static BenchmarkAuthServiceProvider benchmarkAuthService;
+    public static BenchmarkAuthServiceProvider get() throws Exception {
         synchronized (BenchmarkAuthServiceProvider.class) {
             if (benchmarkAuthService == null) {
                 ConfigurationManager configurationManager = new ConfigurationManager();
@@ -41,7 +29,7 @@ public class BenchmarkAuthServiceProvider implements BenchmarkAuthService, Close
                 configurationManager.putConfigurationEntry(BenchmarkConfigurationKey.BenchmarkMainUrl,
                         "http://localhost:8080/benchmark-service-provider-jersey-1.0.0-SNAPSHOT/index.html");
                 configurationManager.putConfigurationEntry(BenchmarkConfigurationKey.GoogleUserInfoEndPoint,
-                        "https://www.googleapis.com/oauth2/v1/userinfo");
+                        "https://www.googleapis.com/oauth2/v3/userinfo");
 
                 benchmarkAuthService = new BenchmarkAuthServiceProvider(configurationManager.getConfiguration());
             }
@@ -50,69 +38,60 @@ public class BenchmarkAuthServiceProvider implements BenchmarkAuthService, Close
         }
     }
 
-    private final Configuration configuration;
-    private final GoogleAuthorizationCodeFlow authClient;
+    private final Map<String, SessionInfo> sessionInfos = new HashMap<>();
 
-    BenchmarkAuthServiceProvider(Configuration configuration) {
-        this.configuration = configuration;
+    private final RouplexAuthProvider rouplexAuthProvider;
+    private final GoogleAuthProvider googleAuthProvider;
 
-        authClient = new GoogleAuthorizationCodeFlow.Builder(
-                httpTransport, new JacksonFactory(),
-                configuration.get(BenchmarkConfigurationKey.GoogleCloudClientId),
-                configuration.get(BenchmarkConfigurationKey.GoogleCloudClientPassword),
-                Oauth2Scopes.all()).setAccessType("online").setApprovalPrompt("force")
-                .build();
-    }
-
-    private static class GoogleUserInfo {
-        String email;
-        String given_name;
-        String family_name;
+    BenchmarkAuthServiceProvider(Configuration configuration) throws Exception {
+        rouplexAuthProvider = new RouplexAuthProvider();
+        googleAuthProvider = new GoogleAuthProvider(configuration);
     }
 
     @Override
-    public GoogleAuthResponse googleAuth(String authCode, String authUser, String sessionState, String prompt) throws Exception {
-        GoogleAuthResponse googleAuthResponse = new GoogleAuthResponse();
+    public SignInResponse signIn(String sessionIdViaCookie, String authProvider,
+                                 String authEmail, String authPassword,
+                                 String sessionIdViaQueryParam, String code) throws Exception {
 
-        if (authCode != null) {
-            try {
-                GoogleTokenResponse response = authClient.newTokenRequest(authCode)
-                        .setRedirectUri(configuration.get(BenchmarkConfigurationKey.BenchmarkMainUrl)).execute();
-                Credential credential = authClient.createAndStoreCredential(response, null);
-                HttpRequestFactory requestFactory = httpTransport.createRequestFactory(credential);
-                // Make an authenticated request
-
-                HttpRequest request = requestFactory.buildGetRequest(new GenericUrl(
-                        configuration.get(BenchmarkConfigurationKey.GoogleUserInfoEndPoint)));
-                request.getHeaders().setContentType(MediaType.APPLICATION_JSON);
-
-                String jsonIdentity = request.execute().parseAsString();
-                GoogleUserInfo googleUserInfo = gson.fromJson(jsonIdentity, GoogleUserInfo.class);
-                googleAuthResponse.setUserEmail(googleUserInfo.email);
-                googleAuthResponse.setUserGivenName(googleUserInfo.given_name);
-                googleAuthResponse.setUserFamilyName(googleUserInfo.family_name);
-
-                return googleAuthResponse;
-            } catch (Exception e) {
-                e.printStackTrace();
-                // for now just fall through ... and provide the login redirect
-            }
+        SignInResponse signInResponse = new SignInResponse();
+        SessionInfo sessionInfo = sessionInfos.get(sessionIdViaCookie);
+        if (sessionInfo != null) { // user in session and hence known, return its profile
+            signInResponse.setSessionId(sessionInfo.getSessionId());
+            signInResponse.setUserInfo(sessionInfo.getUserInfo());
+            return signInResponse;
         }
 
-        String url = authClient.newAuthorizationUrl()
-                .setRedirectUri(configuration.get(BenchmarkConfigurationKey.BenchmarkMainUrl)).build();
-        googleAuthResponse.setRedirectUrl(url);
-        return googleAuthResponse;
+        if (authProvider != null) {
+            String sessionId = null;
+            switch (AuthProvider.Provider.valueOf(authProvider)) {
+                case rouplex:
+                    signInResponse = rouplexAuthProvider.auth(authEmail, authPassword);
+                    sessionId = UUID.randomUUID().toString();
+                    break;
+                case google:
+                    signInResponse = googleAuthProvider.auth(code);
+                    sessionId = sessionIdViaQueryParam;
+                    break;
+            }
+
+            sessionInfo = new SessionInfo();
+            sessionInfo.setUserInfo(signInResponse.getUserInfo());
+            sessionInfo.setSessionId(sessionId);
+            sessionInfos.put(sessionId, sessionInfo);
+
+            signInResponse.setSessionId(sessionId);
+        }
+
+        return signInResponse; // user unknown, no defined auth providers, no action to be taken
     }
 
     @Override
-    public Response googleAuthWithCorsHeaders(String code, String authUser, String sessionState, String prompt) throws Exception {
-        return null;
-    }
+    public SignOutResponse signOut(String sessionIdViaHeaderParam) throws Exception {
+        if (sessionInfos.remove(sessionIdViaHeaderParam) == null) {
+            throw new Exception("Session not found");
+        }
 
-    @Override
-    public String rouplexAuth(String email, String password) throws Exception {
-        return null;
+        return new SignOutResponse();
     }
 
     @Override

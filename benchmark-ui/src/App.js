@@ -6,12 +6,34 @@ import RouplexHeader from './RouplexHeader';
 import RouplexBody from './RouplexBody';
 import RouplexFooter from './RouplexFooter';
 
-global.React = React;
+//global.React = React;
 
-React.render(
-  <div>
-    <RouplexHeader/>
-    <RouplexBody />
-    <RouplexFooter />
-  </div>
-  , document.getElementById('app'));
+class App extends React.Component {
+    constructor() {
+        super();
+
+        this.state = {
+            sessionInfo: {}
+        };
+    }
+
+    handleSessionUpdate(newSessionInfo) {
+        console.log("handlingSessionUpdate: " + newSessionInfo);
+        this.setState({
+            sessionInfo: newSessionInfo ? newSessionInfo : {}
+        })
+    }
+
+    render() {
+        return (
+            <div>
+                <RouplexHeader sessionInfo={this.state.sessionInfo}
+                               onSessionUpdate={(newSessionInfo) => this.handleSessionUpdate(newSessionInfo)}/>
+                <RouplexBody sessionInfo={this.state.sessionInfo}/>
+                <RouplexFooter />
+            </div>
+        )
+    }
+}
+
+React.render(<App/>, document.getElementById('app'));

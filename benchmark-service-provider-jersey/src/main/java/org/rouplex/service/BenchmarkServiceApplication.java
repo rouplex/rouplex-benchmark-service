@@ -42,6 +42,8 @@ public class BenchmarkServiceApplication extends RouplexJerseyApplication implem
 
     @Override
     protected void postConstruct() {
+        register(new BenchmarkResponseFilter());
+
         bindRouplexResource(BenchmarkManagementServiceResource.class, true);
         bindRouplexResource(BenchmarkAuthServiceResource.class, true);
         bindRouplexResource(BenchmarkWorkerServiceResource.class, true);
@@ -101,8 +103,7 @@ public class BenchmarkServiceApplication extends RouplexJerseyApplication implem
         public Response toResponse(NotAuthorizedException notAuthorizedException) {
             try {
                 return Response
-                        .temporaryRedirect(URI.create(
-                                BenchmarkAuthServiceProvider.get().googleAuth(null, null, null, null).getRedirectUrl()))
+                        .temporaryRedirect(URI.create("/index.html"))
                         .type(MediaType.TEXT_PLAIN_TYPE)
                         .build();
             } catch (Exception e) {

@@ -14,66 +14,58 @@ import DropdownButton from 'react-bootstrap/lib/DropdownButton';
 import ListGroup from 'react-bootstrap/lib/ListGroup';
 import Label from 'react-bootstrap/lib/Label';
 
+var config = require("./Config.js");
 const leftMargin = {margin: '0px 0px 0px 5px'};
-const rouplexLoginUrl = "http://localhost:8080/benchmark-service-provider-jersey-1.0.0-SNAPSHOT/rouplex/benchmark/auth/google";
 
 export default class RouplexLogout extends React.Component {
     constructor() {
         super();
 
         this.state = {
-            userEmail: null,
             loggingOut: false,
             failedLogout: false,
-            selecting: false,
+            selecting: false
         };
     }
 
     handleSignOutClicked() {
         this.setState({
             loggingOut: true,
-            selecting: false,
+            selecting: false
         });
-    }
 
-    handleFailedSignOut() {
-        this.setState({
-            loggingOut: false,
-            failedLogout: true,
-            selecting: false,
+        var getRequest = new XMLHttpRequest();
+        getRequest.addEventListener("load", () => {
+            console.log("signOutUrl.response: " + getRequest.responseText);
+            window.location.href = config.mainUrl;
         });
-    }
+        getRequest.addEventListener("error", () => {
+            document.cookie = 'Rouplex-SessionId=';
+            window.location.href = config.mainUrl;
+        });
 
-    handleRouplexSignOutClicked() {
-        this.handleSignOutClicked();
-
-        // send whatever payload to server
-    }
-
-    handleGoogleSignOutClicked() {
-        this.handleSignOutClicked();
-
-        // send whatever payload to server
-    }
-
-    handleFacebookSignOutClicked() {
-        this.handleSignOutClicked();
-
-        // send whatever payload to server
+        getRequest.open("GET", config.signOutUrl);
+        getRequest.setRequestHeader('Accept', 'application/json');
+        console.log("signOutUrl.request.header.Rouplex-SessionId: " + this.props.sessionInfo.sessionId);
+        getRequest.setRequestHeader('Rouplex-SessionId', this.props.sessionInfo.sessionId);
+        getRequest.send();
     }
 
     render() {
         return (
             <DropdownButton id="login" style={leftMargin} key="1"
                             bsStyle={this.state.failedLogout ? "warning" : "primary"}
-                            title={this.state.loggingOut ? "Signing Out ..." : this.props.userEmail}
+                            title={this.state.loggingOut
+                                ? "Signing Out ..."
+                                : this.props.sessionInfo.userInfo.userName + " " + this.props.sessionInfo.userInfo.userIdAtProvider
+                            }
                             disabled={this.state.loggingOut} open={this.state.selecting}
                             onClick={() => this.setState({selecting: !this.state.selecting})}
                             onToggle={() => null}>
                 <MenuItem>
-                    <Button bsStyle="primary" style={leftMargin} block disabled
+                    <Button bsStyle="primary" style={leftMargin} block
                             onClick={() => this.handleSignOutClicked()}>
-                        Sign Out &nbsp; (coming soon)
+                        Sign Out
                     </Button>
                 </MenuItem>
 

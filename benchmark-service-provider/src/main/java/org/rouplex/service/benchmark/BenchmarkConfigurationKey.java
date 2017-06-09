@@ -1,4 +1,4 @@
-package org.rouplex.service.benchmark.orchestrator;
+package org.rouplex.service.benchmark;
 
 /**
  * @author Andi Mullaraj (andimullaraj at gmail.com)
@@ -11,4 +11,5 @@ public enum BenchmarkConfigurationKey {
     GoogleCloudClientId,
     GoogleCloudClientPassword,
     GoogleUserInfoEndPoint,
+    BenchmarkUserProfilesS3Url
 }

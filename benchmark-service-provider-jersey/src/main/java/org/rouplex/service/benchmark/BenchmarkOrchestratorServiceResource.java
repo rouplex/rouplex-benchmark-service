@@ -34,7 +34,7 @@ public class BenchmarkOrchestratorServiceResource extends ResourceConfig impleme
     public StartDistributedTcpBenchmarkResponse startDistributedTcpBenchmark(
             StartDistributedTcpBenchmarkRequest request) throws Exception {
 
-        if (httpServletRequest.getHeader("auth-token") == null) {
+        if (httpServletRequest.getHeader("signIn-token") == null) {
             throw new NotAuthorizedException(httpServletRequest.getContextPath());
         }
 
