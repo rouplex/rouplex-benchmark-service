@@ -18,145 +18,150 @@ var config = require("./Config.js");
 const leftMargin = {margin: '0px 0px 0px 5px'};
 
 export default class RouplexLogin extends React.Component {
-    constructor() {
-        super();
+  constructor() {
+    super();
 
-        this.state = {
-            loggingIn: false,
-            failedLogin: false,
-            selecting: false
-        };
-    }
+    this.state = {
+      loggingIn: false,
+      failedLogin: false,
+      selecting: false
+    };
+  }
 
-    handleSignInClicked() {
-        this.setState({
-            loggingIn: true,
-            failedLogin: false,
-            selecting: false
-        });
-    }
+  handleSignInClicked() {
+    this.setState({
+      loggingIn: true,
+      failedLogin: false,
+      selecting: false
+    });
+  }
 
-    handleFailedSignIn() {
-        this.setState({
-            loggingIn: false,
-            failedLogin: true,
-            selecting: false
-        });
-    }
+  handleFailedSignIn() {
+    this.setState({
+      loggingIn: false,
+      failedLogin: true,
+      selecting: false
+    });
+  }
 
-    handleRouplexSignInClicked() {
-        this.handleSignInClicked();
+  handleRouplexSignInClicked() {
+    this.handleSignInClicked();
 
-        var getRequest = new XMLHttpRequest();
-        getRequest.addEventListener("load", () => {
-            console.log("signInViaRouplexUrl.response: " + getRequest.responseText);
-            try {
-                var newSessionInfo = JSON.parse(getRequest.responseText)
-            } catch (err) {
-                alert("Implementation Error " + err);
-                this.handleFailedSignIn();
-                return;
-            }
+    var getRequest = new XMLHttpRequest();
+    getRequest.addEventListener("load", () => {
+      console.log("signInViaRouplexUrl.response: " + getRequest.responseText);
+      try {
+        var newSessionInfo = JSON.parse(getRequest.responseText)
+      } catch (err) {
+        alert("Implementation Error " + err);
+        this.handleFailedSignIn();
+        return;
+      }
 
-            if (newSessionInfo.userInfo) { // user is signed in
-                this.props.onSessionUpdate(newSessionInfo);
-            } else {
-                alert("Authentication Error: " + newSessionInfo.exceptionMessage);
-                this.handleFailedSignIn();
-            }
-        });
-        getRequest.addEventListener("error", () => this.handleFailedSignIn());
+      if (newSessionInfo.userInfo) { // user is signed in
+        this.props.onSessionUpdate(newSessionInfo);
+      } else {
+        alert("Authentication Error: " + newSessionInfo.exceptionMessage);
+        this.handleFailedSignIn();
+      }
+    });
+    getRequest.addEventListener("error", () => this.handleFailedSignIn());
 
-        getRequest.open("GET", config.signInViaRouplexUrl);
-        getRequest.setRequestHeader('Accept', 'application/json');
-        getRequest.setRequestHeader('Rouplex-Cookie-Enabled', navigator.cookieEnabled);
-        getRequest.setRequestHeader('Rouplex-Auth-Email', this.email.value);
-        getRequest.setRequestHeader('Rouplex-Auth-Password', this.password.value);
-        getRequest.send();
-    }
+    getRequest.open("GET", config.signInViaRouplexUrl);
+    getRequest.setRequestHeader('Accept', 'application/json');
+    getRequest.setRequestHeader('Rouplex-Cookie-Enabled', navigator.cookieEnabled);
+    getRequest.setRequestHeader('Rouplex-Auth-Email', this.email.value);
+    getRequest.setRequestHeader('Rouplex-Auth-Password', this.password.value);
+    getRequest.send();
+  }
 
-    handleGoogleSignInClicked() {
-        this.handleSignInClicked();
+  handleGoogleSignInClicked() {
+    this.handleSignInClicked();
 
-        var getRequest = new XMLHttpRequest();
-        getRequest.addEventListener("load", () => {
-            console.log("signInViaGoogleUrl.response: " + getRequest.responseText);
-            try {
-                var newSessionInfo = JSON.parse(getRequest.responseText)
-            } catch (err) {
-                alert("Implementation Error " + err);
-                return;
-            }
+    var getRequest = new XMLHttpRequest();
+    getRequest.addEventListener("load", () => {
+      console.log("signInViaGoogleUrl.response: " + getRequest.responseText);
+      try {
+        var newSessionInfo = JSON.parse(getRequest.responseText)
+      } catch (err) {
+        alert("Implementation Error " + err);
+        return;
+      }
 
-            if (newSessionInfo.userInfo) { // user is signed in
-                this.props.onSessionUpdate(newSessionInfo);
-            } else if (newSessionInfo.redirectUrl) { // user is invited to sign
-                window.location.href = newSessionInfo.redirectUrl;
-            } else {
-                alert("Implementation Error. No UserInfo or redirectUrl present.");
-            }
-        });
-        getRequest.addEventListener("error", () => this.handleFailedSignIn());
-;
-        getRequest.open("GET", config.signInViaGoogleUrl);
-        getRequest.setRequestHeader('Accept', 'application/json');
-        getRequest.setRequestHeader('Rouplex-Cookie-Enabled', navigator.cookieEnabled);
-        getRequest.send();
-    }
+      if (newSessionInfo.userInfo) { // user is signed in
+        this.props.onSessionUpdate(newSessionInfo);
+      } else if (newSessionInfo.redirectUrl) { // user is invited to sign
+        window.location.href = newSessionInfo.redirectUrl;
+      } else {
+        alert("Implementation Error. No UserInfo or redirectUrl present.");
+      }
+    });
+    getRequest.addEventListener("error", () => this.handleFailedSignIn());
+    ;
+    getRequest.open("GET", config.signInViaGoogleUrl);
+    getRequest.setRequestHeader('Accept', 'application/json');
+    getRequest.setRequestHeader('Rouplex-Cookie-Enabled', navigator.cookieEnabled);
+    getRequest.send();
+  }
 
-    handleFacebookSignInClicked() {
-        this.handleSignInClicked();
+  handleFacebookSignInClicked() {
+    this.handleSignInClicked();
 
-        // implement
-    }
+    // implement
+  }
 
-    render() {
-        return (
-            <DropdownButton id="login" style={leftMargin} key="1"
-                            bsStyle={this.state.failedLogin ? "warning" : "primary"}
-                            title={this.state.loggingIn ? "Signing In ..." :
-                                                this.state.failedLogin ? "Failed Signing In. Retry" : "Sign In"}
-                            disabled={this.state.loggingIn} open={this.state.selecting}
-                            onClick={() => this.setState({selecting: !this.state.selecting})}
-                            onToggle={() => null}>
-                <MenuItem>
-                    <FormGroup>
-                        <FormControl type="text" id="email"
-                                     placeholder="Email" inputRef={email => this.email = email} />
-                        <FormControl type="password" id="password" style={leftMargin}
-                                     placeholder="Password" inputRef={password => this.password = password}/>
-                        <Button bsStyle="primary" style={leftMargin}
-                                onClick={() => this.handleRouplexSignInClicked()}>
-                            Using Email / Password
-                        </Button>
-                    </FormGroup>
-                </MenuItem>
+  render() {
+    return (
+      <DropdownButton id="login" style={leftMargin} key="1"
+                      bsStyle={this.state.failedLogin ? "warning" : "primary"}
+                      title={
+                        this.state.loggingIn
+                          ? "Signing In ..."
+                          : this.state.failedLogin
+                            ? "Failed Signing In. Retry"
+                            : "Sign In"
+                      }
+                      disabled={this.state.loggingIn} open={this.state.selecting}
+                      onClick={() => this.setState({selecting: !this.state.selecting})}
+                      onToggle={() => null}>
+        <MenuItem>
+          <FormGroup>
+            <FormControl type="text" id="email"
+                         placeholder="Email" inputRef={email => this.email = email}/>
+            <FormControl type="password" id="password" style={leftMargin}
+                         placeholder="Password" inputRef={password => this.password = password}/>
+            <Button bsStyle="primary" style={leftMargin}
+                    onClick={() => this.handleRouplexSignInClicked()}>
+              Using Email / Password
+            </Button>
+          </FormGroup>
+        </MenuItem>
 
-                <MenuItem>
-                    <Button bsStyle="primary" block disabled
-                            onClick={() => this.handleRouplexSignUpClicked()}>
-                        Sign Up (coming soon)
-                    </Button>
-                </MenuItem>
+        <MenuItem>
+          <Button bsStyle="primary" block disabled
+                  onClick={() => this.handleRouplexSignUpClicked()}>
+            Sign Up (coming soon)
+          </Button>
+        </MenuItem>
 
-                <MenuItem divider/>
+        <MenuItem divider/>
 
-                <MenuItem>
-                    <Button bsStyle="primary" block disabled={!navigator.cookieEnabled}
-                            onClick={() => this.handleGoogleSignInClicked()}>
-                        Using Google Auth {navigator.cookieEnabled ? "" : "(enable cookies!)"}
-                    </Button>
-                </MenuItem>
+        <MenuItem>
+          <Button bsStyle="primary" block disabled={!navigator.cookieEnabled}
+                  onClick={() => this.handleGoogleSignInClicked()}>
+            Using Google Auth {navigator.cookieEnabled ? "" : "(enable cookies!)"}
+          </Button>
+        </MenuItem>
 
-                <MenuItem divider/>
+        <MenuItem divider/>
 
-                <MenuItem>
-                    <Button bsStyle="primary" block disabled
-                            onClick={() => this.handleFacebookSignInClicked()}>
-                        Using Facebook Auth &nbsp; (coming soon)
-                    </Button>
-                </MenuItem>
-            </DropdownButton>
-        );
-    }
+        <MenuItem>
+          <Button bsStyle="primary" block disabled
+                  onClick={() => this.handleFacebookSignInClicked()}>
+            Using Facebook Auth &nbsp; (coming soon)
+          </Button>
+        </MenuItem>
+      </DropdownButton>
+    )
+  }
 }
