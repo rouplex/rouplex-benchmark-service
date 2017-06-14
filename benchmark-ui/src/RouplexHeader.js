@@ -10,8 +10,6 @@ export default class RouplexHeader extends React.Component {
   constructor() {
     super();
 
-    console.log("index.html.qp: " + window.location.search.substr(1));
-
     setTimeout(this.updateSession(), 1);
   }
 
@@ -38,7 +36,7 @@ export default class RouplexHeader extends React.Component {
 
   render() {
     return (
-      <Navbar fixedTop collapseOnSelect style={{padding: '10px 10px 10px 10px'}}>
+      <Navbar collapseOnSelect style={{margin: '0 0 5px 0'}}>
         <Navbar.Header>
           <Navbar.Brand>
             <a href="#">Rouplex Demo 1.0.0.A</a>

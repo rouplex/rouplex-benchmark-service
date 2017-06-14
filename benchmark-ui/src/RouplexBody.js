@@ -10,7 +10,7 @@ import TcpBenchmarkStart from './TcpBenchmarkStart';
 export default class RouplexBody extends React.Component {
   render() {
     return (
-      <div>
+      <div style={{backgroundColor: '#EEEEEE', padding: '10px 0 0 0'}}>
         {this.props.actionPath === "benchmarkStart" ? <TcpBenchmarkStart /> : <Button />}
       </div>
     );
