@@ -7,6 +7,7 @@ config.signInUrl = config.restUrl + "/auth/sign-in";
 config.signInViaGoogleUrl = config.signInUrl + "?provider=google";
 config.signInViaRouplexUrl = config.signInUrl + "?provider=rouplex";
 config.signOutUrl = config.restUrl + "/auth/sign-out";
+config.startTcpBenchmarkUrl = config.restUrl + "/orchestrator/tcp/start";
 
 config.ec2InstanceTypes = [
   {key: "EC2_T2Nano", value: "T2 Nano"},

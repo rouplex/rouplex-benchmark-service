@@ -6,8 +6,6 @@ import Col from 'react-bootstrap/lib/Col';
 import ControlLabel from 'react-bootstrap/lib/ControlLabel';
 import Checkbox from 'react-bootstrap/lib/Checkbox';
 
-var config = require("./Config.js");
-
 export default class NioProviderSelector extends React.Component {
   constructor() {
     super();
@@ -36,7 +34,7 @@ export default class NioProviderSelector extends React.Component {
                  this.props.onNioProviderChange(key.value)
                }
              }}>{
-              config.nioProviders.map(function (option) {
+              this.props.nioProviders.map(function (option) {
                 return (
                   <option key={option.key} value={option.key}>{option.value}</option>
                 )

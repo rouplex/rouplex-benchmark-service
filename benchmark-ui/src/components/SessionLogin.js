@@ -1,23 +1,13 @@
 import React from 'react';
-import ButtonToolbar from 'react-bootstrap/lib/ButtonToolbar';
 import Button from 'react-bootstrap/lib/Button';
-import ButtonGroup from 'react-bootstrap/lib/ButtonGroup';
-import Navbar from 'react-bootstrap/lib/Navbar';
-import Nav from 'react-bootstrap/lib/Nav';
-import NavDropdown from 'react-bootstrap/lib/NavDropdown';
-import NavItem from 'react-bootstrap/lib/NavItem';
 import MenuItem from 'react-bootstrap/lib/MenuItem';
 import FormGroup from 'react-bootstrap/lib/FormGroup';
 import FormControl from 'react-bootstrap/lib/FormControl';
-import SplitButton from 'react-bootstrap/lib/SplitButton';
 import DropdownButton from 'react-bootstrap/lib/DropdownButton';
-import ListGroup from 'react-bootstrap/lib/ListGroup';
-import ListGroupItem from 'react-bootstrap/lib/ListGroupItem';
-var config = require("./Config.js");
 
 const leftMargin = {margin: '0px 0px 0px 5px'};
 
-export default class RouplexLogin extends React.Component {
+export default class SessionLogin extends React.Component {
   constructor() {
     super();
 
@@ -51,23 +41,23 @@ export default class RouplexLogin extends React.Component {
     getRequest.addEventListener("load", () => {
       console.log("signInViaRouplexUrl.response: " + getRequest.responseText);
       try {
-        var newSessionInfo = JSON.parse(getRequest.responseText)
+        var sessionInfo = JSON.parse(getRequest.responseText);
       } catch (err) {
         alert("Implementation Error " + err);
         this.handleFailedSignIn();
         return;
       }
 
-      if (newSessionInfo.userInfo) { // user is signed in
-        this.props.onSessionUpdate(newSessionInfo);
+      if (sessionInfo.userInfo) { // user is signed in
+        this.props.onSessionUpdate(sessionInfo);
       } else {
-        alert("Authentication Error: " + newSessionInfo.exceptionMessage);
+        alert("Authentication Error: " + sessionInfo.exceptionMessage);
         this.handleFailedSignIn();
       }
     });
     getRequest.addEventListener("error", () => this.handleFailedSignIn());
 
-    getRequest.open("GET", config.signInViaRouplexUrl);
+    getRequest.open("GET", this.props.signInViaRouplexUrl);
     getRequest.setRequestHeader('Accept', 'application/json');
     getRequest.setRequestHeader('Rouplex-Cookie-Enabled', navigator.cookieEnabled);
     getRequest.setRequestHeader('Rouplex-Auth-Email', this.email.value);
@@ -82,23 +72,23 @@ export default class RouplexLogin extends React.Component {
     getRequest.addEventListener("load", () => {
       console.log("signInViaGoogleUrl.response: " + getRequest.responseText);
       try {
-        var newSessionInfo = JSON.parse(getRequest.responseText)
+        var sessionInfo = JSON.parse(getRequest.responseText);
       } catch (err) {
         alert("Implementation Error " + err);
         return;
       }
 
-      if (newSessionInfo.userInfo) { // user is signed in
-        this.props.onSessionUpdate(newSessionInfo);
-      } else if (newSessionInfo.redirectUrl) { // user is invited to sign
-        window.location.href = newSessionInfo.redirectUrl;
+      if (sessionInfo.userInfo) { // user is signed in
+        this.props.onSessionUpdate(sessionInfo);
+      } else if (sessionInfo.redirectUrl) { // user is invited to sign
+        window.location.href = sessionInfo.redirectUrl;
       } else {
         alert("Implementation Error. No UserInfo or redirectUrl present.");
       }
     });
     getRequest.addEventListener("error", () => this.handleFailedSignIn());
-    ;
-    getRequest.open("GET", config.signInViaGoogleUrl);
+
+    getRequest.open("GET", this.props.signInViaGoogleUrl);
     getRequest.setRequestHeader('Accept', 'application/json');
     getRequest.setRequestHeader('Rouplex-Cookie-Enabled', navigator.cookieEnabled);
     getRequest.send();
@@ -124,12 +114,17 @@ export default class RouplexLogin extends React.Component {
                       disabled={this.state.loggingIn} open={this.state.selecting}
                       onClick={() => this.setState({selecting: !this.state.selecting})}
                       onToggle={() => null}>
+
         <MenuItem>
           <FormGroup>
-            <FormControl type="text" id="email"
-                         placeholder="Email" inputRef={email => this.email = email}/>
-            <FormControl type="password" id="password" style={leftMargin}
-                         placeholder="Password" inputRef={password => this.password = password}/>
+            <FormControl
+              type="text" id="email"
+              placeholder="Email" inputRef={email => this.email = email}
+            />
+            <FormControl
+              type="password" id="password" style={leftMargin}
+              placeholder="Password" inputRef={password => this.password = password}
+            />
             <Button bsStyle="primary" style={leftMargin}
                     onClick={() => this.handleRouplexSignInClicked()}>
               Using Email / Password
@@ -162,6 +157,6 @@ export default class RouplexLogin extends React.Component {
           </Button>
         </MenuItem>
       </DropdownButton>
-    )
+    );
   }
 }

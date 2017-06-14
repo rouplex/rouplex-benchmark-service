@@ -5,7 +5,7 @@ import FormControl from 'react-bootstrap/lib/FormControl';
 import Col from 'react-bootstrap/lib/Col';
 import ControlLabel from 'react-bootstrap/lib/ControlLabel';
 
-export default class RouplexDropdownSelector extends React.Component {
+export default class DropdownSelector extends React.Component {
   constructor() {
     super();
     this.initializing = true;
@@ -31,11 +31,11 @@ export default class RouplexDropdownSelector extends React.Component {
                              this.props.onChange(key.value)
                            }
                          }}>{
-              this.props.options.map(function (option) {
-                return (
-                  <option key={option.key} value={option.key}>{option.value}</option>
-                );
-              })}
+                          this.props.options.map(function (option) {
+                            return (
+                              <option key={option.key} value={option.key}>{option.value}</option>
+                            );
+                          })}
             </FormControl>
           </Col>
         </FormGroup>

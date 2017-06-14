@@ -1,12 +1,11 @@
 import React from 'react';
 import Navbar from 'react-bootstrap/lib/Navbar';
-//import Config from "./Config.js";
-import RouplexLogin from './RouplexLogin';
-import RouplexLogout from './RouplexLogout';
+import SessionLogin from './components/SessionLogin';
+import SessionLogout from './components/SessionLogout';
 
 var config = require("./Config.js");
 
-export default class RouplexHeader extends React.Component {
+export default class Header extends React.Component {
   constructor() {
     super();
 
@@ -18,10 +17,10 @@ export default class RouplexHeader extends React.Component {
     getRequest.addEventListener("load", () => {
       console.log("signInUrl.response: " + getRequest.responseText);
       try {
-        var newSessionInfo = JSON.parse(getRequest.responseText)
+        var sessionInfo = JSON.parse(getRequest.responseText);
       } catch (err) {
       }
-      this.props.onSessionUpdate(newSessionInfo);
+      this.props.onSessionUpdate(sessionInfo);
     });
     getRequest.addEventListener("error", () => this.props.onSessionUpdate(null));
 
@@ -44,11 +43,20 @@ export default class RouplexHeader extends React.Component {
           <Navbar.Toggle />
         </Navbar.Header>
         <Navbar.Collapse>
-          <Navbar.Form pullRight> {
-            this.props.sessionInfo.userInfo
-              ? <RouplexLogout sessionInfo={this.props.sessionInfo}
-                               onSessionUpdate={(newSessionInfo) => this.props.onSessionUpdate(newSessionInfo)}/>
-              : <RouplexLogin onSessionUpdate={(newSessionInfo) => this.props.onSessionUpdate(newSessionInfo)}/>
+          <Navbar.Form pullRight>{
+            this.props.sessionInfo.userInfo ?
+              <SessionLogout
+                mainUrl={config.mainUrl}
+                signOutUrl={config.signOutUrl}
+                sessionInfo={this.props.sessionInfo}
+                onSessionUpdate={sessionInfo => this.props.onSessionUpdate(sessionInfo)}
+              />
+              :
+              <SessionLogin
+                signInViaGoogleUrl={config.signInUrl + "?provider=google"}
+                signInViaRouplexUrl={config.signInUrl + "?provider=rouplex"}
+                onSessionUpdate={sessionInfo => this.props.onSessionUpdate(sessionInfo)}
+              />
           }
           </Navbar.Form>
         </Navbar.Collapse>

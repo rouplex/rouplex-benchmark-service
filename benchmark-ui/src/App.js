@@ -2,9 +2,9 @@ import React from 'react';
 import 'bootstrap/less/bootstrap.less';
 import './styles/custom-styles.css';
 
-import RouplexHeader from './RouplexHeader';
-import RouplexBody from './RouplexBody';
-import RouplexFooter from './RouplexFooter';
+import Header from './Header';
+import Body from './Body';
+import Footer from './Footer';
 
 //global.React = React;
 
@@ -18,31 +18,17 @@ class App extends React.Component {
     };
   }
 
-  handleSessionUpdate(newSessionInfo) {
-    console.log("handleSessionUpdate: " + newSessionInfo);
-    this.setState({
-      sessionInfo: newSessionInfo ? newSessionInfo : {}
-    })
-  }
-
-  handleActionPathUpdate(newActionPath) {
-    console.log("handleNewActionPath: " + newActionPath);
-    this.setState({
-      actionPath: newActionPath ? newActionPath : {}
-    })
-  }
-
   render() {
     return (
       <div>
-        <RouplexHeader
+        <Header
           sessionInfo={this.state.sessionInfo}
-          onSessionUpdate={(newSessionInfo) => this.handleSessionUpdate(newSessionInfo)}/>
-        <RouplexBody
+          onSessionUpdate={sessionInfo => this.setState({sessionInfo: sessionInfo})}/>
+        <Body
           sessionInfo={this.state.sessionInfo}
           actionPath={this.state.actionPath}
-          onActgionPathUpdate={(newActionPath) => this.handleActionPathUpdate(newActionPath)}/>
-        <RouplexFooter />
+          onActionPathUpdate={actionPath => this.setState({actionPath: actionPath})}/>
+        <Footer />
       </div>
     )
   }
