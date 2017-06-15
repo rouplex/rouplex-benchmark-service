@@ -20,7 +20,7 @@ export default class Body extends React.Component {
 
   render() {
     return (
-      <div style={{backgroundColor: '#EEEEEE', padding: '10px 0 0 0'}}>
+      <div style={{backgroundColor: '#EEEEEE', padding: '15px 0 0 0'}}>
         <Grid>
           <Col md={2} style={{padding: '15px 0 0 0'}}>
             <Lefter

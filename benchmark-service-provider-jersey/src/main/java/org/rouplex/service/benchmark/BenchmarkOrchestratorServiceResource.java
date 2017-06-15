@@ -6,6 +6,7 @@ import io.swagger.annotations.ApiResponse;
 import io.swagger.annotations.ApiResponses;
 import org.glassfish.jersey.server.ResourceConfig;
 import org.rouplex.platform.jaxrs.security.RouplexSecurityContext;
+import org.rouplex.service.benchmark.auth.BenchmarkAuthServiceProvider;
 import org.rouplex.service.benchmark.orchestrator.*;
 
 import javax.servlet.http.HttpServletRequest;
@@ -34,7 +35,7 @@ public class BenchmarkOrchestratorServiceResource extends ResourceConfig impleme
     public StartDistributedTcpBenchmarkResponse startDistributedTcpBenchmark(
             StartDistributedTcpBenchmarkRequest request) throws Exception {
 
-        if (httpServletRequest.getHeader("signIn-token") == null) {
+        if (!BenchmarkAuthServiceProvider.get().isSignedIn(httpServletRequest.getHeader("Rouplex-SessionId"))) {
             throw new NotAuthorizedException(httpServletRequest.getContextPath());
         }
 

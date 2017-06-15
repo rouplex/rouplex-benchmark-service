@@ -24,7 +24,7 @@ export default class Header extends React.Component {
       }
       this.props.onSessionUpdate(sessionInfo);
     });
-    getRequest.addEventListener("error", () => this.props.onSessionUpdate(null));
+    getRequest.addEventListener("error", () => this.props.onSessionUpdate({}));
 
     // send all the query string (empty on initial requests) along with occasional sessionId cookie
     var params = window.location.search.substr(1);
@@ -48,8 +48,8 @@ export default class Header extends React.Component {
           <Navbar.Form pullRight style={{padding: 0}}>{
             !this.props.sessionInfo.userInfo ?
               <SessionLogin
-                signInViaGoogleUrl={config.signInUrl + "?provider=google"}
-                signInViaRouplexUrl={config.signInUrl + "?provider=rouplex"}
+                signInViaGoogleUrl={config.signInViaGoogleUrl}
+                signInViaRouplexUrl={config.signInViaRouplexUrl}
                 onSessionUpdate={sessionInfo => this.props.onSessionUpdate(sessionInfo)}
               />
               :

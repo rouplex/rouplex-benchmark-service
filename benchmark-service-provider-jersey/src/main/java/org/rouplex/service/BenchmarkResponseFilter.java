@@ -11,7 +11,7 @@ import java.io.IOException;
 //@Provider
 public class BenchmarkResponseFilter implements ContainerResponseFilter {
     @Override
-    public void filter(ContainerRequestContext request,  ContainerResponseContext response) throws IOException {
+    public void filter(ContainerRequestContext request, ContainerResponseContext response) throws IOException {
         if (response.getEntity() instanceof SignInResponse) {
             String sessionId = ((SignInResponse) response.getEntity()).getSessionId();
             response.getHeaders().add("Rouplex-SessionId", sessionId);

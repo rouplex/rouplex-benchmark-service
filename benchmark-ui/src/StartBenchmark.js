@@ -45,9 +45,10 @@ export default class StartBenchmark extends React.Component {
   }
 
   buildRequestBody() {
-    var echoRatio = this.sanitize(this.state.echoRatio);
-    var benchmarkRequestId = this.sanitize(this.state.benchmarkRequestId);
-    var keyName = this.sanitize(this.state.keyName);
+    var echoRatioQuoted = this.quote(this.state.echoRatio);
+    var benchmarkRequestIdQuoted = this.quote(this.state.benchmarkRequestId);
+    var keyNameQuoted = this.quote(this.state.keyName);
+
     var socketSendBufferSize = this.parseIntValue("Socket Send Buffer Size", this.state.socketSendBufferSize, 0);
     var socketReceiveBufferSize = this.parseIntValue("Socket Receive Buffer Size", this.state.socketReceiveBufferSize, 0);
     var backlog = this.parseIntValue("Backlog", this.state.backlog, 0);
@@ -112,14 +113,14 @@ export default class StartBenchmark extends React.Component {
 
     var requestBody =
       '{\n' +
-      '  "echoRatio" : "' + echoRatio + '",\n' +
-      '  "optionalBenchmarkRequestId" : "' + benchmarkRequestId + '",\n' +
+      '  "echoRatio" : ' + echoRatioQuoted + ',\n' +
+      '  "optionalBenchmarkRequestId" : ' + benchmarkRequestIdQuoted + ',\n' +
       '  "optionalServerHostType" : "' + this.state.serverHostType + '",\n' +
       '  "optionalServerGeoLocation" : "' + this.state.serverGeoLocation + '",\n' +
       '  "optionalClientsHostType" : "' + this.state.clientsHostType + '",\n' +
       '  "optionalClientsGeoLocation" : "' + this.state.clientsGeoLocation + '",\n' +
-      '  "optionalImageId" : "",\n' +
-      '  "optionalKeyName" : "' + keyName + '",\n' +
+      '  "optionalImageId" : null,\n' +
+      '  "optionalKeyName" : ' + keyNameQuoted + ',\n' +
       '  "optionalTcpMemoryAsPercentOfTotal" : 0,\n' +
       '  "provider" : "' + this.state.provider + '",\n' +
       '  "port" : 8888,\n' +
@@ -136,7 +137,7 @@ export default class StartBenchmark extends React.Component {
       '  "minDelayMillisBeforeCreatingClient" : ' + minDelayMillisBeforeCreatingClient + ',\n' +
       '  "maxDelayMillisBeforeCreatingClient" : ' + maxDelayMillisBeforeCreatingClient + ',\n' +
       '  "minClientLifeMillis" : ' + minClientLifeMillis + ',\n' +
-      '  "maxClientLifeMillis" : ' + maxClientLifeMillis + ',\n' +
+      '  "maxClientLifeMillis" : ' + maxClientLifeMillis + '\n' +
       '}\n';
 
     return requestBody;
@@ -146,6 +147,7 @@ export default class StartBenchmark extends React.Component {
     var postRequest = new XMLHttpRequest();
     postRequest.addEventListener("load", () => {
       console.log("startTcpBenchmark.response: " + postRequest.responseText);
+      alert("startTcpBenchmark.response: " + postRequest.responseText);
       this.setState({pendingSubmission: false});
       try {
         // parse response
@@ -157,6 +159,8 @@ export default class StartBenchmark extends React.Component {
     });
 
     postRequest.addEventListener("error", () => {
+      console.log("startTcpBenchmark.error: " + postRequest.responseText);
+      alert("startTcpBenchmark.error: " + postRequest.responseText);
       this.setState({pendingSubmission: false});
       this.setState({failedSubmission: true});
     });
@@ -166,6 +170,8 @@ export default class StartBenchmark extends React.Component {
     postRequest.setRequestHeader('Accept', 'application/json');
     postRequest.setRequestHeader('Rouplex-Cookie-Enabled', navigator.cookieEnabled);
     postRequest.setRequestHeader('Rouplex-SessionId', this.props.sessionInfo.sessionId);
+
+    console.log("startTcpBenchmark.request: " + requestBody);
     postRequest.send(requestBody);
   }
 
@@ -178,7 +184,7 @@ export default class StartBenchmark extends React.Component {
     }
     catch (err) {
       alert("Error starting benchmark. Cause: " + err);
-      this.setState({failedValidation: true});
+      this.setState({failedValidation: true, pendingSubmission: false});
       return;
     }
 
@@ -187,7 +193,7 @@ export default class StartBenchmark extends React.Component {
     }
     catch (err) {
       alert("Error starting benchmark. Cause: " + err);
-      this.setState({failedSubmission: true});
+      this.setState({failedSubmission: true, pendingSubmission: false});
     }
   }
 
@@ -207,8 +213,8 @@ export default class StartBenchmark extends React.Component {
     return parseInt(stringValue);
   }
 
-  sanitize(stringValue) {
-    return validator.isUndefinedNullOrEmpty(stringValue) ? "" : stringValue;
+  quote(stringValue) {
+    return validator.isUndefinedNullOrEmpty(stringValue) ? null : '"' + stringValue + '"';
   }
 
   validateValue(value, range) {
@@ -323,7 +329,8 @@ export default class StartBenchmark extends React.Component {
             />
           </Panel>
 
-          <Button bsStyle="primary" className="pull-right" onClick={() => this.handleStartBenchmarkClicked()}>
+          <Button bsStyle="primary" className="pull-right" disabled={this.state.pendingSubmission}
+                  onClick={() => this.handleStartBenchmarkClicked()}>
             Start Benchmark
           </Button>
         </Col>

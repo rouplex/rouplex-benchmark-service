@@ -46,5 +46,5 @@ public interface BenchmarkAuthService {
 
     @GET
     @Path("/sign-out")
-    SignOutResponse signOut(@HeaderParam("Rouplex-SessionId") String sessionIdViaHeaderParam) throws Exception;
+    SignOutResponse signOut(@HeaderParam("Rouplex-SessionId") String sessionIdViaHeader) throws Exception;
 }

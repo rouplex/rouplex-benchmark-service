@@ -1,6 +1,11 @@
 var config = module.exports = {};
 
-config.baseUrl = "http://localhost:8080/benchmark-service-provider-jersey-1.0.0-SNAPSHOT";
+config.env = "dev";
+
+config.autologin = config.env == "dev";
+
+config.host = config.env == "dev" ? "http://localhost:8080" : "https://www.rouplex-demo.com:8088";
+config.baseUrl = config.host + "/benchmark-service-provider-jersey-1.0.0-SNAPSHOT";
 config.mainUrl = config.baseUrl + "/index.html";
 config.restUrl = config.baseUrl + "/rouplex/benchmark";
 config.signInUrl = config.restUrl + "/auth/sign-in";
@@ -29,14 +34,14 @@ config.ec2InstanceTypes = [
   {key: "EC2_M44xlarge", value: "M4 4XLarge"},
   {key: "EC2_M410xlarge", value: "M4 10XLarge"},
   {key: "EC2_M416xlarge", value: "M4 16XLarge"}
-]
+];
 
 config.ec2Regions = [
   {key: "EC2_US_WEST_2", value: "EC2 Oregon (us-west-2)"}
-]
+];
 
 config.nioProviders = [
     {key: "CLASSIC_NIO", value: "Classic NIO (No SSL support)"},
     {key: "ROUPLEX_NIOSSL", value: "Rouplex NIO (With SSL support)"},
     {key: "SCALABLE_SSL", value: "Scalable NIO (With SSL support)"}
-]
+];

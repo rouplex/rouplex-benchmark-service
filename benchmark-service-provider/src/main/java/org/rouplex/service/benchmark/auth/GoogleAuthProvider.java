@@ -48,11 +48,15 @@ class GoogleAuthProvider extends AuthProvider<UserAtGoogle> {
         SignInResponse signInResponse = new SignInResponse();
 
         if (authCode == null) { // user unknown, forward to google to provide identity
+            String sessionId = UUID.randomUUID().toString();
+
             String url = authClient.newAuthorizationUrl()
                     .setRedirectUri(googleRedirectUri)
                     .setScopes(Arrays.asList(Oauth2Scopes.USERINFO_EMAIL))
-                    .setState(UUID.randomUUID().toString())
+                    .setState(sessionId)
                     .build();
+
+            signInResponse.setSessionId(sessionId);
             signInResponse.setRedirectUrl(url);
 
             return signInResponse;

@@ -103,10 +103,6 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
         Util.checkPositiveArgDiff(request.getMaxPayloadSize() - request.getMinPayloadSize(),
                 "MinPayloadSize", "MaxPayloadSize");
 
-        if (!"ma".equals(request.getMagicWord())) {
-            throw new IllegalArgumentException("Ask admin for the magic word");
-        }
-
         if (request.getOptionalBenchmarkRequestId() == null) {
             request.setOptionalBenchmarkRequestId(UUID.randomUUID().toString());
         }

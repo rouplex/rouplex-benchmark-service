@@ -27,7 +27,7 @@ public class BenchmarkAuthServiceProvider implements BenchmarkAuthService, Close
                 configurationManager.putConfigurationEntry(BenchmarkConfigurationKey.GoogleCloudClientPassword,
                         System.getProperty(BenchmarkConfigurationKey.GoogleCloudClientPassword.toString()));
                 configurationManager.putConfigurationEntry(BenchmarkConfigurationKey.BenchmarkMainUrl,
-                        "http://localhost:8080/benchmark-service-provider-jersey-1.0.0-SNAPSHOT/index.html");
+                        "https://www.rouplex-demo.com:8088/benchmark-service-provider-jersey-1.0.0-SNAPSHOT/index.html");
                 configurationManager.putConfigurationEntry(BenchmarkConfigurationKey.GoogleUserInfoEndPoint,
                         "https://www.googleapis.com/oauth2/v3/userinfo");
 
@@ -55,34 +55,49 @@ public class BenchmarkAuthServiceProvider implements BenchmarkAuthService, Close
 
         SignInResponse signInResponse = new SignInResponse();
         SessionInfo sessionInfo = sessionInfos.get(sessionIdViaCookie);
-        if (sessionInfo != null) { // user in session and hence known, return its profile
+        if (sessionInfo != null && sessionInfo.getUserInfo() != null) { // user in session, return its profile
             signInResponse.setSessionId(sessionInfo.getSessionId());
             signInResponse.setUserInfo(sessionInfo.getUserInfo());
             return signInResponse;
         }
 
         if (authProvider != null) {
-            String sessionId = null;
             switch (AuthProvider.Provider.valueOf(authProvider)) {
                 case rouplex:
                     signInResponse = rouplexAuthProvider.auth(authEmail, authPassword);
-                    sessionId = UUID.randomUUID().toString();
+                    signInResponse.setSessionId(UUID.randomUUID().toString());
+                    addSessionInfo(signInResponse);
                     break;
                 case google:
-                    signInResponse = googleAuthProvider.auth(code);
-                    sessionId = sessionIdViaQueryParam;
+                    if (code == null) {
+                        signInResponse = googleAuthProvider.auth(code);
+                        addSessionInfo(signInResponse);
+                    } else {
+                        sessionInfo = sessionInfos.get(sessionIdViaQueryParam);
+                        if (sessionInfo == null) {
+                            throw new Exception(String.format("SessionId %s not found", sessionIdViaQueryParam));
+                        }
+                        signInResponse = googleAuthProvider.auth(code);
+                        signInResponse.setSessionId(sessionIdViaQueryParam);
+                        sessionInfo.setUserInfo(signInResponse.getUserInfo());
+                    }
                     break;
             }
-
-            sessionInfo = new SessionInfo();
-            sessionInfo.setUserInfo(signInResponse.getUserInfo());
-            sessionInfo.setSessionId(sessionId);
-            sessionInfos.put(sessionId, sessionInfo);
-
-            signInResponse.setSessionId(sessionId);
         }
 
         return signInResponse; // user unknown, no defined auth providers, no action to be taken
+    }
+
+    public boolean isSignedIn(String sessionId) throws Exception {
+        SessionInfo sessionInfo = sessionInfos.get(sessionId);
+        return sessionInfo != null && sessionInfo.getUserInfo() != null;
+    }
+
+    void addSessionInfo(SignInResponse signInResponse) {
+        SessionInfo sessionInfo = new SessionInfo();
+        sessionInfo.setSessionId(signInResponse.getSessionId());
+        sessionInfo.setUserInfo(signInResponse.getUserInfo());
+        sessionInfos.put(sessionInfo.getSessionId(), sessionInfo);
     }
 
     @Override
