@@ -5,7 +5,10 @@ import Button from 'react-bootstrap/lib/Button';
 
 const leftMargin = {margin: '0px 0px 0px 5px'};
 
-export default class RouplexLogout extends React.Component {
+export default class SessionLogout extends React.Component {
+  // this.props.mainUrl
+  // this.props.signOutUrl
+  // this.props.sessionInfo
   constructor() {
     super();
 

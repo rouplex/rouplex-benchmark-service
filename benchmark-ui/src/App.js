@@ -1,12 +1,11 @@
 import React from 'react';
+import ReactDom from 'react-dom';
 import 'bootstrap/less/bootstrap.less';
 import './styles/custom-styles.css';
 
 import Header from './Header';
 import Body from './Body';
 import Footer from './Footer';
-
-//global.React = React;
 
 class App extends React.Component {
   constructor() {
@@ -34,4 +33,4 @@ class App extends React.Component {
   }
 }
 
-React.render(<App/>, document.getElementById('app'));
+ReactDom.render(<App/>, document.getElementById('app'));

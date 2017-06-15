@@ -6,6 +6,8 @@ import SessionLogout from './components/SessionLogout';
 var config = require("./Config.js");
 
 export default class Header extends React.Component {
+  // this.props.sessionInfo
+  // this.props.onSessionUpdate
   constructor() {
     super();
 
@@ -44,17 +46,17 @@ export default class Header extends React.Component {
         </Navbar.Header>
         <Navbar.Collapse>
           <Navbar.Form pullRight style={{padding: 0}}>{
-            this.props.sessionInfo.userInfo ?
+            !this.props.sessionInfo.userInfo ?
+              <SessionLogin
+                signInViaGoogleUrl={config.signInUrl + "?provider=google"}
+                signInViaRouplexUrl={config.signInUrl + "?provider=rouplex"}
+                onSessionUpdate={sessionInfo => this.props.onSessionUpdate(sessionInfo)}
+              />
+              :
               <SessionLogout
                 mainUrl={config.mainUrl}
                 signOutUrl={config.signOutUrl}
                 sessionInfo={this.props.sessionInfo}
-                onSessionUpdate={sessionInfo => this.props.onSessionUpdate(sessionInfo)}
-              />
-              :
-              <SessionLogin
-                signInViaGoogleUrl={config.signInUrl + "?provider=google"}
-                signInViaRouplexUrl={config.signInUrl + "?provider=rouplex"}
                 onSessionUpdate={sessionInfo => this.props.onSessionUpdate(sessionInfo)}
               />
           }

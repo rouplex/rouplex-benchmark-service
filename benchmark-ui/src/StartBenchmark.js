@@ -14,6 +14,7 @@ var config = require("./Config.js");
 var validator = require("./components/Validator.js");
 
 export default class StartBenchmark extends React.Component {
+  // this.props.sessionInfo
   constructor() {
     super();
 

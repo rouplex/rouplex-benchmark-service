@@ -8,6 +8,9 @@ import DropdownButton from 'react-bootstrap/lib/DropdownButton';
 const leftMargin = {margin: '0px 0px 0px 5px'};
 
 export default class SessionLogin extends React.Component {
+  // this.props.signInViaRouplexUrl
+  // this.props.signInViaGoogleUrl
+  // this.props.onSessionUpdate
   constructor() {
     super();
 
