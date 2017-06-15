@@ -222,7 +222,7 @@ export default class StartBenchmark extends React.Component {
 
   render() {
     return (
-      <Grid>
+      <Grid style={{padding: '0'}}>
         <Col md={5}>
           <NioProviderSelector
             nioProviders={config.nioProviders}

@@ -35,7 +35,7 @@ export default class Header extends React.Component {
 
   render() {
     return (
-      <Navbar collapseOnSelect style={{margin: '0 0 5px 0'}}>
+      <Navbar collapseOnSelect style={{marginBottom: 6, borderRadius: 0}}>
         <Navbar.Header>
           <Navbar.Brand>
             <a href="#">Rouplex Demo 1.0.0.A</a>
@@ -43,7 +43,7 @@ export default class Header extends React.Component {
           <Navbar.Toggle />
         </Navbar.Header>
         <Navbar.Collapse>
-          <Navbar.Form pullRight>{
+          <Navbar.Form pullRight style={{padding: 0}}>{
             this.props.sessionInfo.userInfo ?
               <SessionLogout
                 mainUrl={config.mainUrl}

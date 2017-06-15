@@ -18,14 +18,21 @@ export default class Body extends React.Component {
   render() {
     return (
       <div style={{backgroundColor: '#EEEEEE', padding: '10px 0 0 0'}}>
-        <Grid >
+        <Grid>
           <Col md={2} style={{padding: '15px 0 0 0'}}>
-            <Lefter onAction={actionPath => this.setState({actionPath: actionPath})}/>
+            <Lefter onAction={actionPath => {
+              try {
+                window.history.pushState(actionPath, "", actionPath);
+              } catch (err) {
+                // either non html5 or we are in dev mode loading page from file://
+              }
+              this.setState({actionPath: actionPath});
+            }}/>
           </Col>
 
           <Col md={10}>{
             this.state.actionPath === "startBenchmark" ? <StartBenchmark /> :
-              this.state.actionPath === "listBenchmarks" ? <ListBenchmarks /> : <div></div>
+              this.state.actionPath === "listBenchmarks" ? <ListBenchmarks /> : <Button/>
           }
           </Col>
         </Grid>
