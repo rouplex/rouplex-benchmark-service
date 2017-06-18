@@ -40,7 +40,7 @@ export default class Header extends React.Component {
       <Navbar collapseOnSelect style={{marginBottom: 6, borderRadius: 0}}>
         <Navbar.Header>
           <Navbar.Brand>
-            <a href="#">Rouplex Demo 1.0.0.A</a>
+            <a href="#">Rouplex Demo 1.0.0.C</a>
           </Navbar.Brand>
           <Navbar.Toggle />
         </Navbar.Header>

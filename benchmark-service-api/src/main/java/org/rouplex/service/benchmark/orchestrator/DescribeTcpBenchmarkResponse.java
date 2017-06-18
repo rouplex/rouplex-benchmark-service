@@ -5,7 +5,7 @@ import java.util.List;
 /**
  * @author Andi Mullaraj (andimullaraj at gmail.com)
  */
-public class StartDistributedTcpBenchmarkResponse {
+public class DescribeTcpBenchmarkResponse {
     String benchmarkRequestId;
     String imageId;
 

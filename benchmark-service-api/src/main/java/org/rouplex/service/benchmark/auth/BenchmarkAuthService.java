@@ -22,7 +22,7 @@ public interface BenchmarkAuthService {
      *          User's email, if authenticating via authEmail / authPassword
      * @param authPassword
      *          User's password, if authenticating via authEmail / authPassword
-     * @param sessionIdViaQueryParam
+     * @param state
      *          In google's scenario this represents a freshly minted sessionId which was passed to google
      *          authentication service as a callback param
      * @param code
@@ -40,7 +40,7 @@ public interface BenchmarkAuthService {
                           @QueryParam("provider") String authProvider,
                           @HeaderParam("Rouplex-Auth-Email") String authEmail,
                           @HeaderParam("Rouplex-Auth-Password") String authPassword,
-                          @QueryParam("state") String sessionIdViaQueryParam,
+                          @QueryParam("state") String state,
                           @QueryParam("code") String code
     ) throws Exception;
 

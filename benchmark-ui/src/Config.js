@@ -2,7 +2,7 @@ var config = module.exports = {};
 
 config.env = "dev";
 
-config.autologin = config.env == "dev";
+config.autologin = false; //= config.env == "dev";
 
 config.host = config.env == "dev" ? "http://localhost:8080" : "https://www.rouplex-demo.com:8088";
 config.baseUrl = config.host + "/benchmark-service-provider-jersey-1.0.0-SNAPSHOT";

@@ -22,12 +22,13 @@ public class BenchmarkAuthServiceProvider implements BenchmarkAuthService, Close
         synchronized (BenchmarkAuthServiceProvider.class) {
             if (benchmarkAuthService == null) {
                 ConfigurationManager configurationManager = new ConfigurationManager();
+
+                configurationManager.putConfigurationEntry(BenchmarkConfigurationKey.BenchmarkMainUrl,
+                    System.getProperty(BenchmarkConfigurationKey.BenchmarkMainUrl.toString()));
                 configurationManager.putConfigurationEntry(BenchmarkConfigurationKey.GoogleCloudClientId,
                         System.getProperty(BenchmarkConfigurationKey.GoogleCloudClientId.toString()));
                 configurationManager.putConfigurationEntry(BenchmarkConfigurationKey.GoogleCloudClientPassword,
                         System.getProperty(BenchmarkConfigurationKey.GoogleCloudClientPassword.toString()));
-                configurationManager.putConfigurationEntry(BenchmarkConfigurationKey.BenchmarkMainUrl,
-                        "https://www.rouplex-demo.com:8088/benchmark-service-provider-jersey-1.0.0-SNAPSHOT/index.html");
                 configurationManager.putConfigurationEntry(BenchmarkConfigurationKey.GoogleUserInfoEndPoint,
                         "https://www.googleapis.com/oauth2/v3/userinfo");
 
@@ -51,7 +52,7 @@ public class BenchmarkAuthServiceProvider implements BenchmarkAuthService, Close
     @Override
     public SignInResponse signIn(String sessionIdViaCookie, String authProvider,
                                  String authEmail, String authPassword,
-                                 String sessionIdViaQueryParam, String code) throws Exception {
+                                 String state, String code) throws Exception {
 
         SignInResponse signInResponse = new SignInResponse();
         SessionInfo sessionInfo = sessionInfos.get(sessionIdViaCookie);
@@ -70,15 +71,16 @@ public class BenchmarkAuthServiceProvider implements BenchmarkAuthService, Close
                     break;
                 case google:
                     if (code == null) {
-                        signInResponse = googleAuthProvider.auth(code);
+                        signInResponse = googleAuthProvider.auth(null);
                         addSessionInfo(signInResponse);
                     } else {
-                        sessionInfo = sessionInfos.get(sessionIdViaQueryParam);
+                        sessionInfo = sessionInfos.get(state);
                         if (sessionInfo == null) {
-                            throw new Exception(String.format("SessionId %s not found", sessionIdViaQueryParam));
+                            throw new Exception(String.format("SessionId %s not found", state));
                         }
                         signInResponse = googleAuthProvider.auth(code);
-                        signInResponse.setSessionId(sessionIdViaQueryParam);
+                        // state in google provider represents the sessionId which was minted the previous step by us
+                        signInResponse.setSessionId(state);
                         sessionInfo.setUserInfo(signInResponse.getUserInfo());
                     }
                     break;

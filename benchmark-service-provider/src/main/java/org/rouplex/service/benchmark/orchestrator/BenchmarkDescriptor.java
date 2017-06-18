@@ -6,23 +6,35 @@ import java.util.Map;
 /**
  * @author Andi Mullaraj (andimullaraj at gmail.com)
  */
-public class BenchmarkDescriptor {
-    TcpMetricsExpectation tcpMetricsExpectation;
-    Map<String, InstanceDescriptor> benchmarkInstances = new HashMap<String, InstanceDescriptor>();
+public class BenchmarkDescriptor<T> {
+    private final StartTcpBenchmarkRequest startTcpBenchmarkRequest;
+    private final long expirationTimestamp;
+    private final Map<String, InstanceDescriptor<T>> instanceDescriptors = new HashMap<>();
+    private Exception eventualException;
 
-    public TcpMetricsExpectation getTcpMetricsExpectation() {
-        return tcpMetricsExpectation;
+    public BenchmarkDescriptor(StartTcpBenchmarkRequest startTcpBenchmarkRequest,
+                               long expirationTimestamp) {
+        this.startTcpBenchmarkRequest = startTcpBenchmarkRequest;
+        this.expirationTimestamp = expirationTimestamp;
     }
 
-    public void setTcpMetricsExpectation(TcpMetricsExpectation tcpMetricsExpectation) {
-        this.tcpMetricsExpectation = tcpMetricsExpectation;
+    public StartTcpBenchmarkRequest getStartTcpBenchmarkRequest() {
+        return startTcpBenchmarkRequest;
     }
 
-    public Map<String, InstanceDescriptor> getBenchmarkInstances() {
-        return benchmarkInstances;
+    public long getExpirationTimestamp() {
+        return expirationTimestamp;
     }
 
-    public void setBenchmarkInstances(Map<String, InstanceDescriptor> benchmarkInstances) {
-        this.benchmarkInstances = benchmarkInstances;
+    public Map<String, InstanceDescriptor<T>> getInstanceDescriptors() {
+        return instanceDescriptors;
+    }
+
+    public Exception getEventualException() {
+        return eventualException;
+    }
+
+    public void setEventualException(Exception eventualException) {
+        this.eventualException = eventualException;
     }
 }

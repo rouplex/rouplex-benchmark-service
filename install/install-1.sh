@@ -32,6 +32,9 @@ setup_tomcat_run_environment() {
     search_and_replace rouplex-benchmark-service/install/setenv-template.sh "#keystoreFile#" $TOMCAT_CERT_PATH
     search_and_replace rouplex-benchmark-service/install/setenv-template.sh "#keystorePass#" $TOMCAT_CERT_PASS
 
+    aws s3 cp s3://rouplex/deploys/services/benchmark/environments/"$ENV"/benchmark_main_url.txt rouplex-environment > /dev/null 2>&1
+    search_and_replace rouplex-benchmark-service/install/setenv-template.sh "#BenchmarkMainUrl#" `cat rouplex-environment/benchmark_main_url.txt`
+
     aws s3 cp s3://rouplex/deploys/services/benchmark/environments/"$ENV"/google_cloud.clientid rouplex-environment > /dev/null 2>&1
     search_and_replace rouplex-benchmark-service/install/setenv-template.sh "#GoogleCloudClientId#" `cat rouplex-environment/google_cloud.clientid`
 

@@ -49,16 +49,16 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
                 // a shortcut for now, this will discovered automatically when rouplex provides a discovery service
                 ConfigurationManager configurationManager = new ConfigurationManager();
                 configurationManager.putConfigurationEntry(BenchmarkConfigurationKey.WorkerInstanceProfileName,
-                        "RouplexBenchmarkWorkerRole");
+                    "RouplexBenchmarkWorkerRole");
                 configurationManager.putConfigurationEntry(BenchmarkConfigurationKey.ServiceHttpDescriptor,
-                        "https://%s:8088/benchmark-service-provider-jersey-1.0.0-SNAPSHOT/rouplex/benchmark");
+                    "https://%s:8088/benchmark-service-provider-jersey-1.0.0-SNAPSHOT/rouplex/benchmark");
                 configurationManager.putConfigurationEntry(BenchmarkConfigurationKey.WorkerLeaseInMinutes, "30");
 
                 configurationManager.putConfigurationEntry(BenchmarkConfigurationKey.GoogleCloudClientId,
-                        System.getenv(BenchmarkConfigurationKey.GoogleCloudClientId.toString()));
+                    System.getenv(BenchmarkConfigurationKey.GoogleCloudClientId.toString()));
 
                 configurationManager.putConfigurationEntry(BenchmarkConfigurationKey.GoogleCloudClientPassword,
-                        System.getenv(BenchmarkConfigurationKey.GoogleCloudClientPassword.toString()));
+                    System.getenv(BenchmarkConfigurationKey.GoogleCloudClientPassword.toString()));
 
                 benchmarkOrchestratorService = new BenchmarkOrchestratorServiceProvider(configurationManager.getConfiguration());
             }
@@ -73,10 +73,9 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
     // for distributed benchmarking, we need to manage remote benchmark instances
     private final Client jaxrsClient; // rouplex platform will provide a specific version of this soon
 
-    // Targeting jdk6 we cannot use the nice LocalDateTime of jdk8
-    private final Map<String, BenchmarkDescriptor> distributedTcpBenchmarks = new HashMap<String, BenchmarkDescriptor>();
+    private final Map<String, BenchmarkDescriptor<?>> tcpBenchmarks = new HashMap<>();
 
-    private final ExecutorService executorService = Executors.newSingleThreadExecutor();
+    private final ExecutorService executorService = Executors.newCachedThreadPool();
     private final Configuration configuration;
 
     BenchmarkOrchestratorServiceProvider(Configuration configuration) throws Exception {
@@ -85,7 +84,7 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
         startMonitoringBenchmarkInstances();
     }
 
-    private void checkAndSanitize(StartDistributedTcpBenchmarkRequest request) {
+    private void checkAndSanitize(StartTcpBenchmarkRequest request) {
         Util.checkNonNullArg(request.getProvider(), "Provider");
 
         Util.checkNonNegativeArg(request.getClientCount(), "ClientCount");
@@ -95,31 +94,34 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
         Util.checkPositiveArg(request.getMinPayloadSize(), "MinPayloadSize");
 
         Util.checkPositiveArgDiff(request.getMaxClientLifeMillis() - request.getMinClientLifeMillis(),
-                "MinClientLifeMillis", "MaxClientLifeMillis");
+            "MinClientLifeMillis", "MaxClientLifeMillis");
         Util.checkPositiveArgDiff(request.getMaxDelayMillisBeforeCreatingClient() - request.getMinDelayMillisBeforeCreatingClient(),
-                "MinDelayMillisBeforeCreatingClient", "MaxDelayMillisBeforeCreatingClient");
+            "MinDelayMillisBeforeCreatingClient", "MaxDelayMillisBeforeCreatingClient");
         Util.checkPositiveArgDiff(request.getMaxDelayMillisBetweenSends() - request.getMinDelayMillisBetweenSends(),
-                "MinDelayMillisBetweenSends", "MaxDelayMillisBetweenSends");
+            "MinDelayMillisBetweenSends", "MaxDelayMillisBetweenSends");
         Util.checkPositiveArgDiff(request.getMaxPayloadSize() - request.getMinPayloadSize(),
-                "MinPayloadSize", "MaxPayloadSize");
+            "MinPayloadSize", "MaxPayloadSize");
 
-        if (request.getOptionalBenchmarkRequestId() == null) {
-            request.setOptionalBenchmarkRequestId(UUID.randomUUID().toString());
+        if (request.getBenchmarkRequestId() == null) {
+            request.setBenchmarkRequestId(UUID.randomUUID().toString());
         }
 
-        if (request.getOptionalTcpMemoryAsPercentOfTotal() < 1) {
-            request.setOptionalTcpMemoryAsPercentOfTotal(50); // 50%
+        if (request.getImageId() == null) {
+            request.setImageId(EC2MetadataUtils.getAmiId());
+        }
+
+        if (request.getTcpMemoryAsPercentOfTotal() <= 0) {
+            request.setTcpMemoryAsPercentOfTotal(50); // 50%
         }
     }
 
     @Override
-    public StartDistributedTcpBenchmarkResponse
-    startDistributedTcpBenchmark(StartDistributedTcpBenchmarkRequest request) throws Exception {
-
+    public StartTcpBenchmarkResponse startTcpBenchmark(final StartTcpBenchmarkRequest request) throws Exception {
         checkAndSanitize(request);
 
         int clientHostCount = (request.getClientCount() - 1) / request.getClientsPerHost() + 1;
-        BenchmarkDescriptor benchmarkDescriptor = new BenchmarkDescriptor();
+        TcpMetricsExpectation clientsExpectation = buildClientsTcpMetricsExpectation(request);
+        long benchmarkExpiration = Util.convertIsoInstantToMillis(clientsExpectation.getFinishAsIsoInstant()) + 5 * 60 * 1000;
 
         synchronized (this) {
             // the underlying host just became an orchestrator and is granted unlimited lease
@@ -127,87 +129,166 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
             configureServiceRequest.setLeaseEndAsIsoInstant(Util.convertMillisToIsoInstant(Long.MAX_VALUE));
             BenchmarkManagementServiceProvider.get().configureService(configureServiceRequest);
 
-            if (distributedTcpBenchmarks.get(request.getOptionalBenchmarkRequestId()) != null) {
+            if (tcpBenchmarks.putIfAbsent(request.getBenchmarkRequestId(),
+                new BenchmarkDescriptor(request, benchmarkExpiration)) != null) {
                 throw new Exception(String.format("Distributed tcp benchmark [%s] already running",
-                        request.getOptionalBenchmarkRequestId()));
+                    request.getBenchmarkRequestId()));
             }
-
-            distributedTcpBenchmarks.put(request.getOptionalBenchmarkRequestId(), benchmarkDescriptor);
         }
 
-        TcpMetricsExpectation clientsExpectation = buildClientsTcpMetricsExpectation(request);
-
         logger.info(String.format(
-                "Starting Distributed Benchmark [%s]. 1 ec2 server host and %s ec2 client hosts",
-                request.getOptionalBenchmarkRequestId(), clientHostCount));
+            "Starting Distributed Benchmark [%s]. 1 ec2 server host and %s ec2 client hosts",
+            request.getBenchmarkRequestId(), clientHostCount));
 
-        String serverData = Base64.getEncoder().encodeToString(buildSystemTuningScript(
-                clientsExpectation.getMaxSimultaneousConnections() * clientHostCount * 2,
-                request.getOptionalTcpMemoryAsPercentOfTotal()).getBytes(StandardCharsets.UTF_8));
-        InstanceType serverEC2InstanceType = getEC2InstanceType(request, true);
-        Map<String, InstanceDescriptor> serverDescriptors = startRunningEC2Instances(
-                getEC2Region(request, true), request.getOptionalImageId(), serverEC2InstanceType, 1,
-                request.getOptionalKeyName(), serverData, "server-" + request.getOptionalBenchmarkRequestId());
+        executorService.submit((Runnable) () -> start(request.getBenchmarkRequestId()));
 
-        String clientData = Base64.getEncoder().encodeToString(buildSystemTuningScript(
-                clientsExpectation.getMaxSimultaneousConnections() * 2,
-                request.getOptionalTcpMemoryAsPercentOfTotal()).getBytes(StandardCharsets.UTF_8));
-        InstanceType clientsEC2InstanceType = getEC2InstanceType(request, false);
-        Map<String, InstanceDescriptor> clientDescriptors = startRunningEC2Instances(
-                getEC2Region(request, false), request.getOptionalImageId(), clientsEC2InstanceType, clientHostCount,
-                request.getOptionalKeyName(), clientData, "client-" + request.getOptionalBenchmarkRequestId());
+        StartTcpBenchmarkResponse response = new StartTcpBenchmarkResponse();
+        response.setTcpClientsExpectation(clientsExpectation);
+        response.setTcpServerExpectation(buildServerTcpMetricsExpectation(clientHostCount, clientsExpectation));
 
-        ensureEC2InstancesRunning(serverDescriptors);
-        ensureBenchmarkServiceRunning(serverDescriptors.values());
-        InstanceDescriptor serverDescriptor = serverDescriptors.values().iterator().next();
-        benchmarkDescriptor.getBenchmarkInstances().putAll(serverDescriptors);
+        return response;
+    }
 
-        ensureEC2InstancesRunning(clientDescriptors);
-        ensureBenchmarkServiceRunning(clientDescriptors.values());
-        InstanceDescriptor firstClientDescriptor = clientDescriptors.values().iterator().next();
-        benchmarkDescriptor.getBenchmarkInstances().putAll(clientDescriptors);
+    void start(String benchmarkRequestId) {
+        BenchmarkDescriptor<Boolean> benchmarkDescriptor = (BenchmarkDescriptor<Boolean>) tcpBenchmarks.get(benchmarkRequestId);
 
-        // start server remotely
-        StartTcpServerResponse startTcpServerResponse = jaxrsClient.target(String.format(
+        try {
+            StartTcpBenchmarkRequest request = benchmarkDescriptor.getStartTcpBenchmarkRequest();
+            Map<String, InstanceDescriptor<Boolean>> serverDescriptors = startRunningInstances(request, true);
+            Map<String, InstanceDescriptor<Boolean>> clientDescriptors = startRunningInstances(request, false);
+
+            ensureEC2InstancesRunning(serverDescriptors);
+            ensureBenchmarkServiceRunning(serverDescriptors.values());
+            InstanceDescriptor serverDescriptor = serverDescriptors.values().iterator().next();
+            benchmarkDescriptor.getInstanceDescriptors().putAll(serverDescriptors);
+
+            ensureEC2InstancesRunning(clientDescriptors);
+            ensureBenchmarkServiceRunning(clientDescriptors.values());
+            benchmarkDescriptor.getInstanceDescriptors().putAll(clientDescriptors);
+
+            // start server remotely
+            StartTcpServerResponse startTcpServerResponse = jaxrsClient.target(String.format(
                 configuration.get(BenchmarkConfigurationKey.ServiceHttpDescriptor), serverDescriptor.getPublicIpAddress()))
                 .path("/worker/tcp/server/start")
                 .request(MediaType.APPLICATION_JSON)
                 .post(Entity.entity(buildStartTcpServerRequest(request, serverDescriptor.getPrivateIpAddress()),
-                        MediaType.APPLICATION_JSON), StartTcpServerResponse.class);
+                    MediaType.APPLICATION_JSON), StartTcpServerResponse.class);
 
-        // start clients remotely
-        Entity<StartTcpClientsRequest> startTcpClientsEntity = Entity.entity(buildStartTcpClientsRequestRequest(
+            // start clients remotely
+            Entity<StartTcpClientsRequest> startTcpClientsEntity = Entity.entity(buildStartTcpClientsRequestRequest(
                 request, startTcpServerResponse.getHostaddress(), startTcpServerResponse.getPort()), MediaType.APPLICATION_JSON);
 
-        List<String> clientIpAddresses = new ArrayList<String>();
-        for (InstanceDescriptor clientDescriptor : clientDescriptors.values()) {
-            clientIpAddresses.add(clientDescriptor.getPublicIpAddress());
-
-            jaxrsClient.target(String.format(
+            for (InstanceDescriptor clientDescriptor : clientDescriptors.values()) {
+                jaxrsClient.target(String.format(
                     configuration.get(BenchmarkConfigurationKey.ServiceHttpDescriptor), clientDescriptor.getPublicIpAddress()))
                     .path("/worker/tcp/clients/start")
                     .request(MediaType.APPLICATION_JSON)
                     .post(startTcpClientsEntity);
+            }
+        } catch (Exception e) {
+            benchmarkDescriptor.setEventualException(e);
+        }
+    }
+
+    // a shortcut here targeting just ec2 instances for now
+    private Map<String, InstanceDescriptor<Boolean>> startRunningInstances(
+        StartTcpBenchmarkRequest request, boolean server) throws Exception {
+
+        int clientHostCount = (request.getClientCount() - 1) / request.getClientsPerHost() + 1;
+        int maxSimultaneousConnectionsPerClient =
+            buildClientsTcpMetricsExpectation(request).getMaxSimultaneousConnections();
+
+        int maxFileDescriptors;
+        int instanceCount;
+        String tagPrefix;
+
+        if (server) {
+            maxFileDescriptors = maxSimultaneousConnectionsPerClient * clientHostCount * 2;
+            instanceCount = 1;
+            tagPrefix = "server-";
+        } else {
+            maxFileDescriptors = maxSimultaneousConnectionsPerClient;
+            instanceCount = clientHostCount;
+            tagPrefix = "client-";
         }
 
+        String data = Base64.getEncoder().encodeToString(buildSystemTuningScript(maxFileDescriptors,
+            request.getTcpMemoryAsPercentOfTotal()).getBytes(StandardCharsets.UTF_8));
+
+        return startRunningEC2Instances(getEC2Region(request, server), request.getImageId(),
+            getEC2InstanceType(request, server), instanceCount, request.getKeyName(), data,
+            tagPrefix + request.getBenchmarkRequestId(), server);
+    }
+
+    private <T> Map<String, InstanceDescriptor<T>> startRunningEC2Instances(
+        Region ec2Region, String imageId, InstanceType instanceType,
+        int count, String sshKeyName, String userData, String tag, T metadata) throws IOException {
+
+        RunInstancesRequest runInstancesRequest = new RunInstancesRequest()
+            .withImageId(imageId)
+            .withInstanceType(instanceType)
+            .withMinCount(count)
+            .withMaxCount(count)
+            .withIamInstanceProfile(new IamInstanceProfileSpecification()
+                .withName(configuration.get(BenchmarkConfigurationKey.WorkerInstanceProfileName)))
+            .withSubnetId("subnet-9f1784c7") // auto create this in a later impl
+            .withSecurityGroupIds("sg-bef226c5") // auto create this in a later impl
+            .withKeyName(sshKeyName)
+            .withUserData(userData)
+            .withTagSpecifications(new TagSpecification()
+                .withResourceType(ResourceType.Instance).withTags(new Tag("Name", tag)));
+
+        Map<String, InstanceDescriptor<T>> instanceDescriptors = new HashMap<>();
+        for (Instance instance : getAmazonEc2Client(ec2Region)
+            .runInstances(runInstancesRequest).getReservation().getInstances()) {
+
+            InstanceDescriptor<T> instanceDescriptor = new InstanceDescriptor<>();
+            instanceDescriptor.setMetadata(metadata);
+            instanceDescriptors.put(instance.getInstanceId(), instanceDescriptor);
+            instanceDescriptor.setPrivateIpAddress(instance.getPrivateIpAddress());
+            instanceDescriptor.setImageId(instance.getImageId());
+            instanceDescriptor.setEc2Region(ec2Region);
+        }
+
+        return instanceDescriptors;
+    }
+
+    @Override
+    public DescribeTcpBenchmarkResponse describeTcpBenchmark(DescribeTcpBenchmarkRequest request1) throws Exception {
+        BenchmarkDescriptor<Boolean> benchmarkDescriptor = (BenchmarkDescriptor<Boolean>) tcpBenchmarks.get(request1.getBenchmarkRequestId());
+        StartTcpBenchmarkRequest request = benchmarkDescriptor.getStartTcpBenchmarkRequest();
+        int clientHostCount = (request.getClientCount() - 1) / request.getClientsPerHost() + 1;
+
+        TcpMetricsExpectation clientsExpectation = buildClientsTcpMetricsExpectation(request);
+
         TcpMetricsExpectation serverExpectation = buildServerTcpMetricsExpectation(clientHostCount, clientsExpectation);
-        benchmarkDescriptor.setTcpMetricsExpectation(serverExpectation);
 
         // prepare and return response
-        StartDistributedTcpBenchmarkResponse response = new StartDistributedTcpBenchmarkResponse();
-        response.setBenchmarkRequestId(request.getOptionalBenchmarkRequestId());
-        response.setImageId(serverDescriptor.getImageId());
-        response.setServerHostType(HostType.fromString(serverEC2InstanceType.toString()));
-        response.setServerGeoLocation(GeoLocation.fromString(serverDescriptor.getEc2Region().getRegionName()));
-        response.setServerIpAddress(serverDescriptor.getPublicIpAddress());
+        DescribeTcpBenchmarkResponse response = new DescribeTcpBenchmarkResponse();
+        response.setBenchmarkRequestId(request.getBenchmarkRequestId());
+        response.setImageId(request.getImageId());
 
-        response.setClientsHostType(HostType.fromString(clientsEC2InstanceType.toString()));
-        response.setClientsGeoLocation(GeoLocation.fromString(firstClientDescriptor.getEc2Region().getRegionName()));
+        InstanceDescriptor<Boolean> serverDescriptor = null;
+        List<String> clientIpAddresses = new ArrayList<>();
+        for (InstanceDescriptor<Boolean> instanceDescriptor : benchmarkDescriptor.getInstanceDescriptors().values()) {
+            if (instanceDescriptor.getMetadata()) {
+                serverDescriptor = instanceDescriptor;
+                response.setServerHostType(HostType.fromString(instanceDescriptor.getEc2InstanceType().toString()));
+                response.setServerGeoLocation(GeoLocation.fromString(instanceDescriptor.getEc2Region().getRegionName()));
+                response.setServerIpAddress(instanceDescriptor.getPublicIpAddress());
+            } else {
+                clientIpAddresses.add(instanceDescriptor.getPublicIpAddress());
+                response.setClientsHostType(HostType.fromString(instanceDescriptor.getEc2InstanceType().toString()));
+                response.setClientsGeoLocation(GeoLocation.fromString(instanceDescriptor.getEc2Region().getRegionName()));
+            }
+        }
 
         StringBuilder jconsoleJmxLink = new StringBuilder("jconsole");
-        addToJmxLink(jconsoleJmxLink, serverDescriptor);
-        for (InstanceDescriptor clientDescriptor : clientDescriptors.values()) {
-            addToJmxLink(jconsoleJmxLink, clientDescriptor);
+        if (serverDescriptor != null) { // should never be null anyway
+            addToJmxLink(jconsoleJmxLink, serverDescriptor.publicIpAddress);
+        }
+        for (String ipAddress : clientIpAddresses) {
+            addToJmxLink(jconsoleJmxLink, ipAddress);
         }
 
         response.setClientIpAddresses(clientIpAddresses);
@@ -219,9 +300,8 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
         return response;
     }
 
-    private void addToJmxLink(StringBuilder jmxLink, InstanceDescriptor instanceDescriptor) {
-        jmxLink.append(String.format(" service:jmx:rmi://%s:1705/jndi/rmi://%s:1706/jmxrmi",
-                instanceDescriptor.getPublicIpAddress(), instanceDescriptor.getPublicIpAddress()));
+    private void addToJmxLink(StringBuilder jmxLink, String ipAddress) {
+        jmxLink.append(String.format(" service:jmx:rmi://%s:1705/jndi/rmi://%s:1706/jmxrmi", ipAddress, ipAddress));
     }
 
     private Client createJaxRsClient() throws IOException {
@@ -251,7 +331,7 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
 
             if (amazonEC2Client == null) {
                 amazonEC2Client = AmazonEC2ClientBuilder.standard()
-                        .withRegion(Regions.fromName(region.getRegionName())).build();
+                    .withRegion(Regions.fromName(region.getRegionName())).build();
 
                 amazonEC2Clients.put(region, amazonEC2Client);
             }
@@ -270,8 +350,8 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
                     long timeStart = System.currentTimeMillis();
 
                     try {
-                        for (Map.Entry<String, BenchmarkDescriptor> descriptorEntry : distributedTcpBenchmarks.entrySet()) {
-                            monitorBenchmarkInstance(descriptorEntry.getValue());
+                        for (Map.Entry<String, BenchmarkDescriptor<?>> descriptorEntry : tcpBenchmarks.entrySet()) {
+                            monitorBenchmark(descriptorEntry.getValue());
                             // remove later
                         }
                     } catch (RuntimeException re) {
@@ -294,91 +374,82 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
         });
     }
 
-    private void monitorBenchmarkInstance(BenchmarkDescriptor benchmarkDescriptor) {
-        long benchmarkExpiration;
-
-        try {
-            benchmarkExpiration = Util.convertIsoInstantToMillis(
-                    benchmarkDescriptor.getTcpMetricsExpectation().getFinishAsIsoInstant()) + 5 * 60 * 1000;
-        } catch (Exception e) {
-            benchmarkExpiration = Long.MAX_VALUE;
-        }
-
-        if (System.currentTimeMillis() > benchmarkExpiration) {
-            for (Map.Entry<String, InstanceDescriptor> instanceDescriptor : benchmarkDescriptor.benchmarkInstances.entrySet()) {
+    private <T> void monitorBenchmark(BenchmarkDescriptor<T> benchmarkDescriptor) {
+        if (System.currentTimeMillis() > benchmarkDescriptor.getExpirationTimestamp()) {
+            for (Map.Entry<String, InstanceDescriptor<T>> instanceDescriptor : benchmarkDescriptor.getInstanceDescriptors().entrySet()) {
                 logger.info(String.format(
-                        "Terminating instance [%s] at ip [%s]. Cause: Benchmark has reached maximum time",
-                        instanceDescriptor.getKey(), instanceDescriptor.getValue().getPublicIpAddress()));
+                    "Terminating instance [%s] at ip [%s]. Cause: Benchmark has reached maximum time",
+                    instanceDescriptor.getKey(), instanceDescriptor.getValue().getPublicIpAddress()));
 
                 tagAndTerminateEC2Instance(getAmazonEc2Client(instanceDescriptor.getValue().getEc2Region()),
-                        instanceDescriptor.getKey());
+                    instanceDescriptor.getKey());
             }
 
-            benchmarkDescriptor.benchmarkInstances.clear();
+            benchmarkDescriptor.getInstanceDescriptors().clear();
         } else {
             int workerLeaseInMinutes = configuration.getAsInteger(BenchmarkConfigurationKey.WorkerLeaseInMinutes);
             long workerExpiration = System.currentTimeMillis() + workerLeaseInMinutes * 60 * 1000;
             Collection<String> expiredInstanceIds = new ArrayList<String>();
 
-            for (Map.Entry<String, InstanceDescriptor> entry : benchmarkDescriptor.benchmarkInstances.entrySet()) {
+            for (Map.Entry<String, InstanceDescriptor<T>> entry : benchmarkDescriptor.getInstanceDescriptors().entrySet()) {
                 InstanceDescriptor instanceDescriptor = entry.getValue();
                 try {
                     ConfigureServiceRequest configureServiceRequest = new ConfigureServiceRequest();
                     configureServiceRequest.setLeaseEndAsIsoInstant(Util.convertMillisToIsoInstant(workerExpiration));
 
                     jaxrsClient.target(String.format(
-                            configuration.get(BenchmarkConfigurationKey.ServiceHttpDescriptor),
-                            instanceDescriptor.getPublicIpAddress()))
-                            .path("/management/service/configuration")
-                            .property(JERSEY_CLIENT_CONNECT_TIMEOUT, 2000)
-                            .property(JERSEY_CLIENT_READ_TIMEOUT, 10000)
-                            .request(MediaType.APPLICATION_JSON)
-                            .post(Entity.entity(configureServiceRequest, MediaType.APPLICATION_JSON));
+                        configuration.get(BenchmarkConfigurationKey.ServiceHttpDescriptor),
+                        instanceDescriptor.getPublicIpAddress()))
+                        .path("/management/service/configuration")
+                        .property(JERSEY_CLIENT_CONNECT_TIMEOUT, 2000)
+                        .property(JERSEY_CLIENT_READ_TIMEOUT, 10000)
+                        .request(MediaType.APPLICATION_JSON)
+                        .post(Entity.entity(configureServiceRequest, MediaType.APPLICATION_JSON));
 
-                    instanceDescriptor.setExpiration(workerExpiration);
+                    instanceDescriptor.setExpirationTimestamp(workerExpiration);
                 } catch (Exception e) {
-                    if (System.currentTimeMillis() > instanceDescriptor.getExpiration()) {
+                    if (System.currentTimeMillis() > instanceDescriptor.getExpirationTimestamp()) {
                         expiredInstanceIds.add(entry.getKey());
 
                         logger.severe(String.format("Terminating instance [%s] at ip [%s]. " +
-                                        "Cause: Could not contact it to announce its new lease in the last %s minutes",
-                                entry.getKey(), instanceDescriptor.getPublicIpAddress(), workerLeaseInMinutes));
+                                "Cause: Could not contact it to announce its new lease in the last %s minutes",
+                            entry.getKey(), instanceDescriptor.getPublicIpAddress(), workerLeaseInMinutes));
 
                         tagAndTerminateEC2Instance(getAmazonEc2Client(
-                                instanceDescriptor.getEc2Region()), entry.getKey());
+                            instanceDescriptor.getEc2Region()), entry.getKey());
                     }
                 }
             }
 
             for (String instanceId : expiredInstanceIds) {
-                benchmarkDescriptor.benchmarkInstances.remove(instanceId);
+                benchmarkDescriptor.getInstanceDescriptors().remove(instanceId);
             }
         }
     }
 
-    private Region getEC2Region(StartDistributedTcpBenchmarkRequest request, boolean server) {
+    private Region getEC2Region(StartTcpBenchmarkRequest request, boolean server) {
         try {
-            GeoLocation geoLocation = server ? request.getOptionalServerGeoLocation() : request.getOptionalClientsGeoLocation();
+            GeoLocation geoLocation = server ? request.getServerGeoLocation() : request.getClientsGeoLocation();
             return new Region().withRegionName(geoLocation.toString());
         } catch (Exception e) {
             return new Region().withRegionName(Regions.US_WEST_2.toString());
         }
     }
 
-    private HostType getHostType(StartDistributedTcpBenchmarkRequest request, boolean server) {
+    private HostType getHostType(StartTcpBenchmarkRequest request, boolean server) {
         HostType hostType = server
-                ? request.getOptionalServerHostType() : request.getOptionalClientsHostType();
+            ? request.getServerHostType() : request.getClientsHostType();
 
         return hostType != null ? hostType : server ? HostType.EC2_M4Large : HostType.EC2_T2Micro;
     }
 
-    private InstanceType getEC2InstanceType(StartDistributedTcpBenchmarkRequest request, boolean server) {
+    private InstanceType getEC2InstanceType(StartTcpBenchmarkRequest request, boolean server) {
         return InstanceType.fromValue(getHostType(request, server).toString());
     }
 
     private void tagAndTerminateEC2Instance(AmazonEC2 amazonEC2, String instanceId) {
         amazonEC2.createTags(new CreateTagsRequest().withResources(instanceId)
-                .withTags(new Tag().withKey("State").withValue("Stopped by Benchmark Orchestrator")));
+            .withTags(new Tag().withKey("State").withValue("Stopped by Benchmark Orchestrator")));
 
         amazonEC2.terminateInstances(new TerminateInstancesRequest().withInstanceIds(instanceId));
     }
@@ -387,61 +458,29 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
         // consider net.core.somaxconn = 1000 as well
         String scriptTemplate = "#!/bin/bash\n\n" +
 
-                "configure_system_limits() {\n" +
-                "\techo \"=== Rouplex === Allowing more open file descriptors, tcp sockets, tcp memory\"\n" +
-                "\techo %s > /proc/sys/fs/nr_open\n" +
-                "\techo \"* hard nofile %s\" | tee -a /etc/security/limits.conf\n" +
-                "\techo \"* soft nofile %s\" | tee -a /etc/security/limits.conf\n" +
-                "\techo \"\" | tee -a /etc/sysctl.conf\n" +
-                "\techo \"# Allow use of 64000 ports from 1100 to 65100\" | tee -a /etc/sysctl.conf\n" +
-                "\techo \"net.ipv4.ip_local_port_range = 1100 65100\" | tee -a /etc/sysctl.conf\n" +
-                "\techo \"\" | tee -a /etc/sysctl.conf\n" +
-                "\ttotal_mem_kb=`free -t | grep Mem | awk '{print $2}'`\n" +
-                "\ttcp_mem_in_pages=$(( total_mem_kb * %s / 100 / 4))\n" +
-                "\techo \"# Setup bigger tcp memory\" | tee -a /etc/sysctl.conf\n" +
-                "\techo \"net.ipv4.tcp_mem = 383865 tcp_mem_in_pages tcp_mem_in_pages\" | tee -a /etc/sysctl.conf\n" +
-                "\techo \"# Setup greater open files\" | tee -a /etc/sysctl.conf\n" +
-                "\techo \"fs.file-max = %s\" | tee -a /etc/sysctl.conf\n\n" +
-                "\tsysctl -p\n" +
-                "}\n\n" +
+            "configure_system_limits() {\n" +
+            "\techo \"=== Rouplex === Allowing more open file descriptors, tcp sockets, tcp memory\"\n" +
+            "\techo %s > /proc/sys/fs/nr_open\n" +
+            "\techo \"* hard nofile %s\" | tee -a /etc/security/limits.conf\n" +
+            "\techo \"* soft nofile %s\" | tee -a /etc/security/limits.conf\n" +
+            "\techo \"\" | tee -a /etc/sysctl.conf\n" +
+            "\techo \"# Allow use of 64000 ports from 1100 to 65100\" | tee -a /etc/sysctl.conf\n" +
+            "\techo \"net.ipv4.ip_local_port_range = 1100 65100\" | tee -a /etc/sysctl.conf\n" +
+            "\techo \"\" | tee -a /etc/sysctl.conf\n" +
+            "\ttotal_mem_kb=`free -t | grep Mem | awk '{print $2}'`\n" +
+            "\ttcp_mem_in_pages=$(( total_mem_kb * %s / 100 / 4))\n" +
+            "\techo \"# Setup bigger tcp memory\" | tee -a /etc/sysctl.conf\n" +
+            "\techo \"net.ipv4.tcp_mem = 383865 tcp_mem_in_pages tcp_mem_in_pages\" | tee -a /etc/sysctl.conf\n" +
+            "\techo \"# Setup greater open files\" | tee -a /etc/sysctl.conf\n" +
+            "\techo \"fs.file-max = %s\" | tee -a /etc/sysctl.conf\n\n" +
+            "\tsysctl -p\n" +
+            "}\n\n" +
 
-                "configure_system_limits\n" +
-                "service tomcat restart\n";
+            "configure_system_limits\n" +
+            "service tomcat restart\n";
 
         return String.format(scriptTemplate, maxFileDescriptors, maxFileDescriptors,
-                maxFileDescriptors, tcpAsPercentOfTotalMemory, maxFileDescriptors);
-    }
-
-    private Map<String, InstanceDescriptor> startRunningEC2Instances(
-            Region ec2Region, String optionalImageId, InstanceType instanceType,
-            int count, String sshKeyName, String userData, String tag) throws IOException {
-
-        RunInstancesRequest runInstancesRequest = new RunInstancesRequest()
-                .withImageId(optionalImageId != null ? optionalImageId : EC2MetadataUtils.getAmiId())
-                .withInstanceType(instanceType)
-                .withMinCount(count)
-                .withMaxCount(count)
-                .withIamInstanceProfile(new IamInstanceProfileSpecification()
-                        .withName(configuration.get(BenchmarkConfigurationKey.WorkerInstanceProfileName)))
-                .withSubnetId("subnet-9f1784c7") // auto create this in a later impl
-                .withSecurityGroupIds("sg-bef226c5") // auto create this in a later impl
-                .withKeyName(sshKeyName)
-                .withUserData(userData)
-                .withTagSpecifications(new TagSpecification()
-                        .withResourceType(ResourceType.Instance).withTags(new Tag("Name", tag)));
-
-        Map<String, InstanceDescriptor> instanceDescriptors = new HashMap<String, InstanceDescriptor>();
-        for (Instance instance : getAmazonEc2Client(ec2Region)
-                .runInstances(runInstancesRequest).getReservation().getInstances()) {
-
-            InstanceDescriptor instanceDescriptor = new InstanceDescriptor();
-            instanceDescriptors.put(instance.getInstanceId(), instanceDescriptor);
-            instanceDescriptor.setPrivateIpAddress(instance.getPrivateIpAddress());
-            instanceDescriptor.setImageId(instance.getImageId());
-            instanceDescriptor.setEc2Region(ec2Region);
-        }
-
-        return instanceDescriptors;
+            maxFileDescriptors, tcpAsPercentOfTotalMemory, maxFileDescriptors);
     }
 
     /**
@@ -450,7 +489,7 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
      * @param instanceDescriptors
      * @throws Exception
      */
-    private void ensureEC2InstancesRunning(Map<String, InstanceDescriptor> instanceDescriptors) throws Exception {
+    private <T> void ensureEC2InstancesRunning(Map<String, InstanceDescriptor<T>> instanceDescriptors) throws Exception {
         if (instanceDescriptors.isEmpty()) {
             return;
         }
@@ -463,7 +502,7 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
         }
 
         for (Reservation reservation : amazonEC2.describeInstances(
-                new DescribeInstancesRequest().withInstanceIds(instanceDescriptors.keySet())).getReservations()) {
+            new DescribeInstancesRequest().withInstanceIds(instanceDescriptors.keySet())).getReservations()) {
 
             for (Instance instance : reservation.getInstances()) {
                 instanceDescriptors.get(instance.getInstanceId()).setPublicIpAddress(instance.getPublicIpAddress());
@@ -471,20 +510,20 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
         }
     }
 
-    private void ensureBenchmarkServiceRunning(Collection<InstanceDescriptor> instanceDescriptors) throws Exception {
+    private <T> void ensureBenchmarkServiceRunning(Collection<InstanceDescriptor<T>> instanceDescriptors) throws Exception {
         for (InstanceDescriptor instanceDescriptor : instanceDescriptors) {
             Entity<GetServiceStateRequest> requestEntity = Entity.entity(new GetServiceStateRequest(), MediaType.APPLICATION_JSON);
             WebTarget benchmarkWebTarget = jaxrsClient.target(String.format(
-                    configuration.get(BenchmarkConfigurationKey.ServiceHttpDescriptor), instanceDescriptor.getPublicIpAddress()))
-                    .path("/management/service/state")
-                    .property(JERSEY_CLIENT_CONNECT_TIMEOUT, 2000)
-                    .property(JERSEY_CLIENT_READ_TIMEOUT, 10000);
+                configuration.get(BenchmarkConfigurationKey.ServiceHttpDescriptor), instanceDescriptor.getPublicIpAddress()))
+                .path("/management/service/state")
+                .property(JERSEY_CLIENT_CONNECT_TIMEOUT, 2000)
+                .property(JERSEY_CLIENT_READ_TIMEOUT, 10000);
 
             long expirationTimestamp = System.currentTimeMillis() + 10 * 60 * 1000; // 10 minutes
             while (!executorService.isShutdown()) {
                 try {
                     if (benchmarkWebTarget.request(MediaType.APPLICATION_JSON)
-                            .post(requestEntity, GetServiceStateResponse.class).getServiceState() == ServiceState.RUNNING) {
+                        .post(requestEntity, GetServiceStateResponse.class).getServiceState() == ServiceState.RUNNING) {
                         break;
                     }
                 } catch (Exception e) {
@@ -498,23 +537,23 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
         }
     }
 
-    private StartTcpServerRequest buildStartTcpServerRequest(StartDistributedTcpBenchmarkRequest request, String ipAddress) {
+    private StartTcpServerRequest buildStartTcpServerRequest(StartTcpBenchmarkRequest request, String ipAddress) {
         StartTcpServerRequest startTcpServerRequest = new StartTcpServerRequest();
 
         startTcpServerRequest.setProvider(request.getProvider());
         startTcpServerRequest.setHostname(ipAddress);
         startTcpServerRequest.setPort(request.getPort());
         startTcpServerRequest.setSsl(request.isSsl());
-        startTcpServerRequest.setSocketReceiveBufferSize(request.getOptionalSocketReceiveBufferSize());
-        startTcpServerRequest.setSocketSendBufferSize(request.getOptionalSocketSendBufferSize());
+        startTcpServerRequest.setSocketReceiveBufferSize(request.getSocketReceiveBufferSize());
+        startTcpServerRequest.setSocketSendBufferSize(request.getSocketSendBufferSize());
         startTcpServerRequest.setMetricsAggregation(request.getMetricsAggregation());
-        startTcpServerRequest.setBacklog(request.getOptionalBacklog());
+        startTcpServerRequest.setBacklog(request.getBacklog());
 
         return startTcpServerRequest;
     }
 
     private StartTcpClientsRequest buildStartTcpClientsRequestRequest(
-            StartDistributedTcpBenchmarkRequest request, String remoteIpAddress, int remoteIpPort) {
+        StartTcpBenchmarkRequest request, String remoteIpAddress, int remoteIpPort) {
 
         StartTcpClientsRequest startTcpClientsRequest = new StartTcpClientsRequest();
         startTcpClientsRequest.setProvider(request.getProvider());
@@ -532,14 +571,14 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
         startTcpClientsRequest.setMinClientLifeMillis(request.getMinClientLifeMillis());
         startTcpClientsRequest.setMaxClientLifeMillis(request.getMaxClientLifeMillis());
 
-        startTcpClientsRequest.setSocketReceiveBufferSize(request.getOptionalSocketReceiveBufferSize());
-        startTcpClientsRequest.setSocketSendBufferSize(request.getOptionalSocketSendBufferSize());
+        startTcpClientsRequest.setSocketReceiveBufferSize(request.getSocketReceiveBufferSize());
+        startTcpClientsRequest.setSocketSendBufferSize(request.getSocketSendBufferSize());
         startTcpClientsRequest.setMetricsAggregation(request.getMetricsAggregation());
 
         return startTcpClientsRequest;
     }
 
-    private TcpMetricsExpectation buildClientsTcpMetricsExpectation(StartDistributedTcpBenchmarkRequest request) {
+    private TcpMetricsExpectation buildClientsTcpMetricsExpectation(StartTcpBenchmarkRequest request) {
         TcpMetricsExpectation clientsExpectation = new TcpMetricsExpectation();
 
         clientsExpectation.setStartAsIsoInstant(Util.convertMillisToIsoInstant(System.currentTimeMillis()));
@@ -548,7 +587,7 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
         int clientAvgLifetimeMillis = (request.getMaxClientLifeMillis() + request.getMinClientLifeMillis()) / 2;
         int rampUpAsMillis = Math.min(connectionRampUpMillis, clientAvgLifetimeMillis);
 
-        clientsExpectation.setRampUpAsMillis(rampUpAsMillis);
+        clientsExpectation.setRampUpInMillis(rampUpAsMillis);
         clientsExpectation.setFinishRampUpAsIsoInstant(Util.convertMillisToIsoInstant(System.currentTimeMillis() + rampUpAsMillis));
         clientsExpectation.setConnectionsPerSecond((double) request.getClientsPerHost() * 1000 / connectionRampUpMillis);
         clientsExpectation.setMaxSimultaneousConnections((int) (((long) request.getClientsPerHost() * rampUpAsMillis) / connectionRampUpMillis));
@@ -558,8 +597,8 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
         long transferSpeedBps = avgPayloadSize * clientsExpectation.getMaxSimultaneousConnections() / avgPayloadPeriodMillis * 8 * 1000;
 
         String transferSpeedHuman = convertBpsUp(transferSpeedBps);
-        clientsExpectation.setMaxUploadSpeedAsBitsPerSecond(transferSpeedBps);
-        clientsExpectation.setMaxDownloadSpeedAsBitsPerSecond(transferSpeedBps);
+        clientsExpectation.setMaxUploadSpeedInBitsPerSecond(transferSpeedBps);
+        clientsExpectation.setMaxDownloadSpeedInBitsPerSecond(transferSpeedBps);
         clientsExpectation.setMaxUploadSpeed(transferSpeedHuman);
         clientsExpectation.setMaxDownloadSpeed(transferSpeedHuman);
 
@@ -569,19 +608,19 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
     }
 
     private TcpMetricsExpectation buildServerTcpMetricsExpectation(
-            int clientHostsCount, TcpMetricsExpectation clientsExpectation) {
+        int clientHostsCount, TcpMetricsExpectation clientsExpectation) {
 
         TcpMetricsExpectation serverExpectation = new TcpMetricsExpectation();
         serverExpectation.setStartAsIsoInstant(clientsExpectation.getStartAsIsoInstant());
-        serverExpectation.setRampUpAsMillis(clientsExpectation.getRampUpAsMillis());
+        serverExpectation.setRampUpInMillis(clientsExpectation.getRampUpInMillis());
         serverExpectation.setFinishRampUpAsIsoInstant(clientsExpectation.getFinishRampUpAsIsoInstant());
         serverExpectation.setConnectionsPerSecond(clientHostsCount * clientsExpectation.getConnectionsPerSecond());
         serverExpectation.setMaxSimultaneousConnections(clientHostsCount * clientsExpectation.getMaxSimultaneousConnections());
 
-        long transferSpeedBps = clientHostsCount * clientsExpectation.getMaxUploadSpeedAsBitsPerSecond();
+        long transferSpeedBps = clientHostsCount * clientsExpectation.getMaxUploadSpeedInBitsPerSecond();
         String transferSpeedHuman = convertBpsUp(transferSpeedBps);
-        serverExpectation.setMaxUploadSpeedAsBitsPerSecond(transferSpeedBps);
-        serverExpectation.setMaxDownloadSpeedAsBitsPerSecond(transferSpeedBps);
+        serverExpectation.setMaxUploadSpeedInBitsPerSecond(transferSpeedBps);
+        serverExpectation.setMaxDownloadSpeedInBitsPerSecond(transferSpeedBps);
         serverExpectation.setMaxUploadSpeed(transferSpeedHuman);
         serverExpectation.setMaxDownloadSpeed(transferSpeedHuman);
 

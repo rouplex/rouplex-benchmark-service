@@ -24,21 +24,26 @@ public class BenchmarkOrchestratorServiceResource extends ResourceConfig impleme
     HttpServletResponse httpServletResponse;
 
     @ApiOperation(value = "Start a distributed benchmarking scenario with one server and a number of client instances")
-//    @ApiImplicitParams({
-//            @ApiImplicitParam(name = "Authorization", value = "Authorization token",
-//                    required = true, dataType = "string", paramType = "header")
-//    })
     @ApiResponses(value = {
             @ApiResponse(code = 200, message = "Success"),
             @ApiResponse(code = 500, message = "Error handling request")})
     @Override
-    public StartDistributedTcpBenchmarkResponse startDistributedTcpBenchmark(
-            StartDistributedTcpBenchmarkRequest request) throws Exception {
+    public StartTcpBenchmarkResponse startTcpBenchmark(
+            StartTcpBenchmarkRequest request) throws Exception {
 
         if (!BenchmarkAuthServiceProvider.get().isSignedIn(httpServletRequest.getHeader("Rouplex-SessionId"))) {
             throw new NotAuthorizedException(httpServletRequest.getContextPath());
         }
 
-        return BenchmarkOrchestratorServiceProvider.get().startDistributedTcpBenchmark(request);
+        return BenchmarkOrchestratorServiceProvider.get().startTcpBenchmark(request);
+    }
+
+    @ApiOperation(value = "Get the status of the benchmark")
+    @ApiResponses(value = {
+        @ApiResponse(code = 200, message = "Success"),
+        @ApiResponse(code = 500, message = "Error handling request")})
+    @Override
+    public DescribeTcpBenchmarkResponse describeTcpBenchmark(DescribeTcpBenchmarkRequest request) throws Exception {
+        return null;
     }
 }

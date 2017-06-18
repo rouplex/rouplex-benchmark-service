@@ -20,10 +20,10 @@ public class BenchmarkAuthServiceResource extends ResourceConfig implements Benc
     @Override
     public SignInResponse signIn(String sessionIdViaCookie,
                                  String authProvider, String authEmail, String authPassword,
-                                 String sessionIdViaQueryParam, String code) throws Exception {
+                                 String state, String code) throws Exception {
 
         return BenchmarkAuthServiceProvider.get().signIn(
-                sessionIdViaCookie, authProvider, authEmail, authPassword, sessionIdViaQueryParam, code);
+                sessionIdViaCookie, authProvider, authEmail, authPassword, state, code);
     }
 
     @Override

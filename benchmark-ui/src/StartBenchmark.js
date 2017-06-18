@@ -114,20 +114,20 @@ export default class StartBenchmark extends React.Component {
     var requestBody =
       '{\n' +
       '  "echoRatio" : ' + echoRatioQuoted + ',\n' +
-      '  "optionalBenchmarkRequestId" : ' + benchmarkRequestIdQuoted + ',\n' +
-      '  "optionalServerHostType" : "' + this.state.serverHostType + '",\n' +
-      '  "optionalServerGeoLocation" : "' + this.state.serverGeoLocation + '",\n' +
-      '  "optionalClientsHostType" : "' + this.state.clientsHostType + '",\n' +
-      '  "optionalClientsGeoLocation" : "' + this.state.clientsGeoLocation + '",\n' +
-      '  "optionalImageId" : null,\n' +
-      '  "optionalKeyName" : ' + keyNameQuoted + ',\n' +
-      '  "optionalTcpMemoryAsPercentOfTotal" : 0,\n' +
+      '  "benchmarkRequestId" : ' + benchmarkRequestIdQuoted + ',\n' +
+      '  "serverHostType" : "' + this.state.serverHostType + '",\n' +
+      '  "serverGeoLocation" : "' + this.state.serverGeoLocation + '",\n' +
+      '  "clientsHostType" : "' + this.state.clientsHostType + '",\n' +
+      '  "clientsGeoLocation" : "' + this.state.clientsGeoLocation + '",\n' +
+      '  "imageId" : null,\n' +
+      '  "keyName" : ' + keyNameQuoted + ',\n' +
+      '  "tcpMemoryAsPercentOfTotal" : 0,\n' +
       '  "provider" : "' + this.state.provider + '",\n' +
       '  "port" : 8888,\n' +
       '  "ssl" : "' + this.state.ssl + '",\n' +
-      '  "optionalSocketSendBufferSize" : ' + socketSendBufferSize + ',\n' +
-      '  "optionalSocketReceiveBufferSize" : ' + socketReceiveBufferSize + ',\n' +
-      '  "optionalBacklog" : ' + backlog + ',\n' +
+      '  "socketSendBufferSize" : ' + socketSendBufferSize + ',\n' +
+      '  "socketReceiveBufferSize" : ' + socketReceiveBufferSize + ',\n' +
+      '  "backlog" : ' + backlog + ',\n' +
       '  "clientCount" : ' + clientCount + ',\n' +
       '  "clientsPerHost" : ' + clientsPerHost + ',\n' +
       '  "minPayloadSize" : ' + minPayloadSize + ',\n' +

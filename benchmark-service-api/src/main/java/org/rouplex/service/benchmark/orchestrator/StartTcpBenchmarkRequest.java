@@ -6,25 +6,24 @@ import org.rouplex.service.benchmark.worker.Provider;
 /**
  * @author Andi Mullaraj (andimullaraj at gmail.com)
  */
-public class StartDistributedTcpBenchmarkRequest {
-    String magicWord;
+public class StartTcpBenchmarkRequest {
     String echoRatio; // not implemented yet
-    String optionalBenchmarkRequestId;
-    HostType optionalServerHostType;
-    GeoLocation optionalServerGeoLocation;
-    HostType optionalClientsHostType;
-    GeoLocation optionalClientsGeoLocation;
-    String optionalImageId;
-    String optionalKeyName;
+    String benchmarkRequestId; // optional
+    HostType serverHostType; // optional
+    GeoLocation serverGeoLocation; // optional
+    HostType clientsHostType; // optional
+    GeoLocation clientsGeoLocation; // optional
+    String imageId; // optional
+    String keyName; // optional
 
-    int optionalTcpMemoryAsPercentOfTotal; // experimental for now
+    int tcpMemoryAsPercentOfTotal; // optional, experimental for now
 
     Provider provider;
     int port;
     boolean ssl;
-    int optionalSocketSendBufferSize;
-    int optionalSocketReceiveBufferSize;
-    int optionalBacklog;
+    int socketSendBufferSize; // optional
+    int socketReceiveBufferSize; // optional
+    int backlog; // optional
 
     public int clientCount = 100000;
     public int clientsPerHost = 50000;
@@ -48,68 +47,60 @@ public class StartDistributedTcpBenchmarkRequest {
         this.echoRatio = echoRatio;
     }
 
-    public String getMagicWord() {
-        return magicWord;
+    public String getBenchmarkRequestId() {
+        return benchmarkRequestId;
     }
 
-    public void setMagicWord(String magicWord) {
-        this.magicWord = magicWord;
+    public void setBenchmarkRequestId(String benchmarkRequestId) {
+        this.benchmarkRequestId = benchmarkRequestId;
     }
 
-    public String getOptionalBenchmarkRequestId() {
-        return optionalBenchmarkRequestId;
+    public HostType getServerHostType() {
+        return serverHostType;
     }
 
-    public void setOptionalBenchmarkRequestId(String optionalBenchmarkRequestId) {
-        this.optionalBenchmarkRequestId = optionalBenchmarkRequestId;
+    public void setServerHostType(HostType serverHostType) {
+        this.serverHostType = serverHostType;
     }
 
-    public HostType getOptionalServerHostType() {
-        return optionalServerHostType;
+    public GeoLocation getServerGeoLocation() {
+        return serverGeoLocation;
     }
 
-    public void setOptionalServerHostType(HostType optionalServerHostType) {
-        this.optionalServerHostType = optionalServerHostType;
+    public void setServerGeoLocation(GeoLocation serverGeoLocation) {
+        this.serverGeoLocation = serverGeoLocation;
     }
 
-    public GeoLocation getOptionalServerGeoLocation() {
-        return optionalServerGeoLocation;
+    public HostType getClientsHostType() {
+        return clientsHostType;
     }
 
-    public void setOptionalServerGeoLocation(GeoLocation optionalServerGeoLocation) {
-        this.optionalServerGeoLocation = optionalServerGeoLocation;
+    public void setClientsHostType(HostType clientsHostType) {
+        this.clientsHostType = clientsHostType;
     }
 
-    public HostType getOptionalClientsHostType() {
-        return optionalClientsHostType;
+    public GeoLocation getClientsGeoLocation() {
+        return clientsGeoLocation;
     }
 
-    public void setOptionalClientsHostType(HostType optionalClientsHostType) {
-        this.optionalClientsHostType = optionalClientsHostType;
+    public void setClientsGeoLocation(GeoLocation clientsGeoLocation) {
+        this.clientsGeoLocation = clientsGeoLocation;
     }
 
-    public GeoLocation getOptionalClientsGeoLocation() {
-        return optionalClientsGeoLocation;
+    public String getImageId() {
+        return imageId;
     }
 
-    public void setOptionalClientsGeoLocation(GeoLocation optionalClientsGeoLocation) {
-        this.optionalClientsGeoLocation = optionalClientsGeoLocation;
+    public void setImageId(String imageId) {
+        this.imageId = imageId;
     }
 
-    public String getOptionalImageId() {
-        return optionalImageId;
+    public String getKeyName() {
+        return keyName;
     }
 
-    public void setOptionalImageId(String optionalImageId) {
-        this.optionalImageId = optionalImageId;
-    }
-
-    public String getOptionalKeyName() {
-        return optionalKeyName;
-    }
-
-    public void setOptionalKeyName(String optionalKeyName) {
-        this.optionalKeyName = optionalKeyName;
+    public void setKeyName(String keyName) {
+        this.keyName = keyName;
     }
 
     public Provider getProvider() {
@@ -136,28 +127,28 @@ public class StartDistributedTcpBenchmarkRequest {
         this.ssl = ssl;
     }
 
-    public int getOptionalSocketSendBufferSize() {
-        return optionalSocketSendBufferSize;
+    public int getSocketSendBufferSize() {
+        return socketSendBufferSize;
     }
 
-    public void setOptionalSocketSendBufferSize(int optionalSocketSendBufferSize) {
-        this.optionalSocketSendBufferSize = optionalSocketSendBufferSize;
+    public void setSocketSendBufferSize(int socketSendBufferSize) {
+        this.socketSendBufferSize = socketSendBufferSize;
     }
 
-    public int getOptionalSocketReceiveBufferSize() {
-        return optionalSocketReceiveBufferSize;
+    public int getSocketReceiveBufferSize() {
+        return socketReceiveBufferSize;
     }
 
-    public void setOptionalSocketReceiveBufferSize(int optionalSocketReceiveBufferSize) {
-        this.optionalSocketReceiveBufferSize = optionalSocketReceiveBufferSize;
+    public void setSocketReceiveBufferSize(int socketReceiveBufferSize) {
+        this.socketReceiveBufferSize = socketReceiveBufferSize;
     }
 
-    public int getOptionalBacklog() {
-        return optionalBacklog;
+    public int getBacklog() {
+        return backlog;
     }
 
-    public void setOptionalBacklog(int optionalBacklog) {
-        this.optionalBacklog = optionalBacklog;
+    public void setBacklog(int backlog) {
+        this.backlog = backlog;
     }
 
     public int getClientCount() {
@@ -248,11 +239,11 @@ public class StartDistributedTcpBenchmarkRequest {
         this.metricsAggregation = metricsAggregation;
     }
 
-    public int getOptionalTcpMemoryAsPercentOfTotal() {
-        return optionalTcpMemoryAsPercentOfTotal;
+    public int getTcpMemoryAsPercentOfTotal() {
+        return tcpMemoryAsPercentOfTotal;
     }
 
-    public void setOptionalTcpMemoryAsPercentOfTotal(int optionalTcpMemoryAsPercentOfTotal) {
-        this.optionalTcpMemoryAsPercentOfTotal = optionalTcpMemoryAsPercentOfTotal;
+    public void setTcpMemoryAsPercentOfTotal(int tcpMemoryAsPercentOfTotal) {
+        this.tcpMemoryAsPercentOfTotal = tcpMemoryAsPercentOfTotal;
     }
 }
