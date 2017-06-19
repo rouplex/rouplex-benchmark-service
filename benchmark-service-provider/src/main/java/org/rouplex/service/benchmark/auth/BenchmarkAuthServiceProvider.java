@@ -90,9 +90,9 @@ public class BenchmarkAuthServiceProvider implements BenchmarkAuthService, Close
         return signInResponse; // user unknown, no defined auth providers, no action to be taken
     }
 
-    public boolean isSignedIn(String sessionId) throws Exception {
+    public UserInfo getUserInfo(String sessionId) throws Exception {
         SessionInfo sessionInfo = sessionInfos.get(sessionId);
-        return sessionInfo != null && sessionInfo.getUserInfo() != null;
+        return sessionInfo != null ? sessionInfo.getUserInfo() : null;
     }
 
     void addSessionInfo(SignInResponse signInResponse) {

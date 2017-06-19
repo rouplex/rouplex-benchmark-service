@@ -13,6 +13,7 @@ import org.rouplex.commons.configuration.ConfigurationManager;
 import org.rouplex.platform.tcp.RouplexTcpClient;
 import org.rouplex.service.benchmark.BenchmarkConfigurationKey;
 import org.rouplex.service.benchmark.Util;
+import org.rouplex.service.benchmark.auth.UserInfo;
 import org.rouplex.service.benchmark.management.*;
 import org.rouplex.service.benchmark.worker.StartTcpClientsRequest;
 import org.rouplex.service.benchmark.worker.StartTcpServerRequest;
@@ -41,9 +42,9 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
     private static final String JERSEY_CLIENT_READ_TIMEOUT = "jersey.config.client.readTimeout";
     private static final String JERSEY_CLIENT_CONNECT_TIMEOUT = "jersey.config.client.connectTimeout";
 
-    private static BenchmarkOrchestratorService benchmarkOrchestratorService;
+    private static BenchmarkOrchestratorServiceProvider benchmarkOrchestratorService;
 
-    public static BenchmarkOrchestratorService get() throws Exception {
+    public static BenchmarkOrchestratorServiceProvider get() throws Exception {
         synchronized (BenchmarkOrchestratorServiceProvider.class) {
             if (benchmarkOrchestratorService == null) {
                 // a shortcut for now, this will discovered automatically when rouplex provides a discovery service
@@ -116,7 +117,11 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
     }
 
     @Override
-    public StartTcpBenchmarkResponse startTcpBenchmark(final StartTcpBenchmarkRequest request) throws Exception {
+    public StartTcpBenchmarkResponse startTcpBenchmark(StartTcpBenchmarkRequest request) throws Exception {
+        return startTcpBenchmark(request, null);
+    }
+
+    public StartTcpBenchmarkResponse startTcpBenchmark(final StartTcpBenchmarkRequest request, UserInfo userInfo) throws Exception {
         checkAndSanitize(request);
 
         int clientHostCount = (request.getClientCount() - 1) / request.getClientsPerHost() + 1;
@@ -140,7 +145,10 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
             "Starting Distributed Benchmark [%s]. 1 ec2 server host and %s ec2 client hosts",
             request.getBenchmarkRequestId(), clientHostCount));
 
-        executorService.submit((Runnable) () -> start(request.getBenchmarkRequestId()));
+        // temp hack preventing others from abusing the service
+        if ("andimullaraj@gmail.com".equals(userInfo.getUserIdAtProvider())) {
+            executorService.submit((Runnable) () -> start(request.getBenchmarkRequestId()));
+        }
 
         StartTcpBenchmarkResponse response = new StartTcpBenchmarkResponse();
         response.setTcpClientsExpectation(clientsExpectation);

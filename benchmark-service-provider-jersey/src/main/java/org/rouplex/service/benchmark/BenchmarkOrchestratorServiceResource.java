@@ -7,6 +7,7 @@ import io.swagger.annotations.ApiResponses;
 import org.glassfish.jersey.server.ResourceConfig;
 import org.rouplex.platform.jaxrs.security.RouplexSecurityContext;
 import org.rouplex.service.benchmark.auth.BenchmarkAuthServiceProvider;
+import org.rouplex.service.benchmark.auth.UserInfo;
 import org.rouplex.service.benchmark.orchestrator.*;
 
 import javax.servlet.http.HttpServletRequest;
@@ -31,11 +32,12 @@ public class BenchmarkOrchestratorServiceResource extends ResourceConfig impleme
     public StartTcpBenchmarkResponse startTcpBenchmark(
             StartTcpBenchmarkRequest request) throws Exception {
 
-        if (!BenchmarkAuthServiceProvider.get().isSignedIn(httpServletRequest.getHeader("Rouplex-SessionId"))) {
+        UserInfo userInfo = BenchmarkAuthServiceProvider.get().getUserInfo(httpServletRequest.getHeader("Rouplex-SessionId"));
+        if (userInfo == null) {
             throw new NotAuthorizedException(httpServletRequest.getContextPath());
         }
 
-        return BenchmarkOrchestratorServiceProvider.get().startTcpBenchmark(request);
+        return BenchmarkOrchestratorServiceProvider.get().startTcpBenchmark(request, userInfo);
     }
 
     @ApiOperation(value = "Get the status of the benchmark")

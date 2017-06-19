@@ -1,6 +1,6 @@
 var config = module.exports = {};
 
-config.env = "dev";
+config.env = "prod";
 
 config.autologin = false; //= config.env == "dev";
 
