@@ -2,15 +2,18 @@
 
 setup_tomcat_ssl_certificate() {
     echo "=========== Rouplex ============= Setting up the tomcat's ssl certificate"
+    aws s3 cp s3://rouplex/deploys/services/benchmark/environments/"$ENV"/server_port.txt $TOMCAT_PATH/conf > /dev/null 2>&1
     aws s3 cp s3://rouplex/deploys/services/benchmark/environments/"$ENV"/server_key.p12 $TOMCAT_PATH/conf > /dev/null 2>&1
     aws s3 cp s3://rouplex/deploys/services/benchmark/environments/"$ENV"/server_key.password rouplex-environment > /dev/null 2>&1
 
+    TOMCAT_SSL_PORT=`cat rouplex-environment/server_port.txt`
     TOMCAT_CERT_PATH=$TOMCAT_PATH/conf/server_key.p12
     TOMCAT_CERT_PASS=`cat rouplex-environment/server_key.password`
 }
 
 setup_tomcat_ssl_connector() {
     echo "=========== Rouplex ============= Setting up the tomcat's ssl connector"
+    search_and_replace rouplex-benchmark-service/install/server-template.xml "#sslConnector-sslPort#" $TOMCAT_SSL_PORT
     search_and_replace rouplex-benchmark-service/install/server-template.xml "#sslConnector-keystoreFile#" $TOMCAT_CERT_PATH
     search_and_replace rouplex-benchmark-service/install/server-template.xml "#sslConnector-keystorePass#" $TOMCAT_CERT_PASS
     cp rouplex-benchmark-service/install/server-template.xml "$TOMCAT_FOLDER"/conf/server.xml
