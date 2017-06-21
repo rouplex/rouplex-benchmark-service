@@ -2,7 +2,7 @@
 
 setup_tomcat_ssl_certificate() {
     echo "=========== Rouplex ============= Setting up the tomcat's ssl certificate"
-    aws s3 cp s3://rouplex/deploys/services/benchmark/environments/"$ENV"/server_port.txt $TOMCAT_PATH/conf > /dev/null 2>&1
+    aws s3 cp s3://rouplex/deploys/services/benchmark/environments/"$ENV"/server_port.txt rouplex-environment > /dev/null 2>&1
     aws s3 cp s3://rouplex/deploys/services/benchmark/environments/"$ENV"/server_key.p12 $TOMCAT_PATH/conf > /dev/null 2>&1
     aws s3 cp s3://rouplex/deploys/services/benchmark/environments/"$ENV"/server_key.password rouplex-environment > /dev/null 2>&1
 
