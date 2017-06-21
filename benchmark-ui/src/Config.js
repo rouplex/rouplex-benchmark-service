@@ -4,7 +4,7 @@ config.env = "prod";
 
 config.autologin = false; //= config.env == "dev";
 
-config.host = config.env == "dev" ? "http://localhost:8080" : "https://www.rouplex-demo.com:8088";
+config.host = config.env == "dev" ? "http://localhost:8080" : "https://www.rouplex-demo.com:443";
 config.baseUrl = config.host + "/benchmark-service-provider-jersey-1.0.0-SNAPSHOT";
 config.mainUrl = config.baseUrl + "/index.html";
 config.restUrl = config.baseUrl + "/rouplex/benchmark";

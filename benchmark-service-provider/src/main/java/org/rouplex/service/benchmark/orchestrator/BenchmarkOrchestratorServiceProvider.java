@@ -52,7 +52,7 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
                 configurationManager.putConfigurationEntry(BenchmarkConfigurationKey.WorkerInstanceProfileName,
                     "RouplexBenchmarkWorkerRole");
                 configurationManager.putConfigurationEntry(BenchmarkConfigurationKey.ServiceHttpDescriptor,
-                    "https://%s:8088/benchmark-service-provider-jersey-1.0.0-SNAPSHOT/rouplex/benchmark");
+                    "https://%s:443/benchmark-service-provider-jersey-1.0.0-SNAPSHOT/rouplex/benchmark");
                 configurationManager.putConfigurationEntry(BenchmarkConfigurationKey.WorkerLeaseInMinutes, "30");
 
                 configurationManager.putConfigurationEntry(BenchmarkConfigurationKey.GoogleCloudClientId,
