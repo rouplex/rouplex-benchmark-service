@@ -17,6 +17,7 @@ setup_tomcat_ssl_connector() {
         rpm -Uvh https://s3.amazonaws.com/aaronsilber/public/authbind-2.1.1-0.1.x86_64.rpm
         touch /etc/authbind/byport/$server_port
         chmod 500 /etc/authbind/byport/$server_port
+        chown ec2-user /etc/authbind/byport/$server_port
         search_and_replace $TOMCAT_PATH/bin/startup.sh "exec " "exec authbind --deep "
     fi
 
