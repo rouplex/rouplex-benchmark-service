@@ -11,7 +11,7 @@ import org.rouplex.service.benchmark.BenchmarkConfigurationKey;
 
 import java.util.ArrayList;
 
-// Work in progress
+// Work in progress, not used for now
 public class AuthProviders {
     private static final Gson gson = new Gson();
 

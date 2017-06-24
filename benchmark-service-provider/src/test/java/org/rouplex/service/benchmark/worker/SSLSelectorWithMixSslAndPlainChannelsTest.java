@@ -8,8 +8,6 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
-import org.rouplex.service.benchmark.management.SnapCounter;
-import org.rouplex.service.benchmark.management.SnapMeter;
 
 import java.io.IOException;
 import java.util.*;
@@ -55,7 +53,7 @@ public class SSLSelectorWithMixSslAndPlainChannelsTest {
     Provider provider;
     boolean secure;
     boolean aggregated;
-    BenchmarkWorkerServiceProvider bmService;
+    WorkerServiceProvider bmService;
 
     public SSLSelectorWithMixSslAndPlainChannelsTest(Provider provider, boolean secure, boolean aggregated) {
         this.provider = provider;
@@ -65,7 +63,7 @@ public class SSLSelectorWithMixSslAndPlainChannelsTest {
 
     @Before
     public void setup() throws Exception {
-        bmService = new BenchmarkWorkerServiceProvider();
+        bmService = new WorkerServiceProvider();
     }
 
     @After

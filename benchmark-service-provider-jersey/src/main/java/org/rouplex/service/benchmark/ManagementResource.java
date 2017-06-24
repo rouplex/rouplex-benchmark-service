@@ -5,14 +5,14 @@ import org.glassfish.jersey.server.ResourceConfig;
 import org.rouplex.service.benchmark.management.*;
 
 @Api(value = "Benchmark Management", description = "Service offering instance lifecycle functionality")
-public class BenchmarkManagementServiceResource extends ResourceConfig implements BenchmarkManagementService {
+public class ManagementResource extends ResourceConfig implements ManagementService {
     @ApiOperation(value = "Get the state of the benchmark service for this particular instance")
     @ApiResponses(value = {
             @ApiResponse(code = 200, message = "Success"),
             @ApiResponse(code = 500, message = "Error handling request")})
     @Override
     public GetServiceStateResponse getServiceState(GetServiceStateRequest request) throws Exception {
-        return BenchmarkManagementServiceProvider.get().getServiceState(request);
+        return ManagementServiceProvider.get().getServiceState(request);
     }
 
     @ApiOperation(value = "Configure benchmark service for this particular instance")
@@ -27,6 +27,6 @@ public class BenchmarkManagementServiceResource extends ResourceConfig implement
                 })
             )
             ConfigureServiceRequest request) throws Exception {
-        return BenchmarkManagementServiceProvider.get().configureService(request);
+        return ManagementServiceProvider.get().configureService(request);
     }
 }

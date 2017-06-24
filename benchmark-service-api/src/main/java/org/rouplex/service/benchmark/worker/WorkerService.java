@@ -3,8 +3,8 @@ package org.rouplex.service.benchmark.worker;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 
-@Path("/benchmark/worker")
-public interface BenchmarkWorkerService {
+@Path("/worker")
+public interface WorkerService {
     @POST
     @Path("/tcp/server/start")
     StartTcpServerResponse startTcpServer(StartTcpServerRequest request) throws Exception;

@@ -5,53 +5,59 @@ import Button from 'react-bootstrap/lib/Button';
 
 const leftMargin = {margin: '0px 0px 0px 5px'};
 
-export default class SessionLogout extends React.Component {
-  // this.props.mainUrl
+export default class SignOut extends React.Component {
   // this.props.signOutUrl
   // this.props.sessionInfo
+  // this.props.mainUrl (optional)
   constructor() {
     super();
 
     this.state = {
-      loggingOut: false,
-      failedLogout: false,
+      signingOut: false,
+      failedSignOut: false,
       selecting: false
     }
   }
 
   handleSignOutClicked() {
     this.setState({
-      loggingOut: true,
+      signingOut: true,
       selecting: false
     });
 
     var getRequest = new XMLHttpRequest();
     getRequest.addEventListener("load", () => {
       console.log("signOutUrl.response: " + getRequest.responseText);
-      window.location.href = this.props.mainUrl;
+      if (this.props.mainUrl) {
+        window.location.href = this.props.mainUrl;
+      }
     });
     getRequest.addEventListener("error", () => {
       document.cookie = 'Rouplex-SessionId=';
-      window.location.href = this.props.mainUrl;
+      if (this.props.mainUrl) {
+        window.location.href = this.props.mainUrl;
+      }
     });
 
     getRequest.open("GET", this.props.signOutUrl);
     getRequest.setRequestHeader('Accept', 'application/json');
     getRequest.setRequestHeader('Rouplex-Cookie-Enabled', navigator.cookieEnabled);
     getRequest.setRequestHeader('Rouplex-SessionId', this.props.sessionInfo.sessionId);
+
+    console.log("signOutUrl.get.request: " + this.props.signOutUrl);
     getRequest.send();
   }
 
   render() {
     return (
       <DropdownButton id="login" style={leftMargin} key="1"
-                      bsStyle={this.state.failedLogout ? "warning" : "primary"}
+                      bsStyle={this.state.failedSignOut ? "warning" : "primary"}
                       title={
-                        this.state.loggingOut
+                        this.state.signingOut
                           ? "Signing Out ..."
                           : this.props.sessionInfo.userInfo.userName + " " + this.props.sessionInfo.userInfo.userIdAtProvider
                       }
-                      disabled={this.state.loggingOut} open={this.state.selecting}
+                      disabled={this.state.signingOut} open={this.state.selecting}
                       onClick={() => this.setState({selecting: !this.state.selecting})}
                       onToggle={() => null}>
         <MenuItem>

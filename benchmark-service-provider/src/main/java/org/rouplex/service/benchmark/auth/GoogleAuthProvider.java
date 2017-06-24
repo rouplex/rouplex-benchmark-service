@@ -28,7 +28,7 @@ class GoogleAuthProvider extends AuthProvider<UserAtGoogle> {
 
     GoogleAuthProvider(Configuration configuration) throws Exception {
         this.configuration = configuration;
-        googleRedirectUri = configuration.get(BenchmarkConfigurationKey.BenchmarkMainUrl) + "?provider=" + Provider.google;
+        googleRedirectUri = configuration.get(BenchmarkConfigurationKey.BenchmarkMainUrl);
 
         authClient = new GoogleAuthorizationCodeFlow.Builder(
                 httpTransport, new JacksonFactory(),
@@ -44,30 +44,29 @@ class GoogleAuthProvider extends AuthProvider<UserAtGoogle> {
         String family_name;
     }
 
-    SignInResponse auth(String authCode) throws Exception {
-        SignInResponse signInResponse = new SignInResponse();
+    StartSignInUsingGoogleOauth2Response startSignInUsingGoogleOauth2(String state) {
+        String sessionId = UUID.randomUUID().toString();
 
-        if (authCode == null) { // user unknown, forward to google to provide identity
-            String sessionId = UUID.randomUUID().toString();
+        String url = authClient.newAuthorizationUrl()
+            .setRedirectUri(googleRedirectUri)
+            .setScopes(Arrays.asList(Oauth2Scopes.USERINFO_EMAIL))
+            .setState(sessionId + ";" + state + ";")
+            .build();
 
-            String url = authClient.newAuthorizationUrl()
-                    .setRedirectUri(googleRedirectUri)
-                    .setScopes(Arrays.asList(Oauth2Scopes.USERINFO_EMAIL))
-                    .setState(sessionId)
-                    .build();
+        SessionInfo sessionInfo = new SessionInfo();
+        sessionInfo.setSessionId(sessionId);
+        StartSignInUsingGoogleOauth2Response response = new StartSignInUsingGoogleOauth2Response(sessionInfo);
+        response.setRedirectUrl(url);
+        return response;
+    }
 
-            signInResponse.setSessionId(sessionId);
-            signInResponse.setRedirectUrl(url);
-
-            return signInResponse;
-        }
-
+    FinishSignInUsingGoogleOauth2Response finishSignInUsingGoogleOauth2(SessionInfo sessionInfo, String authCode) throws Exception {
         // resolve user based on the authCode handle from google
-        GoogleTokenResponse response = authClient.newTokenRequest(authCode)
+        GoogleTokenResponse googleTokenResponse = authClient.newTokenRequest(authCode)
                 .setRedirectUri(googleRedirectUri)
                 .execute();
 
-        Credential credential = authClient.createAndStoreCredential(response, null);
+        Credential credential = authClient.createAndStoreCredential(googleTokenResponse, null);
 
         HttpRequestFactory requestFactory = httpTransport.createRequestFactory(credential);
         HttpRequest request = requestFactory.buildGetRequest(new GenericUrl(
@@ -85,21 +84,21 @@ class GoogleAuthProvider extends AuthProvider<UserAtGoogle> {
         try {
             userAtGoogle = getAuthenticatedUser(userAtGoogle);
         } catch (AuthException authException) {
-            userAtGoogle.setUserProfile(inferUserProfile(userAtGoogle));
+            userAtGoogle.setUser(inferUserProfile(userAtGoogle));
             addUser(userAtGoogle);
         }
 
-        signInResponse.setUserInfo(fromUserAtProvider(userAtGoogle));
-        return signInResponse;
+        sessionInfo.setUserInfo(fromUserAtProvider(userAtGoogle));
+        return new FinishSignInUsingGoogleOauth2Response(sessionInfo);
     }
 
-    private UserProfile inferUserProfile(UserAtGoogle userAtGoogle) {
-        UserProfile userProfile = new UserProfile();
-        userProfile.setUserId(UUID.randomUUID());
-        userProfile.setUserName(userAtGoogle.getGivenName() + " " + userAtGoogle.getFamilyName());
+    private User inferUserProfile(UserAtGoogle userAtGoogle) {
+        User user = new User();
+        user.setUserId(UUID.randomUUID());
+        user.setUserName(userAtGoogle.getGivenName() + " " + userAtGoogle.getFamilyName());
         CostProfile costProfile = new CostProfile();
         costProfile.setTotalDollarsPerHour(10);
-        userProfile.setCostProfile(costProfile);
-        return userProfile;
+        user.setCostProfile(costProfile);
+        return user;
     }
 }

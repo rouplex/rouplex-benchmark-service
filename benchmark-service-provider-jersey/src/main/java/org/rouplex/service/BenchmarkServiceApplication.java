@@ -4,15 +4,15 @@ import com.amazonaws.services.ec2.AmazonEC2Client;
 import com.amazonaws.services.ec2.model.DescribeInstancesRequest;
 import com.amazonaws.util.EC2MetadataUtils;
 import org.rouplex.platform.jersey.RouplexJerseyApplication;
-import org.rouplex.service.benchmark.BenchmarkAuthServiceResource;
-import org.rouplex.service.benchmark.BenchmarkManagementServiceResource;
-import org.rouplex.service.benchmark.BenchmarkOrchestratorServiceResource;
-import org.rouplex.service.benchmark.BenchmarkWorkerServiceResource;
-import org.rouplex.service.benchmark.auth.BenchmarkAuthServiceProvider;
-import org.rouplex.service.benchmark.management.BenchmarkManagementServiceProvider;
-import org.rouplex.service.benchmark.orchestrator.BenchmarkOrchestratorServiceProvider;
-import org.rouplex.service.benchmark.orchestrator.NotAuthorizedException;
-import org.rouplex.service.benchmark.worker.BenchmarkWorkerServiceProvider;
+import org.rouplex.service.benchmark.AuthResource;
+import org.rouplex.service.benchmark.ManagementResource;
+import org.rouplex.service.benchmark.OrchestratorResource;
+import org.rouplex.service.benchmark.WorkerResource;
+import org.rouplex.service.benchmark.auth.AuthServiceProvider;
+import org.rouplex.service.benchmark.management.ManagementServiceProvider;
+import org.rouplex.service.benchmark.orchestrator.OrchestratorServiceProvider;
+import org.rouplex.service.benchmark.orchestrator.UnauthenticatedException;
+import org.rouplex.service.benchmark.worker.WorkerServiceProvider;
 
 import javax.servlet.ServletContext;
 import javax.ws.rs.ApplicationPath;
@@ -32,7 +32,7 @@ import java.util.logging.Logger;
  * The container searches for the {@link ApplicationPath} annotation and instantiates an instance of this class. It is
  * only in the constructor that we can bind (or add) resources to it, the jersey API does not allow for anything else.
  */
-@ApplicationPath("/rouplex")
+@ApplicationPath("/rest/benchmark")
 public class BenchmarkServiceApplication extends RouplexJerseyApplication implements Closeable {
     private static Logger logger = Logger.getLogger(BenchmarkServiceApplication.class.getSimpleName());
 
@@ -44,17 +44,17 @@ public class BenchmarkServiceApplication extends RouplexJerseyApplication implem
     protected void postConstruct() {
         register(new BenchmarkResponseFilter());
 
-        bindRouplexResource(BenchmarkManagementServiceResource.class, true);
-        bindRouplexResource(BenchmarkAuthServiceResource.class, true);
-        bindRouplexResource(BenchmarkWorkerServiceResource.class, true);
-        bindRouplexResource(BenchmarkOrchestratorServiceResource.class, true);
+        bindRouplexResource(ManagementResource.class, true);
+        bindRouplexResource(AuthResource.class, true);
+        bindRouplexResource(WorkerResource.class, true);
+        bindRouplexResource(OrchestratorResource.class, true);
 
         try {
             // instantiate early
-            BenchmarkManagementServiceProvider.get();
-            BenchmarkAuthServiceProvider.get();
-            BenchmarkWorkerServiceProvider.get();
-            BenchmarkOrchestratorServiceProvider.get();
+            ManagementServiceProvider.get();
+            AuthServiceProvider.get();
+            WorkerServiceProvider.get();
+            OrchestratorServiceProvider.get();
         } catch (Exception e) {
             String errorMessage = String.format("Could not instantiate services. Cause: %s: %s",
                     e.getClass().getSimpleName(), e.getMessage());
@@ -97,10 +97,10 @@ public class BenchmarkServiceApplication extends RouplexJerseyApplication implem
         }
     }
 
-    private class UnauthorizedExceptionMapper implements ExceptionMapper<NotAuthorizedException> {
+    private class UnauthorizedExceptionMapper implements ExceptionMapper<UnauthenticatedException> {
         final SevereExceptionMapper severeExceptionMapper = new SevereExceptionMapper();
         @Override
-        public Response toResponse(NotAuthorizedException notAuthorizedException) {
+        public Response toResponse(UnauthenticatedException unauthenticatedException) {
             try {
                 return Response
                         .temporaryRedirect(URI.create("/index.html"))

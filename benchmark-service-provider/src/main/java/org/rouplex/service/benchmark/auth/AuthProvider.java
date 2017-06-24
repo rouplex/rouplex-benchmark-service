@@ -4,16 +4,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 class AuthProvider<T extends UserAtProvider> {
-    enum Provider {
-        rouplex, google
-    }
-
     Map<String, T> usersAtProvider = new HashMap<>();
 
-//    T getUser(String userId) {
-//        return usersAtProvider.get(userId);
-//    }
-//
     /**
      * Add or replace a user for this provider. Inheriting classes can opt to throw an exception if this operation is
      * not acceptable to be added.
@@ -42,7 +34,7 @@ class AuthProvider<T extends UserAtProvider> {
 
     protected static UserInfo fromUserAtProvider(UserAtProvider userAtProvider) {
         UserInfo userInfo = new UserInfo();
-        userInfo.setUserName(userAtProvider.getUserProfile().getUserName());
+        userInfo.setUserName(userAtProvider.getUser().getUserName());
         userInfo.setUserIdAtProvider(userAtProvider.getUserId());
         return userInfo;
     }

@@ -6,6 +6,7 @@ import './styles/custom-styles.css';
 import Header from './Header';
 import Body from './Body';
 import Footer from './Footer';
+import Button from 'react-bootstrap/lib/Button';
 
 var config = require("./Config.js");
 
@@ -15,28 +16,44 @@ class App extends React.Component {
 
     this.state = {
       sessionInfo: {},
-      actionPath: window.location.search.substr(1)
+      path: config.getSanitizedPath()
     };
+
+    window.onpopstate = (event) => {
+      if (event.state) {
+        this.setState({path: event.state});
+      } else {
+        window.history.back();
+      }
+    }
+  }
+
+  handlePathUpdate(path) {
+    //alert("redirecting: " + path);
+
+    try {
+      window.history.pushState(path, "Rouplex-Demo " + path, config.baseUrl + "/?" + path);
+    } catch (err) {
+      // either non html5 or we are in dev mode loading page from file://
+    }
+
+    this.setState({path: path});
   }
 
   render() {
     return (
       <div>
         <Header
+          path={this.state.path}
           sessionInfo={this.state.sessionInfo}
-          onSessionUpdate={sessionInfo => {
-            if (config.autologin && !sessionInfo.userInfo) {
-              console.log("faking logged in user");
-              sessionInfo.userInfo = "fake dev user";
-            }
-
-            this.setState({sessionInfo: sessionInfo});
-          }}/>
+          onPathUpdate={path => this.handlePathUpdate(path)}
+          onSessionUpdate={sessionInfo => this.setState({sessionInfo: sessionInfo ? sessionInfo : {}})}
+        />
 
         <Body
+          path={this.state.path}
           sessionInfo={this.state.sessionInfo}
-          actionPath={this.state.actionPath}
-          onActionPathUpdate={actionPath => this.setState({actionPath: actionPath})}
+          onPathUpdate={path => this.handlePathUpdate(path)}
         />
 
         <Footer/>

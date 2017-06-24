@@ -1,10 +1,5 @@
 package org.rouplex.service.benchmark.worker;
 
-import org.rouplex.service.benchmark.management.SnapCounter;
-import org.rouplex.service.benchmark.management.SnapHistogram;
-import org.rouplex.service.benchmark.management.SnapMeter;
-import org.rouplex.service.benchmark.management.SnapTimer;
-
 import java.util.SortedMap;
 
 /**

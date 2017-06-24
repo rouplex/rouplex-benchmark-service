@@ -42,7 +42,7 @@ public class ChannelShutdownParityTest {
 
     @Before
     public void startServer() throws Exception {
-        BenchmarkWorkerService bmService = BenchmarkWorkerServiceProvider.get();
+        WorkerService bmService = WorkerServiceProvider.get();
 
         StartTcpServerRequest startTcpServerRequest = new StartTcpServerRequest();
         startTcpServerRequest.setProvider(Provider.ROUPLEX_NIOSSL);

@@ -6,7 +6,7 @@ import io.swagger.annotations.ApiResponse;
 import io.swagger.annotations.ApiResponses;
 import org.glassfish.jersey.server.ResourceConfig;
 import org.rouplex.platform.jaxrs.security.RouplexSecurityContext;
-import org.rouplex.service.benchmark.auth.BenchmarkAuthServiceProvider;
+import org.rouplex.service.benchmark.auth.AuthServiceProvider;
 import org.rouplex.service.benchmark.auth.UserInfo;
 import org.rouplex.service.benchmark.orchestrator.*;
 
@@ -15,7 +15,7 @@ import javax.servlet.http.HttpServletResponse;
 import javax.ws.rs.core.Context;
 
 @Api(value = "Benchmark Orchestrator", description = "Service offering multipoint benchmarking functionality")
-public class BenchmarkOrchestratorServiceResource extends ResourceConfig implements BenchmarkOrchestratorService {
+public class OrchestratorResource extends ResourceConfig implements OrchestratorService {
 
     @Context
     HttpServletRequest httpServletRequest;
@@ -32,12 +32,12 @@ public class BenchmarkOrchestratorServiceResource extends ResourceConfig impleme
     public StartTcpBenchmarkResponse startTcpBenchmark(
             StartTcpBenchmarkRequest request) throws Exception {
 
-        UserInfo userInfo = BenchmarkAuthServiceProvider.get().getUserInfo(httpServletRequest.getHeader("Rouplex-SessionId"));
+        UserInfo userInfo = AuthServiceProvider.get().getUserInfo(httpServletRequest.getHeader("Rouplex-SessionId"));
         if (userInfo == null) {
-            throw new NotAuthorizedException(httpServletRequest.getContextPath());
+            throw new UnauthenticatedException();
         }
 
-        return BenchmarkOrchestratorServiceProvider.get().startTcpBenchmark(request, userInfo);
+        return OrchestratorServiceProvider.get().startTcpBenchmark(request, userInfo);
     }
 
     @ApiOperation(value = "Get the status of the benchmark")

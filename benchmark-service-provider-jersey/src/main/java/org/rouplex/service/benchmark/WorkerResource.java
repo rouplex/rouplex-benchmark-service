@@ -8,14 +8,14 @@ import org.glassfish.jersey.server.ResourceConfig;
 import org.rouplex.service.benchmark.worker.*;
 
 @Api(value = "Benchmark Worker", description = "Service offering point to point tcp benchmarking functionality")
-public class BenchmarkWorkerServiceResource extends ResourceConfig implements BenchmarkWorkerService {
+public class WorkerResource extends ResourceConfig implements WorkerService {
 
     @ApiOperation(value = "Start an echo RouplexTcpServer on this host at the specified local address:port")
     @ApiResponses(value = {
             @ApiResponse(code = 200, message = "Success"),
             @ApiResponse(code = 500, message = "Error handling request")})
     public StartTcpServerResponse startTcpServer(StartTcpServerRequest request) throws Exception {
-        return BenchmarkWorkerServiceProvider.get().startTcpServer(request);
+        return WorkerServiceProvider.get().startTcpServer(request);
     }
 
     @ApiOperation(value = "Stop the RouplexTcpServer on this host bound at the specified local address:port")
@@ -24,12 +24,12 @@ public class BenchmarkWorkerServiceResource extends ResourceConfig implements Be
             @ApiResponse(code = 500, message = "Error handling request")})
     @Override
     public StopTcpServerResponse stopTcpServer(StopTcpServerRequest request) throws Exception {
-        return BenchmarkWorkerServiceProvider.get().stopTcpServer(request);
+        return WorkerServiceProvider.get().stopTcpServer(request);
     }
 
     @Override
     public PollTcpEndPointStateResponse pollTcpServerState(PollTcpEndPointStateRequest request) throws Exception {
-        return BenchmarkWorkerServiceProvider.get().pollTcpServerState(request);
+        return WorkerServiceProvider.get().pollTcpServerState(request);
     }
 
     @ApiOperation(value = "Start a number of RouplexTcpClients on this host and connect them to a remote echo tcp server")
@@ -38,12 +38,12 @@ public class BenchmarkWorkerServiceResource extends ResourceConfig implements Be
             @ApiResponse(code = 500, message = "Error handling request")})
     @Override
     public StartTcpClientsResponse startTcpClients(StartTcpClientsRequest request) throws Exception {
-        return BenchmarkWorkerServiceProvider.get().startTcpClients(request);
+        return WorkerServiceProvider.get().startTcpClients(request);
     }
 
     @Override
     public PollTcpEndPointStateResponse pollTcpClientsState(PollTcpEndPointStateRequest request) throws Exception {
-        return BenchmarkWorkerServiceProvider.get().pollTcpClientsState(request);
+        return WorkerServiceProvider.get().pollTcpClientsState(request);
     }
 
     @ApiOperation(value = "Get snapshot metrics of the servers and clients running on this host")
@@ -53,6 +53,6 @@ public class BenchmarkWorkerServiceResource extends ResourceConfig implements Be
 
     @Override
     public GetMetricsResponse getMetricsResponse(GetMetricsRequest request) throws Exception {
-        return BenchmarkWorkerServiceProvider.get().getMetricsResponse(request);
+        return WorkerServiceProvider.get().getMetricsResponse(request);
     }
 }

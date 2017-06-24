@@ -1,8 +1,8 @@
 package org.rouplex.service.benchmark.auth;
 
 public class SessionInfo {
-    String sessionId;
-    UserInfo userInfo;
+    private String sessionId;
+    private UserInfo userInfo;
 
     public String getSessionId() {
         return sessionId;

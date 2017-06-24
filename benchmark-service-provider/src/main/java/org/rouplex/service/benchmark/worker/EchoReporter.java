@@ -11,7 +11,7 @@ import java.util.logging.Logger;
  * @author Andi Mullaraj (andimullaraj at gmail.com)
  */
 public class EchoReporter {
-    private static final Logger logger = Logger.getLogger(BenchmarkWorkerServiceProvider.class.getSimpleName());
+    private static final Logger logger = Logger.getLogger(WorkerServiceProvider.class.getSimpleName());
     public static final String format = "%s.%s.%s.%s:%s::%s:%s";
     // [Provider].[S,P].[EchoRequester,EchoResponder].[Server]:[Port]::[Client]:[Port]
 

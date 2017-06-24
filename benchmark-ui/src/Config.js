@@ -1,17 +1,21 @@
 var config = module.exports = {};
 
-config.env = "prod";
+config.env = "dev";
+config.version = "1.0.0.A3";
 
-config.autologin = false; //= config.env == "dev";
-
-config.host = config.env == "dev" ? "http://localhost:8080" : "https://www.rouplex-demo.com:443";
-config.baseUrl = config.host + "/benchmark-service-provider-jersey-1.0.0-SNAPSHOT";
+config.host = config.env == "dev" ? "http://localhost:8080" : "https://www.rouplex-demo.com";
+config.basePath = config.env == "dev" ? "/benchmark-service-provider-jersey-1.0.0-SNAPSHOT" : "";
+config.baseUrl = config.host + config.basePath;
 config.mainUrl = config.baseUrl + "/index.html";
-config.restUrl = config.baseUrl + "/rouplex/benchmark";
-config.signInUrl = config.restUrl + "/auth/sign-in";
-config.signInViaGoogleUrl = config.signInUrl + "?provider=google";
-config.signInViaRouplexUrl = config.signInUrl + "?provider=rouplex";
-config.signOutUrl = config.restUrl + "/auth/sign-out";
+config.restUrl = config.baseUrl + "/rest/benchmark";
+
+config.authUrl = config.restUrl + "/auth";
+config.startSignInUsingGoogleOauth2Url = config.authUrl + "/start-sign-in-using-google-oauth2";
+config.finishSignInUsingGoogleOauth2Url = config.authUrl + "/finish-sign-in-using-google-oauth2";
+config.signInUsingBasicAuthUrl = config.authUrl + "/sign-in-using-basic-auth";
+config.signOutUrl = config.authUrl + "/sign-out";
+config.getSessionInfoUrl = config.authUrl + "/session-info";
+
 config.startTcpBenchmarkUrl = config.restUrl + "/orchestrator/tcp/start";
 
 config.ec2InstanceTypes = [
@@ -45,3 +49,27 @@ config.nioProviders = [
     {key: "ROUPLEX_NIOSSL", value: "Rouplex NIO (With SSL support)"},
     {key: "SCALABLE_SSL", value: "Scalable NIO (With SSL support)"}
 ];
+
+// experimental from here on
+config.paths = [
+  {path: "/benchmark/start", label: "Start Benchmark"},
+  {path: "/benchmark/list", label: "List Benchmarks"}
+];
+
+config.getSanitizedPath = function(unsanitizedPath) {
+  if (!unsanitizedPath) {
+    unsanitizedPath = window.location.search;
+    if (unsanitizedPath.startsWith("?")) {
+      unsanitizedPath = unsanitizedPath.substring(1);
+    }
+  }
+
+  var sanitizedPath = config.paths[0].path;
+  config.paths.map(function(x) {
+    if (x.path === unsanitizedPath) {
+      sanitizedPath = unsanitizedPath;
+    }
+  });
+
+  return sanitizedPath;
+};

@@ -1,4 +1,4 @@
-package org.rouplex.service.benchmark.worker;
+package org.rouplex.service;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -8,7 +8,7 @@ import java.util.logging.LogRecord;
 /**
  * @author Andi Mullaraj (andimullaraj at gmail.com)
  */
-public class RouplexFormatter extends Formatter {
+public class BenchmarkLoggingFormatter extends Formatter {
     private final static String NEW_LINE = System.getProperty("line.separator");
     private final static SimpleDateFormat FORMATTER = new SimpleDateFormat("yyyy.MM.dd HH:mm:ss.SSS");
 

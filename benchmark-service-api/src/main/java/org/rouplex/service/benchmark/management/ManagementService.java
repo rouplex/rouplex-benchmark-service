@@ -3,8 +3,8 @@ package org.rouplex.service.benchmark.management;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 
-@Path("/benchmark/management")
-public interface BenchmarkManagementService {
+@Path("/management")
+public interface ManagementService {
     @POST
     @Path("/service/state")
     GetServiceStateResponse getServiceState(GetServiceStateRequest request) throws Exception;

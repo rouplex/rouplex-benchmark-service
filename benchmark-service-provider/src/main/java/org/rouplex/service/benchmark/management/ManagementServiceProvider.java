@@ -17,18 +17,18 @@ import java.util.logging.Logger;
 /**
  * @author Andi Mullaraj (andimullaraj at gmail.com)
  */
-public class BenchmarkManagementServiceProvider implements BenchmarkManagementService, Closeable {
-    private static final Logger logger = Logger.getLogger(BenchmarkManagementServiceProvider.class.getSimpleName());
+public class ManagementServiceProvider implements ManagementService, Closeable {
+    private static final Logger logger = Logger.getLogger(ManagementServiceProvider.class.getSimpleName());
 
-    private static BenchmarkManagementService benchmarkManagementService;
+    private static ManagementService managementService;
 
-    public static BenchmarkManagementService get() throws Exception {
-        synchronized (BenchmarkManagementServiceProvider.class) {
-            if (benchmarkManagementService == null) {
-                benchmarkManagementService = new BenchmarkManagementServiceProvider();
+    public static ManagementService get() throws Exception {
+        synchronized (ManagementServiceProvider.class) {
+            if (managementService == null) {
+                managementService = new ManagementServiceProvider();
             }
 
-            return benchmarkManagementService;
+            return managementService;
         }
     }
 
@@ -36,7 +36,7 @@ public class BenchmarkManagementServiceProvider implements BenchmarkManagementSe
     private long leaseEnd = System.currentTimeMillis() + 55 * 60 * 1000;
     private final ExecutorService executorService = Executors.newSingleThreadExecutor();
 
-    BenchmarkManagementServiceProvider() {
+    ManagementServiceProvider() {
         executorService.submit(new Runnable() {
             @Override
             public void run() {

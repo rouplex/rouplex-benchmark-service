@@ -37,22 +37,22 @@ import java.util.logging.Logger;
 /**
  * @author Andi Mullaraj (andimullaraj at gmail.com)
  */
-public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestratorService, Closeable {
-    private static final Logger logger = Logger.getLogger(BenchmarkOrchestratorServiceProvider.class.getSimpleName());
+public class OrchestratorServiceProvider implements OrchestratorService, Closeable {
+    private static final Logger logger = Logger.getLogger(OrchestratorServiceProvider.class.getSimpleName());
     private static final String JERSEY_CLIENT_READ_TIMEOUT = "jersey.config.client.readTimeout";
     private static final String JERSEY_CLIENT_CONNECT_TIMEOUT = "jersey.config.client.connectTimeout";
 
-    private static BenchmarkOrchestratorServiceProvider benchmarkOrchestratorService;
+    private static OrchestratorServiceProvider benchmarkOrchestratorService;
 
-    public static BenchmarkOrchestratorServiceProvider get() throws Exception {
-        synchronized (BenchmarkOrchestratorServiceProvider.class) {
+    public static OrchestratorServiceProvider get() throws Exception {
+        synchronized (OrchestratorServiceProvider.class) {
             if (benchmarkOrchestratorService == null) {
                 // a shortcut for now, this will discovered automatically when rouplex provides a discovery service
                 ConfigurationManager configurationManager = new ConfigurationManager();
                 configurationManager.putConfigurationEntry(BenchmarkConfigurationKey.WorkerInstanceProfileName,
                     "RouplexBenchmarkWorkerRole");
                 configurationManager.putConfigurationEntry(BenchmarkConfigurationKey.ServiceHttpDescriptor,
-                    "https://%s:443/benchmark-service-provider-jersey-1.0.0-SNAPSHOT/rouplex/benchmark");
+                    "https://%s:443/rouplex/benchmark");
                 configurationManager.putConfigurationEntry(BenchmarkConfigurationKey.WorkerLeaseInMinutes, "30");
 
                 configurationManager.putConfigurationEntry(BenchmarkConfigurationKey.GoogleCloudClientId,
@@ -61,7 +61,7 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
                 configurationManager.putConfigurationEntry(BenchmarkConfigurationKey.GoogleCloudClientPassword,
                     System.getenv(BenchmarkConfigurationKey.GoogleCloudClientPassword.toString()));
 
-                benchmarkOrchestratorService = new BenchmarkOrchestratorServiceProvider(configurationManager.getConfiguration());
+                benchmarkOrchestratorService = new OrchestratorServiceProvider(configurationManager.getConfiguration());
             }
 
             return benchmarkOrchestratorService;
@@ -79,7 +79,7 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
     private final ExecutorService executorService = Executors.newCachedThreadPool();
     private final Configuration configuration;
 
-    BenchmarkOrchestratorServiceProvider(Configuration configuration) throws Exception {
+    OrchestratorServiceProvider(Configuration configuration) throws Exception {
         this.configuration = configuration;
         jaxrsClient = createJaxRsClient();
         startMonitoringBenchmarkInstances();
@@ -132,7 +132,7 @@ public class BenchmarkOrchestratorServiceProvider implements BenchmarkOrchestrat
             // the underlying host just became an orchestrator and is granted unlimited lease
             ConfigureServiceRequest configureServiceRequest = new ConfigureServiceRequest();
             configureServiceRequest.setLeaseEndAsIsoInstant(Util.convertMillisToIsoInstant(Long.MAX_VALUE));
-            BenchmarkManagementServiceProvider.get().configureService(configureServiceRequest);
+            ManagementServiceProvider.get().configureService(configureServiceRequest);
 
             if (tcpBenchmarks.putIfAbsent(request.getBenchmarkRequestId(),
                 new BenchmarkDescriptor(request, benchmarkExpiration)) != null) {

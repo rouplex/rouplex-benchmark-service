@@ -8,10 +8,6 @@ import org.rouplex.platform.tcp.RouplexTcpClient;
 import org.rouplex.platform.tcp.RouplexTcpClientListener;
 import org.rouplex.platform.tcp.RouplexTcpServer;
 import org.rouplex.service.benchmark.Util;
-import org.rouplex.service.benchmark.management.SnapCounter;
-import org.rouplex.service.benchmark.management.SnapHistogram;
-import org.rouplex.service.benchmark.management.SnapMeter;
-import org.rouplex.service.benchmark.management.SnapTimer;
 
 import javax.net.ssl.SSLContext;
 import java.io.Closeable;
@@ -29,17 +25,17 @@ import java.util.logging.Logger;
 /**
  * @author Andi Mullaraj (andimullaraj at gmail.com)
  */
-public class BenchmarkWorkerServiceProvider implements BenchmarkWorkerService, Closeable {
-    private static final Logger logger = Logger.getLogger(BenchmarkWorkerServiceProvider.class.getSimpleName());
+public class WorkerServiceProvider implements WorkerService, Closeable {
+    private static final Logger logger = Logger.getLogger(WorkerServiceProvider.class.getSimpleName());
 
-    private static BenchmarkWorkerService benchmarkWorkerService;
-    public static BenchmarkWorkerService get() throws Exception {
-        synchronized (BenchmarkWorkerServiceProvider.class) {
-            if (benchmarkWorkerService == null) {
-                benchmarkWorkerService = new BenchmarkWorkerServiceProvider();
+    private static WorkerService workerService;
+    public static WorkerService get() throws Exception {
+        synchronized (WorkerServiceProvider.class) {
+            if (workerService == null) {
+                workerService = new WorkerServiceProvider();
             }
 
-            return benchmarkWorkerService;
+            return workerService;
         }
     }
 
@@ -62,7 +58,7 @@ public class BenchmarkWorkerServiceProvider implements BenchmarkWorkerService, C
                     ((EchoRequester) rouplexTcpClient.getAttachment()).startSendingThenClose(rouplexTcpClient);
                 } else {
                     new EchoResponder((StartTcpServerRequest) rouplexTcpClient.getRouplexTcpServer().getAttachment(),
-                            BenchmarkWorkerServiceProvider.this, rouplexTcpClient);
+                            WorkerServiceProvider.this, rouplexTcpClient);
                 }
             } catch (Exception e) {
                 benchmarkerMetrics.meter(MetricRegistry.name(
@@ -120,7 +116,7 @@ public class BenchmarkWorkerServiceProvider implements BenchmarkWorkerService, C
         }
     };
 
-    BenchmarkWorkerServiceProvider() throws Exception {
+    WorkerServiceProvider() throws Exception {
         sharedTcpBinders.put(Provider.CLASSIC_NIO, createRouplexTcpBinder(Provider.CLASSIC_NIO));
 
         try {
@@ -266,7 +262,7 @@ public class BenchmarkWorkerServiceProvider implements BenchmarkWorkerService, C
             scheduledExecutor.schedule(new Runnable() {
                 @Override
                 public void run() {
-                    new EchoRequester(BenchmarkWorkerServiceProvider.this, request, tcpBinder);
+                    new EchoRequester(WorkerServiceProvider.this, request, tcpBinder);
                 }
             }, startClientMillis, TimeUnit.MILLISECONDS);
         }

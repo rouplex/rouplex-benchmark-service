@@ -146,8 +146,8 @@ export default class StartBenchmark extends React.Component {
   postRequest(requestBody) {
     var postRequest = new XMLHttpRequest();
     postRequest.addEventListener("load", () => {
-      console.log("startTcpBenchmark.response: " + postRequest.responseText);
-      alert("startTcpBenchmark.response: " + postRequest.responseText);
+      console.log("startTcpBenchmark.post.response: " + postRequest.responseText);
+      //alert("startTcpBenchmark.post.response: " + postRequest.responseText);
       this.setState({pendingSubmission: false});
       try {
         // parse response
@@ -159,10 +159,12 @@ export default class StartBenchmark extends React.Component {
     });
 
     postRequest.addEventListener("error", () => {
-      console.log("startTcpBenchmark.error: " + postRequest.responseText);
-      alert("startTcpBenchmark.error: " + postRequest.responseText);
-      this.setState({pendingSubmission: false});
-      this.setState({failedSubmission: true});
+      console.log("startTcpBenchmark.post.error: " + postRequest.responseText);
+      //alert("startTcpBenchmark.post.error: " + postRequest.responseText);
+      this.setState({
+        pendingSubmission: false,
+        failedSubmission: true
+      });
     });
 
     postRequest.open("POST", config.startTcpBenchmarkUrl);
@@ -171,7 +173,7 @@ export default class StartBenchmark extends React.Component {
     postRequest.setRequestHeader('Rouplex-Cookie-Enabled', navigator.cookieEnabled);
     postRequest.setRequestHeader('Rouplex-SessionId', this.props.sessionInfo.sessionId);
 
-    console.log("startTcpBenchmark.request: " + requestBody);
+    console.log("startTcpBenchmark.post.request: " + requestBody);
     postRequest.send(requestBody);
   }
 
@@ -184,7 +186,10 @@ export default class StartBenchmark extends React.Component {
     }
     catch (err) {
       alert("Error starting benchmark. Cause: " + err);
-      this.setState({failedValidation: true, pendingSubmission: false});
+      this.setState({
+        failedValidation: true,
+        pendingSubmission: false
+      });
       return;
     }
 
@@ -193,7 +198,10 @@ export default class StartBenchmark extends React.Component {
     }
     catch (err) {
       alert("Error starting benchmark. Cause: " + err);
-      this.setState({failedSubmission: true, pendingSubmission: false});
+      this.setState({
+        failedSubmission: true,
+        pendingSubmission: false
+      });
     }
   }
 

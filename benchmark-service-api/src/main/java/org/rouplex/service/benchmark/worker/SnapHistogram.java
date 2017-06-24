@@ -1,16 +1,15 @@
-package org.rouplex.service.benchmark.management;
+package org.rouplex.service.benchmark.worker;
 
 /**
  * @author Andi Mullaraj (andimullaraj at gmail.com)
  */
-public class SnapTimer extends SnapMeter {
+public class SnapHistogram extends SnapCounter {
     long min, max;
     double mean, stddev, median, pc75, pc95, pc98, pc99, pc999;
 
-    public SnapTimer(long count, double meanRate, double oneMinRate, double fiveMinRate, double fifteenMinRate, String rateUnit,
-            long min, long max, double mean, double stddev, double median,
+    public SnapHistogram(long count, long min, long max, double mean, double stddev, double median,
             double pc75, double pc95, double pc98, double pc99, double pc999) {
-        super(count, meanRate, oneMinRate, fiveMinRate, fifteenMinRate, rateUnit);
+        super(count);
 
         this.min = min;
         this.max = max;
