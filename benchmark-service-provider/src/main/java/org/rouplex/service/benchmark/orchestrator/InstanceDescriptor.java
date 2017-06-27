@@ -7,14 +7,14 @@ import com.amazonaws.services.ec2.model.Region;
  * @author Andi Mullaraj (andimullaraj at gmail.com)
  */
 public class InstanceDescriptor<T> {
-    Region ec2Region;
-    InstanceType ec2InstanceType;
-    String imageId;
-    String privateIpAddress;
-    String publicIpAddress;
-    long expirationTimestamp;
-    long terminationTimestamp;
-    T metadata;
+    private Region ec2Region;
+    private InstanceType ec2InstanceType;
+    private String imageId;
+    private String privateIpAddress;
+    private String publicIpAddress;
+    private long expirationTimestamp;
+    private long terminationTimestamp;
+    private T metadata;
 
     public Region getEc2Region() {
         return ec2Region;

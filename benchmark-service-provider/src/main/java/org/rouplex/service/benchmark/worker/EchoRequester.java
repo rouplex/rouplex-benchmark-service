@@ -56,8 +56,8 @@ public class EchoRequester {
                         socketChannel = org.rouplex.nio.channels.SSLSocketChannel.open(RouplexTcpClient.buildRelaxedSSLContext());
                         break;
                     case SCALABLE_SSL:
-                        socketChannel = scalablessl.SSLSocketChannel.open(RouplexTcpClient.buildRelaxedSSLContext());
-                        break;
+                        // socketChannel = scalablessl.SSLSocketChannel.open(RouplexTcpClient.buildRelaxedSSLContext());
+                        // break;
                     case CLASSIC_NIO:
                     default:
                         throw new Exception("This provider cannot provide ssl communication");

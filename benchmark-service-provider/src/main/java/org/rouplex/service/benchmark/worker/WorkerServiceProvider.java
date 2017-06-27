@@ -156,13 +156,11 @@ public class WorkerServiceProvider implements WorkerService, Closeable {
             if (request.isSsl()) {
                 switch (request.getProvider()) {
                     case ROUPLEX_NIOSSL:
-                        serverSocketChannel = org.rouplex.nio.channels
-                                .SSLServerSocketChannel.open(SSLContext.getDefault());
+                        serverSocketChannel = org.rouplex.nio.channels.SSLServerSocketChannel.open(SSLContext.getDefault());
                         break;
                     case SCALABLE_SSL:
-                        serverSocketChannel = scalablessl
-                                .SSLServerSocketChannel.open(SSLContext.getDefault());
-                        break;
+                        // serverSocketChannel = scalablessl.SSLServerSocketChannel.open(SSLContext.getDefault());
+                        // break;
                     case CLASSIC_NIO:
                     default:
                         throw new Exception("This provider cannot provide ssl communication");
@@ -318,7 +316,7 @@ public class WorkerServiceProvider implements WorkerService, Closeable {
                         case ROUPLEX_NIOSSL:
                             return org.rouplex.nio.channels.SSLSelector.open();
                         case SCALABLE_SSL:
-                            return scalablessl.SSLSelector.open(SSLContext.getDefault());
+                            // return scalablessl.SSLSelector.open(SSLContext.getDefault());
                         default:
                             throw new Exception("Provider not found");
                     }

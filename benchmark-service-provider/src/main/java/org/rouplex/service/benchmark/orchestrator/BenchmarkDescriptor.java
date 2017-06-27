@@ -12,8 +12,7 @@ public class BenchmarkDescriptor<T> {
     private final Map<String, InstanceDescriptor<T>> instanceDescriptors = new HashMap<>();
     private Exception eventualException;
 
-    public BenchmarkDescriptor(StartTcpBenchmarkRequest startTcpBenchmarkRequest,
-                               long expirationTimestamp) {
+    public BenchmarkDescriptor(StartTcpBenchmarkRequest startTcpBenchmarkRequest, long expirationTimestamp) {
         this.startTcpBenchmarkRequest = startTcpBenchmarkRequest;
         this.expirationTimestamp = expirationTimestamp;
     }

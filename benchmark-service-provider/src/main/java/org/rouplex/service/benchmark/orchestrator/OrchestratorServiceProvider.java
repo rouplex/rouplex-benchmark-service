@@ -52,7 +52,7 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
                 configurationManager.putConfigurationEntry(BenchmarkConfigurationKey.WorkerInstanceProfileName,
                     "RouplexBenchmarkWorkerRole");
                 configurationManager.putConfigurationEntry(BenchmarkConfigurationKey.ServiceHttpDescriptor,
-                    "https://%s:443/rouplex/benchmark");
+                    "https://%s:443/rest/benchmark");
                 configurationManager.putConfigurationEntry(BenchmarkConfigurationKey.WorkerLeaseInMinutes, "30");
 
                 configurationManager.putConfigurationEntry(BenchmarkConfigurationKey.GoogleCloudClientId,
@@ -151,6 +151,8 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
         }
 
         StartTcpBenchmarkResponse response = new StartTcpBenchmarkResponse();
+        response.setBenchmarkRequestId(request.getBenchmarkRequestId());
+        response.setImageId(request.getImageId());
         response.setTcpClientsExpectation(clientsExpectation);
         response.setTcpServerExpectation(buildServerTcpMetricsExpectation(clientHostCount, clientsExpectation));
 
@@ -252,29 +254,36 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
 
             InstanceDescriptor<T> instanceDescriptor = new InstanceDescriptor<>();
             instanceDescriptor.setMetadata(metadata);
-            instanceDescriptors.put(instance.getInstanceId(), instanceDescriptor);
             instanceDescriptor.setPrivateIpAddress(instance.getPrivateIpAddress());
             instanceDescriptor.setImageId(instance.getImageId());
             instanceDescriptor.setEc2Region(ec2Region);
+            instanceDescriptor.setEc2InstanceType(instanceType);
+            instanceDescriptors.put(instance.getInstanceId(), instanceDescriptor);
         }
 
         return instanceDescriptors;
     }
 
     @Override
-    public DescribeTcpBenchmarkResponse describeTcpBenchmark(DescribeTcpBenchmarkRequest request1) throws Exception {
-        BenchmarkDescriptor<Boolean> benchmarkDescriptor = (BenchmarkDescriptor<Boolean>) tcpBenchmarks.get(request1.getBenchmarkRequestId());
-        StartTcpBenchmarkRequest request = benchmarkDescriptor.getStartTcpBenchmarkRequest();
-        int clientHostCount = (request.getClientCount() - 1) / request.getClientsPerHost() + 1;
+    public DescribeTcpBenchmarkResponse describeTcpBenchmark(DescribeTcpBenchmarkRequest describeRequest) throws Exception {
+        BenchmarkDescriptor<Boolean> benchmarkDescriptor =
+            (BenchmarkDescriptor<Boolean>) tcpBenchmarks.get(describeRequest.getBenchmarkRequestId());
 
-        TcpMetricsExpectation clientsExpectation = buildClientsTcpMetricsExpectation(request);
+        if (benchmarkDescriptor == null) {
+            throw new Exception(String.format("Tcp Benchmark [%s] not found", describeRequest.getBenchmarkRequestId()));
+        }
+
+        StartTcpBenchmarkRequest startRequest = benchmarkDescriptor.getStartTcpBenchmarkRequest();
+        int clientHostCount = (startRequest.getClientCount() - 1) / startRequest.getClientsPerHost() + 1;
+
+        TcpMetricsExpectation clientsExpectation = buildClientsTcpMetricsExpectation(startRequest);
 
         TcpMetricsExpectation serverExpectation = buildServerTcpMetricsExpectation(clientHostCount, clientsExpectation);
 
         // prepare and return response
         DescribeTcpBenchmarkResponse response = new DescribeTcpBenchmarkResponse();
-        response.setBenchmarkRequestId(request.getBenchmarkRequestId());
-        response.setImageId(request.getImageId());
+        response.setBenchmarkRequestId(startRequest.getBenchmarkRequestId());
+        response.setImageId(startRequest.getImageId());
 
         InstanceDescriptor<Boolean> serverDescriptor = null;
         List<String> clientIpAddresses = new ArrayList<>();
@@ -293,7 +302,7 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
 
         StringBuilder jconsoleJmxLink = new StringBuilder("jconsole");
         if (serverDescriptor != null) { // should never be null anyway
-            addToJmxLink(jconsoleJmxLink, serverDescriptor.publicIpAddress);
+            addToJmxLink(jconsoleJmxLink, serverDescriptor.getPublicIpAddress());
         }
         for (String ipAddress : clientIpAddresses) {
             addToJmxLink(jconsoleJmxLink, ipAddress);
@@ -463,32 +472,35 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
     }
 
     private String buildSystemTuningScript(int maxFileDescriptors, int tcpAsPercentOfTotalMemory) {
+        if (maxFileDescriptors < 1024) {
+            maxFileDescriptors = 1024;
+        }
+
         // consider net.core.somaxconn = 1000 as well
         String scriptTemplate = "#!/bin/bash\n\n" +
 
             "configure_system_limits() {\n" +
             "\techo \"=== Rouplex === Allowing more open file descriptors, tcp sockets, tcp memory\"\n" +
-            "\techo %s > /proc/sys/fs/nr_open\n" +
-            "\techo \"* hard nofile %s\" | tee -a /etc/security/limits.conf\n" +
-            "\techo \"* soft nofile %s\" | tee -a /etc/security/limits.conf\n" +
+            "\techo %1$s > /proc/sys/fs/nr_open\n" +
+            "\techo \"* hard nofile %1$s\" | tee -a /etc/security/limits.conf\n" +
+            "\techo \"* soft nofile %1$s\" | tee -a /etc/security/limits.conf\n" +
             "\techo \"\" | tee -a /etc/sysctl.conf\n" +
             "\techo \"# Allow use of 64000 ports from 1100 to 65100\" | tee -a /etc/sysctl.conf\n" +
             "\techo \"net.ipv4.ip_local_port_range = 1100 65100\" | tee -a /etc/sysctl.conf\n" +
             "\techo \"\" | tee -a /etc/sysctl.conf\n" +
             "\ttotal_mem_kb=`free -t | grep Mem | awk '{print $2}'`\n" +
-            "\ttcp_mem_in_pages=$(( total_mem_kb * %s / 100 / 4))\n" +
+            "\ttcp_mem_in_pages=$(( total_mem_kb * %2$s / 100 / 4))\n" +
             "\techo \"# Setup bigger tcp memory\" | tee -a /etc/sysctl.conf\n" +
             "\techo \"net.ipv4.tcp_mem = 383865 tcp_mem_in_pages tcp_mem_in_pages\" | tee -a /etc/sysctl.conf\n" +
             "\techo \"# Setup greater open files\" | tee -a /etc/sysctl.conf\n" +
-            "\techo \"fs.file-max = %s\" | tee -a /etc/sysctl.conf\n\n" +
+            "\techo \"fs.file-max = %1$s\" | tee -a /etc/sysctl.conf\n\n" +
             "\tsysctl -p\n" +
             "}\n\n" +
 
             "configure_system_limits\n" +
             "service tomcat restart\n";
 
-        return String.format(scriptTemplate, maxFileDescriptors, maxFileDescriptors,
-            maxFileDescriptors, tcpAsPercentOfTotalMemory, maxFileDescriptors);
+        return String.format(scriptTemplate, maxFileDescriptors, tcpAsPercentOfTotalMemory);
     }
 
     /**

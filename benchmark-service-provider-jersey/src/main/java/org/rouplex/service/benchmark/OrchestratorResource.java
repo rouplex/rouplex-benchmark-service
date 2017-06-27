@@ -46,6 +46,6 @@ public class OrchestratorResource extends ResourceConfig implements Orchestrator
         @ApiResponse(code = 500, message = "Error handling request")})
     @Override
     public DescribeTcpBenchmarkResponse describeTcpBenchmark(DescribeTcpBenchmarkRequest request) throws Exception {
-        return null;
+        return OrchestratorServiceProvider.get().describeTcpBenchmark(request);
     }
 }
