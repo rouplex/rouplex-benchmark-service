@@ -3,19 +3,19 @@ package org.rouplex.service.benchmark.orchestrator;
 /**
  * @author Andi Mullaraj (andimullaraj at gmail.com)
  */
-public class StartTcpBenchmarkResponse {
-    String benchmarkRequestId;
+public class StartTcpEchoBenchmarkResponse {
+    String benchmarkId;
     String imageId;
 
     TcpMetricsExpectation tcpServerExpectation;
     TcpMetricsExpectation tcpClientsExpectation;
 
-    public String getBenchmarkRequestId() {
-        return benchmarkRequestId;
+    public String getBenchmarkId() {
+        return benchmarkId;
     }
 
-    public void setBenchmarkRequestId(String benchmarkRequestId) {
-        this.benchmarkRequestId = benchmarkRequestId;
+    public void setBenchmarkId(String benchmarkId) {
+        this.benchmarkId = benchmarkId;
     }
 
     public String getImageId() {

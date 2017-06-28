@@ -5,8 +5,8 @@ import java.util.List;
 /**
  * @author Andi Mullaraj (andimullaraj at gmail.com)
  */
-public class DescribeTcpBenchmarkResponse {
-    String benchmarkRequestId;
+public class DescribeTcpEchoBenchmarkResponse {
+    String benchmarkId;
     String imageId;
 
     HostType serverHostType;
@@ -22,12 +22,12 @@ public class DescribeTcpBenchmarkResponse {
     TcpMetricsExpectation tcpServerExpectation;
     TcpMetricsExpectation tcpClientsExpectation;
 
-    public String getBenchmarkRequestId() {
-        return benchmarkRequestId;
+    public String getBenchmarkId() {
+        return benchmarkId;
     }
 
-    public void setBenchmarkRequestId(String benchmarkRequestId) {
-        this.benchmarkRequestId = benchmarkRequestId;
+    public void setBenchmarkId(String benchmarkId) {
+        this.benchmarkId = benchmarkId;
     }
 
     public String getImageId() {

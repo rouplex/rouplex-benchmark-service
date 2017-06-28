@@ -85,7 +85,7 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
         startMonitoringBenchmarkInstances();
     }
 
-    private void checkAndSanitize(StartTcpBenchmarkRequest request) {
+    private void checkAndSanitize(StartTcpEchoBenchmarkRequest request) {
         Util.checkNonNullArg(request.getProvider(), "Provider");
 
         Util.checkNonNegativeArg(request.getClientCount(), "ClientCount");
@@ -103,8 +103,8 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
         Util.checkPositiveArgDiff(request.getMaxPayloadSize() - request.getMinPayloadSize(),
             "MinPayloadSize", "MaxPayloadSize");
 
-        if (request.getBenchmarkRequestId() == null) {
-            request.setBenchmarkRequestId(UUID.randomUUID().toString());
+        if (request.getBenchmarkId() == null) {
+            request.setBenchmarkId(UUID.randomUUID().toString());
         }
 
         if (request.getImageId() == null) {
@@ -117,11 +117,11 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
     }
 
     @Override
-    public StartTcpBenchmarkResponse startTcpBenchmark(StartTcpBenchmarkRequest request) throws Exception {
+    public StartTcpEchoBenchmarkResponse startTcpEchoBenchmark(StartTcpEchoBenchmarkRequest request) throws Exception {
         return startTcpBenchmark(request, null);
     }
 
-    public StartTcpBenchmarkResponse startTcpBenchmark(final StartTcpBenchmarkRequest request, UserInfo userInfo) throws Exception {
+    public StartTcpEchoBenchmarkResponse startTcpBenchmark(final StartTcpEchoBenchmarkRequest request, UserInfo userInfo) throws Exception {
         checkAndSanitize(request);
 
         int clientHostCount = (request.getClientCount() - 1) / request.getClientsPerHost() + 1;
@@ -134,24 +134,24 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
             configureServiceRequest.setLeaseEndAsIsoInstant(Util.convertMillisToIsoInstant(Long.MAX_VALUE));
             ManagementServiceProvider.get().configureService(configureServiceRequest);
 
-            if (tcpBenchmarks.putIfAbsent(request.getBenchmarkRequestId(),
+            if (tcpBenchmarks.putIfAbsent(request.getBenchmarkId(),
                 new BenchmarkDescriptor(request, benchmarkExpiration)) != null) {
                 throw new Exception(String.format("Distributed tcp benchmark [%s] already running",
-                    request.getBenchmarkRequestId()));
+                    request.getBenchmarkId()));
             }
         }
 
         logger.info(String.format(
             "Starting Distributed Benchmark [%s]. 1 ec2 server host and %s ec2 client hosts",
-            request.getBenchmarkRequestId(), clientHostCount));
+            request.getBenchmarkId(), clientHostCount));
 
         // temp hack preventing others from abusing the service
         if ("andimullaraj@gmail.com".equals(userInfo.getUserIdAtProvider())) {
-            executorService.submit((Runnable) () -> start(request.getBenchmarkRequestId()));
+            executorService.submit((Runnable) () -> start(request.getBenchmarkId()));
         }
 
-        StartTcpBenchmarkResponse response = new StartTcpBenchmarkResponse();
-        response.setBenchmarkRequestId(request.getBenchmarkRequestId());
+        StartTcpEchoBenchmarkResponse response = new StartTcpEchoBenchmarkResponse();
+        response.setBenchmarkId(request.getBenchmarkId());
         response.setImageId(request.getImageId());
         response.setTcpClientsExpectation(clientsExpectation);
         response.setTcpServerExpectation(buildServerTcpMetricsExpectation(clientHostCount, clientsExpectation));
@@ -159,11 +159,11 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
         return response;
     }
 
-    void start(String benchmarkRequestId) {
-        BenchmarkDescriptor<Boolean> benchmarkDescriptor = (BenchmarkDescriptor<Boolean>) tcpBenchmarks.get(benchmarkRequestId);
+    void start(String benchmarkId) {
+        BenchmarkDescriptor<Boolean> benchmarkDescriptor = (BenchmarkDescriptor<Boolean>) tcpBenchmarks.get(benchmarkId);
 
         try {
-            StartTcpBenchmarkRequest request = benchmarkDescriptor.getStartTcpBenchmarkRequest();
+            StartTcpEchoBenchmarkRequest request = benchmarkDescriptor.getStartTcpEchoBenchmarkRequest();
             Map<String, InstanceDescriptor<Boolean>> serverDescriptors = startRunningInstances(request, true);
             Map<String, InstanceDescriptor<Boolean>> clientDescriptors = startRunningInstances(request, false);
 
@@ -202,7 +202,7 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
 
     // a shortcut here targeting just ec2 instances for now
     private Map<String, InstanceDescriptor<Boolean>> startRunningInstances(
-        StartTcpBenchmarkRequest request, boolean server) throws Exception {
+        StartTcpEchoBenchmarkRequest request, boolean server) throws Exception {
 
         int clientHostCount = (request.getClientCount() - 1) / request.getClientsPerHost() + 1;
         int maxSimultaneousConnectionsPerClient =
@@ -227,7 +227,7 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
 
         return startRunningEC2Instances(getEC2Region(request, server), request.getImageId(),
             getEC2InstanceType(request, server), instanceCount, request.getKeyName(), data,
-            tagPrefix + request.getBenchmarkRequestId(), server);
+            tagPrefix + request.getBenchmarkId(), server);
     }
 
     private <T> Map<String, InstanceDescriptor<T>> startRunningEC2Instances(
@@ -265,15 +265,20 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
     }
 
     @Override
-    public DescribeTcpBenchmarkResponse describeTcpBenchmark(DescribeTcpBenchmarkRequest describeRequest) throws Exception {
+    public ListTcpEchoBenchmarksResponse listTcpEchoBenchmarks(String includePublic) throws Exception {
+        return null;
+    }
+
+    @Override
+    public DescribeTcpEchoBenchmarkResponse describeTcpEchoBenchmark(String benchmarkId) throws Exception {
         BenchmarkDescriptor<Boolean> benchmarkDescriptor =
-            (BenchmarkDescriptor<Boolean>) tcpBenchmarks.get(describeRequest.getBenchmarkRequestId());
+            (BenchmarkDescriptor<Boolean>) tcpBenchmarks.get(benchmarkId);
 
         if (benchmarkDescriptor == null) {
-            throw new Exception(String.format("Tcp Benchmark [%s] not found", describeRequest.getBenchmarkRequestId()));
+            throw new Exception(String.format("Tcp Benchmark [%s] not found", benchmarkId));
         }
 
-        StartTcpBenchmarkRequest startRequest = benchmarkDescriptor.getStartTcpBenchmarkRequest();
+        StartTcpEchoBenchmarkRequest startRequest = benchmarkDescriptor.getStartTcpEchoBenchmarkRequest();
         int clientHostCount = (startRequest.getClientCount() - 1) / startRequest.getClientsPerHost() + 1;
 
         TcpMetricsExpectation clientsExpectation = buildClientsTcpMetricsExpectation(startRequest);
@@ -281,8 +286,8 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
         TcpMetricsExpectation serverExpectation = buildServerTcpMetricsExpectation(clientHostCount, clientsExpectation);
 
         // prepare and return response
-        DescribeTcpBenchmarkResponse response = new DescribeTcpBenchmarkResponse();
-        response.setBenchmarkRequestId(startRequest.getBenchmarkRequestId());
+        DescribeTcpEchoBenchmarkResponse response = new DescribeTcpEchoBenchmarkResponse();
+        response.setBenchmarkId(startRequest.getBenchmarkId());
         response.setImageId(startRequest.getImageId());
 
         InstanceDescriptor<Boolean> serverDescriptor = null;
@@ -444,7 +449,7 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
         }
     }
 
-    private Region getEC2Region(StartTcpBenchmarkRequest request, boolean server) {
+    private Region getEC2Region(StartTcpEchoBenchmarkRequest request, boolean server) {
         try {
             GeoLocation geoLocation = server ? request.getServerGeoLocation() : request.getClientsGeoLocation();
             return new Region().withRegionName(geoLocation.toString());
@@ -453,14 +458,14 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
         }
     }
 
-    private HostType getHostType(StartTcpBenchmarkRequest request, boolean server) {
+    private HostType getHostType(StartTcpEchoBenchmarkRequest request, boolean server) {
         HostType hostType = server
             ? request.getServerHostType() : request.getClientsHostType();
 
         return hostType != null ? hostType : server ? HostType.EC2_M4Large : HostType.EC2_T2Micro;
     }
 
-    private InstanceType getEC2InstanceType(StartTcpBenchmarkRequest request, boolean server) {
+    private InstanceType getEC2InstanceType(StartTcpEchoBenchmarkRequest request, boolean server) {
         return InstanceType.fromValue(getHostType(request, server).toString());
     }
 
@@ -557,7 +562,7 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
         }
     }
 
-    private StartTcpServerRequest buildStartTcpServerRequest(StartTcpBenchmarkRequest request, String ipAddress) {
+    private StartTcpServerRequest buildStartTcpServerRequest(StartTcpEchoBenchmarkRequest request, String ipAddress) {
         StartTcpServerRequest startTcpServerRequest = new StartTcpServerRequest();
 
         startTcpServerRequest.setProvider(request.getProvider());
@@ -573,7 +578,7 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
     }
 
     private StartTcpClientsRequest buildStartTcpClientsRequestRequest(
-        StartTcpBenchmarkRequest request, String remoteIpAddress, int remoteIpPort) {
+        StartTcpEchoBenchmarkRequest request, String remoteIpAddress, int remoteIpPort) {
 
         StartTcpClientsRequest startTcpClientsRequest = new StartTcpClientsRequest();
         startTcpClientsRequest.setProvider(request.getProvider());
@@ -598,7 +603,7 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
         return startTcpClientsRequest;
     }
 
-    private TcpMetricsExpectation buildClientsTcpMetricsExpectation(StartTcpBenchmarkRequest request) {
+    private TcpMetricsExpectation buildClientsTcpMetricsExpectation(StartTcpEchoBenchmarkRequest request) {
         TcpMetricsExpectation clientsExpectation = new TcpMetricsExpectation();
 
         clientsExpectation.setStartAsIsoInstant(Util.convertMillisToIsoInstant(System.currentTimeMillis()));

@@ -16,7 +16,7 @@ config.signInUsingBasicAuthUrl = config.authUrl + "/sign-in-using-basic-auth";
 config.signOutUrl = config.authUrl + "/sign-out";
 config.getSessionInfoUrl = config.authUrl + "/session-info";
 
-config.startTcpBenchmarkUrl = config.restUrl + "/orchestrator/tcp/start";
+config.tcpEchoBenchmarkUrl = config.restUrl + "/orchestrator/tcp-echo-benchmarks";
 
 config.ec2InstanceTypes = [
   {key: "EC2_T2Nano", value: "T2 Nano"},

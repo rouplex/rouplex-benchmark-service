@@ -7,18 +7,18 @@ import java.util.Map;
  * @author Andi Mullaraj (andimullaraj at gmail.com)
  */
 public class BenchmarkDescriptor<T> {
-    private final StartTcpBenchmarkRequest startTcpBenchmarkRequest;
+    private final StartTcpEchoBenchmarkRequest startTcpEchoBenchmarkRequest;
     private final long expirationTimestamp;
     private final Map<String, InstanceDescriptor<T>> instanceDescriptors = new HashMap<>();
     private Exception eventualException;
 
-    public BenchmarkDescriptor(StartTcpBenchmarkRequest startTcpBenchmarkRequest, long expirationTimestamp) {
-        this.startTcpBenchmarkRequest = startTcpBenchmarkRequest;
+    public BenchmarkDescriptor(StartTcpEchoBenchmarkRequest startTcpEchoBenchmarkRequest, long expirationTimestamp) {
+        this.startTcpEchoBenchmarkRequest = startTcpEchoBenchmarkRequest;
         this.expirationTimestamp = expirationTimestamp;
     }
 
-    public StartTcpBenchmarkRequest getStartTcpBenchmarkRequest() {
-        return startTcpBenchmarkRequest;
+    public StartTcpEchoBenchmarkRequest getStartTcpEchoBenchmarkRequest() {
+        return startTcpEchoBenchmarkRequest;
     }
 
     public long getExpirationTimestamp() {

@@ -28,7 +28,7 @@ export default class StartBenchmark extends React.Component {
       keyName: null,
       socketSendBufferSize: null,
       socketReceiveBufferSize: null,
-      benchmarkRequestId: null,
+      benchmarkId: null,
       clientsGeoLocation: null,
       clientsHostType: null,
       clientCount: null,
@@ -46,7 +46,7 @@ export default class StartBenchmark extends React.Component {
 
   buildRequestBody() {
     var echoRatioQuoted = this.quote(this.state.echoRatio);
-    var benchmarkRequestIdQuoted = this.quote(this.state.benchmarkRequestId);
+    var benchmarkIdQuoted = this.quote(this.state.benchmarkId);
     var keyNameQuoted = this.quote(this.state.keyName);
 
     var socketSendBufferSize = this.parseIntValue("Socket Send Buffer Size", this.state.socketSendBufferSize, 0);
@@ -114,7 +114,7 @@ export default class StartBenchmark extends React.Component {
     var requestBody =
       '{\n' +
       '  "echoRatio" : ' + echoRatioQuoted + ',\n' +
-      '  "benchmarkRequestId" : ' + benchmarkRequestIdQuoted + ',\n' +
+      '  "benchmarkId" : ' + benchmarkIdQuoted + ',\n' +
       '  "serverHostType" : "' + this.state.serverHostType + '",\n' +
       '  "serverGeoLocation" : "' + this.state.serverGeoLocation + '",\n' +
       '  "clientsHostType" : "' + this.state.clientsHostType + '",\n' +
@@ -167,7 +167,7 @@ export default class StartBenchmark extends React.Component {
       });
     });
 
-    postRequest.open("POST", config.startTcpBenchmarkUrl);
+    postRequest.open("POST", config.tcpEchoBenchmarkUrl);
     postRequest.setRequestHeader('Content-Type', 'application/json');
     postRequest.setRequestHeader('Accept', 'application/json');
     postRequest.setRequestHeader('Rouplex-Cookie-Enabled', navigator.cookieEnabled);
@@ -291,7 +291,7 @@ export default class StartBenchmark extends React.Component {
         <Col md={5}>
           <ValueSelector
             label="Benchmark Id" colSpans={[4,8]} placeholder="Optional, auto generated if missing"
-            onChange={value => this.state.benchmarkRequestId = value}
+            onChange={value => this.state.benchmarkId = value}
           />
 
           <Panel header="Clients">

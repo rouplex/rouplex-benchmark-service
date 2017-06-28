@@ -1,15 +1,18 @@
 package org.rouplex.service.benchmark.orchestrator;
 
-import javax.ws.rs.POST;
-import javax.ws.rs.Path;
+import javax.ws.rs.*;
 
 @Path("/orchestrator")
 public interface OrchestratorService {
     @POST
-    @Path("tcp/start")
-    StartTcpBenchmarkResponse startTcpBenchmark(StartTcpBenchmarkRequest request) throws Exception;
+    @Path("tcp-echo-benchmarks")
+    StartTcpEchoBenchmarkResponse startTcpEchoBenchmark(StartTcpEchoBenchmarkRequest request) throws Exception;
 
-    @POST
-    @Path("tcp/describe")
-    DescribeTcpBenchmarkResponse describeTcpBenchmark(DescribeTcpBenchmarkRequest request) throws Exception;
+    @GET
+    @Path("tcp-echo-benchmarks")
+    ListTcpEchoBenchmarksResponse listTcpEchoBenchmarks(@QueryParam("includePublic") String includePublic) throws Exception;
+
+    @GET
+    @Path("tcp-echo-benchmarks/{benchmarkId}")
+    DescribeTcpEchoBenchmarkResponse describeTcpEchoBenchmark(@PathParam("benchmarkId") String benchmarkId) throws Exception;
 }

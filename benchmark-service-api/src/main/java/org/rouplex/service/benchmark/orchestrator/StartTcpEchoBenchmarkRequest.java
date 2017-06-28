@@ -6,9 +6,9 @@ import org.rouplex.service.benchmark.worker.Provider;
 /**
  * @author Andi Mullaraj (andimullaraj at gmail.com)
  */
-public class StartTcpBenchmarkRequest {
+public class StartTcpEchoBenchmarkRequest {
     String echoRatio; // not implemented yet
-    String benchmarkRequestId; // optional
+    String benchmarkId; // optional
     HostType serverHostType; // optional
     GeoLocation serverGeoLocation; // optional
     HostType clientsHostType; // optional
@@ -47,12 +47,12 @@ public class StartTcpBenchmarkRequest {
         this.echoRatio = echoRatio;
     }
 
-    public String getBenchmarkRequestId() {
-        return benchmarkRequestId;
+    public String getBenchmarkId() {
+        return benchmarkId;
     }
 
-    public void setBenchmarkRequestId(String benchmarkRequestId) {
-        this.benchmarkRequestId = benchmarkRequestId;
+    public void setBenchmarkId(String benchmarkId) {
+        this.benchmarkId = benchmarkId;
     }
 
     public HostType getServerHostType() {
