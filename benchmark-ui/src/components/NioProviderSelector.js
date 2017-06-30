@@ -16,15 +16,15 @@ export default class NioProviderSelector extends React.Component {
     return (
       <Form horizontal>
         <FormGroup>
-          <Col sm={3}>
+          <Col md={3}>
             <Checkbox style={{margin: '0 0 0 5px'}} onChange={key => this.props.onSslChange(key.target.checked)}>
               &nbsp; SSL
             </Checkbox>
           </Col>
-          <Col componentClass={ControlLabel} sm={2}>
+          <Col componentClass={ControlLabel} md={2}>
             Provider
           </Col>
-          <Col sm={7}>
+          <Col md={7}>
             <FormControl
               componentClass="select"
               onChange={key => this.props.onNioProviderChange(key.target.value)}

@@ -35,6 +35,12 @@ public class OrchestratorResource extends ResourceConfig implements Orchestrator
     public StartTcpEchoBenchmarkResponse startTcpEchoBenchmark(
             StartTcpEchoBenchmarkRequest request) throws Exception {
 
+        if (false) {
+            StartTcpEchoBenchmarkResponse response = new StartTcpEchoBenchmarkResponse();
+            response.setBenchmarkId("aaa");
+            return response;
+        }
+
         UserInfo userInfo = AuthServiceProvider.get().getUserInfo(httpServletRequest.getHeader("Rouplex-SessionId"));
         if (userInfo == null) {
             throw new UnauthenticatedException();
@@ -56,46 +62,53 @@ public class OrchestratorResource extends ResourceConfig implements Orchestrator
         @ApiResponse(code = 500, message = "Error handling request")})
     @Override
     public DescribeTcpEchoBenchmarkResponse describeTcpEchoBenchmark(String benchmarkId) throws Exception {
-        String jsonResponse = "{\n" +
-            "  \"benchmarkId\" : \"bb\",\n" +
-            "  \"imageId\" : \"ami-08edfa71\",\n" +
-            "  \"serverHostType\" : null,\n" +
-            "  \"serverGeoLocation\" : null,\n" +
-            "  \"serverIpAddress\" : null,\n" +
-            "  \"clientsHostType\" : null,\n" +
-            "  \"clientsGeoLocation\" : null,\n" +
-            "  \"clientIpAddresses\" : [ ],\n" +
-            "  \"jconsoleJmxLink\" : \"jconsole\",\n" +
-            "  \"tcpServerExpectation\" : {\n" +
-            "    \"rampUpInMillis\" : 1,\n" +
-            "    \"connectionsPerSecond\" : 1000.0,\n" +
-            "    \"maxSimultaneousConnections\" : 1,\n" +
-            "    \"maxUploadSpeedInBitsPerSecond\" : 8000,\n" +
-            "    \"maxDownloadSpeedInBitsPerSecond\" : 8000,\n" +
-            "    \"startAsIsoInstant\" : \"2017-06-27T05:12:57\",\n" +
-            "    \"finishRampUpAsIsoInstant\" : \"2017-06-27T05:12:57.612+0000\",\n" +
-            "    \"finishAsIsoInstant\" : \"2017-06-27T05:12:57\",\n" +
-            "    \"maxUploadSpeed\" : \"8000 Bps\",\n" +
-            "    \"maxDownloadSpeed\" : \"8000 Bps\"\n" +
-            "  },\n" +
-            "  \"tcpClientsExpectation\" : {\n" +
-            "    \"rampUpInMillis\" : 1,\n" +
-            "    \"connectionsPerSecond\" : 1000.0,\n" +
-            "    \"maxSimultaneousConnections\" : 1,\n" +
-            "    \"maxUploadSpeedInBitsPerSecond\" : 8000,\n" +
-            "    \"maxDownloadSpeedInBitsPerSecond\" : 8000,\n" +
-            "    \"startAsIsoInstant\" : \"2017-06-27T05:12:57.611+0000\",\n" +
-            "    \"finishRampUpAsIsoInstant\" : \"2017-06-27T05:12:57.612+0000\",\n" +
-            "    \"finishAsIsoInstant\" : \"2017-06-27T05:12:57\",\n" +
-            "    \"maxUploadSpeed\" : \"8000 Bps\",\n" +
-            "    \"maxDownloadSpeed\" : \"8000 Bps\"\n" +
-            "  }\n" +
-        "  }\n";
+        if (false) {
+            String jsonResponse = "{\n" +
+                "  \"benchmarkId\" : \"bb\",\n" +
+                "  \"imageId\" : \"ami-08edfa71\",\n" +
+                "  \"serverHostType\" : \"EC2_T2Medium\",\n" +
+                "  \"serverGeoLocation\" : \"EC2_US_WEST_2\",\n" +
+                "  \"serverIpAddress\" : null,\n" +
+                "  \"clientsHostType\" : \"EC2_T2Medium\",\n" +
+                "  \"clientsGeoLocation\" : \"EC2_US_WEST_2\",\n" +
+                "  \"clientIpAddresses\" : [ ],\n" +
+                "  \"jconsoleJmxLink\" : \"jconsole\",\n" +
+                "  \"tcpServerExpectation\" : {\n" +
+                "    \"rampUpInMillis\" : 1,\n" +
+                "    \"connectionsPerSecond\" : 1000.0,\n" +
+                "    \"maxSimultaneousConnections\" : 1,\n" +
+                "    \"maxUploadSpeedInBitsPerSecond\" : 8000,\n" +
+                "    \"maxDownloadSpeedInBitsPerSecond\" : 8000,\n" +
+                "    \"startAsIsoInstant\" : \"2017-06-27T05:12:57\",\n" +
+                "    \"finishRampUpAsIsoInstant\" : \"2017-06-27T05:12:57.612+0000\",\n" +
+                "    \"finishAsIsoInstant\" : \"2017-06-27T05:12:57\",\n" +
+                "    \"maxUploadSpeed\" : \"8000 Bps\",\n" +
+                "    \"maxDownloadSpeed\" : \"8000 Bps\"\n" +
+                "  },\n" +
+                "  \"tcpClientsExpectation\" : {\n" +
+                "    \"rampUpInMillis\" : 1,\n" +
+                "    \"connectionsPerSecond\" : 1000.0,\n" +
+                "    \"maxSimultaneousConnections\" : 1,\n" +
+                "    \"maxUploadSpeedInBitsPerSecond\" : 8000,\n" +
+                "    \"maxDownloadSpeedInBitsPerSecond\" : 8000,\n" +
+                "    \"startAsIsoInstant\" : \"2017-06-27T05:12:57.611+0000\",\n" +
+                "    \"finishRampUpAsIsoInstant\" : \"2017-06-27T05:12:57.612+0000\",\n" +
+                "    \"finishAsIsoInstant\" : \"2017-06-27T05:12:57\",\n" +
+                "    \"maxUploadSpeed\" : \"8000 Bps\",\n" +
+                "    \"maxDownloadSpeed\" : \"8000 Bps\"\n" +
+                "  }\n" +
+                "  }\n";
 
-        DescribeTcpEchoBenchmarkResponse response = new Gson().fromJson(jsonResponse, DescribeTcpEchoBenchmarkResponse.class);
-        response.setBenchmarkId(UUID.randomUUID().toString());
-        return response;
+            DescribeTcpEchoBenchmarkResponse response = new Gson().fromJson(jsonResponse, DescribeTcpEchoBenchmarkResponse.class);
+            response.setBenchmarkId(UUID.randomUUID().toString());
+            return response;
+        }
 
-//        return OrchestratorServiceProvider.get().describeTcpEchoBenchmark(request);
+        UserInfo userInfo = AuthServiceProvider.get().getUserInfo(httpServletRequest.getHeader("Rouplex-SessionId"));
+        if (userInfo == null) {
+            throw new UnauthenticatedException();
+        }
+
+        return OrchestratorServiceProvider.get().describeTcpEchoBenchmark(benchmarkId);
     }
 }

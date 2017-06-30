@@ -7,45 +7,36 @@ import org.rouplex.service.benchmark.worker.Provider;
  * @author Andi Mullaraj (andimullaraj at gmail.com)
  */
 public class StartTcpEchoBenchmarkRequest {
-    String echoRatio; // not implemented yet
-    String benchmarkId; // optional
-    HostType serverHostType; // optional
-    GeoLocation serverGeoLocation; // optional
-    HostType clientsHostType; // optional
-    GeoLocation clientsGeoLocation; // optional
-    String imageId; // optional
-    String keyName; // optional
+    private String benchmarkId; // optional
+    private HostType serverHostType; // optional
+    private GeoLocation serverGeoLocation; // optional
+    private HostType clientsHostType; // optional
+    private GeoLocation clientsGeoLocation; // optional
+    private String imageId; // optional
+    private String keyName; // optional
+    private String echoRatio; // not implemented yet
+    private int tcpMemoryAsPercentOfTotal; // optional, experimental for now
 
-    int tcpMemoryAsPercentOfTotal; // optional, experimental for now
+    private Provider provider;
+    private int port;
+    private boolean ssl;
+    private int socketSendBufferSize; // optional
+    private int socketReceiveBufferSize; // optional
+    private int backlog; // optional
 
-    Provider provider;
-    int port;
-    boolean ssl;
-    int socketSendBufferSize; // optional
-    int socketReceiveBufferSize; // optional
-    int backlog; // optional
+    private int clientCount = 100000;
+    private int clientsPerHost = 50000;
 
-    public int clientCount = 100000;
-    public int clientsPerHost = 50000;
+    private int minPayloadSize;
+    private int maxPayloadSize = 10000;
+    private int minDelayMillisBetweenSends;
+    private int maxDelayMillisBetweenSends = 1000;
+    private int minDelayMillisBeforeCreatingClient;
+    private int maxDelayMillisBeforeCreatingClient = 10000;
+    private int minClientLifeMillis;
+    private int maxClientLifeMillis = 10000;
 
-    public int minPayloadSize;
-    public int maxPayloadSize = 10000;
-    public int minDelayMillisBetweenSends;
-    public int maxDelayMillisBetweenSends = 1000;
-    public int minDelayMillisBeforeCreatingClient;
-    public int maxDelayMillisBeforeCreatingClient = 10000;
-    public int minClientLifeMillis;
-    public int maxClientLifeMillis = 10000;
-
-    MetricsAggregation metricsAggregation = new MetricsAggregation();
-
-    public String getEchoRatio() {
-        return echoRatio;
-    }
-
-    public void setEchoRatio(String echoRatio) {
-        this.echoRatio = echoRatio;
-    }
+    private MetricsAggregation metricsAggregation = new MetricsAggregation();
 
     public String getBenchmarkId() {
         return benchmarkId;
@@ -101,6 +92,22 @@ public class StartTcpEchoBenchmarkRequest {
 
     public void setKeyName(String keyName) {
         this.keyName = keyName;
+    }
+
+    public String getEchoRatio() {
+        return echoRatio;
+    }
+
+    public void setEchoRatio(String echoRatio) {
+        this.echoRatio = echoRatio;
+    }
+
+    public int getTcpMemoryAsPercentOfTotal() {
+        return tcpMemoryAsPercentOfTotal;
+    }
+
+    public void setTcpMemoryAsPercentOfTotal(int tcpMemoryAsPercentOfTotal) {
+        this.tcpMemoryAsPercentOfTotal = tcpMemoryAsPercentOfTotal;
     }
 
     public Provider getProvider() {
@@ -237,13 +244,5 @@ public class StartTcpEchoBenchmarkRequest {
 
     public void setMetricsAggregation(MetricsAggregation metricsAggregation) {
         this.metricsAggregation = metricsAggregation;
-    }
-
-    public int getTcpMemoryAsPercentOfTotal() {
-        return tcpMemoryAsPercentOfTotal;
-    }
-
-    public void setTcpMemoryAsPercentOfTotal(int tcpMemoryAsPercentOfTotal) {
-        this.tcpMemoryAsPercentOfTotal = tcpMemoryAsPercentOfTotal;
     }
 }

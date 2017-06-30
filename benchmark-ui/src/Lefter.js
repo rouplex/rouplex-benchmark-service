@@ -12,7 +12,7 @@ export default class Lefter extends React.Component {
       <div>{
         config.paths.map(function (path, key) {
           return (
-            <Button key={key} block disabled1={!this.props.sessionInfo.userInfo}
+            <Button key={key} block style={{margin: "8px 0 0 -30px"}} disabled={!this.props.sessionInfo.userInfo}
                     onClick={() => this.props.onPathUpdate(path.path)}>
               {path.label} »
             </Button>

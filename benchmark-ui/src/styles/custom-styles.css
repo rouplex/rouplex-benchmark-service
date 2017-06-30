@@ -2,19 +2,21 @@
   /*margin-left: 118px;*/
 }
 
-table td {
-  margin: 0;
-  padding: 0;
-}
-
+/*No gap between table header and body*/
 .table {
   margin: 0;
   padding: 0;
 }
+
+/*No extra space at bottom of panels*/
 .panel-body {
   padding-bottom: 0;
 }
 
+/*No blue rectangle around table cells*/
+*:focus {
+  outline: none;
+}
 
 /*WaitingSpinner (start) from http://cssload.net/en/spinners/ */
 #floatingCirclesG{

@@ -19,10 +19,10 @@ export default class DropdownSelector extends React.Component {
     return (
       <Form horizontal>
         <FormGroup>
-          <Col componentClass={ControlLabel} sm={this.getColSpan(0)}>
+          <Col componentClass={ControlLabel} md={this.getColSpan(0)}>
             {this.props.label}
           </Col>
-          <Col sm={this.getColSpan(1)}>
+          <Col md={this.getColSpan(1)}>
             <FormControl componentClass="select"
                          onChange={key => this.props.onChange(key.target.value)}
                          inputRef={key => {

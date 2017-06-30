@@ -15,6 +15,7 @@ var validator = require("./components/Validator.js");
 
 export default class StartBenchmark extends React.Component {
   // this.props.sessionInfo
+  // this.props.onPathUpdate
   constructor() {
     super();
 
@@ -39,7 +40,7 @@ export default class StartBenchmark extends React.Component {
       clientLifeMillis: {},
 
       pendingSubmission: false,
-      failedSubmission: false,
+      exception: null,
       failedValidation: false
     }
   }
@@ -150,12 +151,13 @@ export default class StartBenchmark extends React.Component {
       //alert("startTcpBenchmark.post.response: " + postRequest.responseText);
       this.setState({pendingSubmission: false});
       try {
-        // parse response
-        this.setState({failedSubmission: false});
+        var response = JSON.parse(postRequest.responseText);
       } catch (err) {
-        this.setState({failedSubmission: true});
-        return;
+        this.setState({exception: "Non parsable server response. Details: " + err});
       }
+
+      this.setState({exception: null});
+      this.props.onPathUpdate("/benchmark/show#" + response.benchmarkId)
     });
 
     postRequest.addEventListener("error", () => {
@@ -238,110 +240,112 @@ export default class StartBenchmark extends React.Component {
   render() {
     return (
       <Grid style={{padding: '0'}}>
-        <Col md={5}>
-          <NioProviderSelector
-            nioProviders={config.nioProviders}
-            onSslChange={value => this.state.ssl = value}
-            onNioProviderChange={value => this.state.provider = value}
-          />
-
-          <Panel header="Server">
-            <DropdownSelector
-              label="Geo Location" colSpans={[5,7]} options={config.ec2Regions}
-              onChange={value => this.setState({serverGeoLocation: value})}
+        <Row>
+          <Col md={5}>
+            <NioProviderSelector
+              nioProviders={config.nioProviders}
+              onSslChange={value => this.state.ssl = value}
+              onNioProviderChange={value => this.state.provider = value}
             />
 
-            <DropdownSelector
-              label="Host Type" colSpans={[5,7]} options={config.ec2InstanceTypes}
-              onChange={value => this.setState({serverHostType: value})}
-            />
+            <Panel header="Server">
+              <DropdownSelector
+                label="Geo Location" colSpans={[5,7]} options={config.ec2Regions}
+                onChange={value => this.setState({serverGeoLocation: value})}
+              />
 
+              <DropdownSelector
+                label="Host Type" colSpans={[5,7]} options={config.ec2InstanceTypes}
+                onChange={value => this.setState({serverHostType: value})}
+              />
+
+              <ValueSelector
+                label="Backlog (int)" colSpans={[5,7]} placeholder="Optional, defaults to system's"
+                onValidate={value => this.validateValue(value, {min: 0, optional: true})}
+                onChange={value => this.state.backlog = value}
+              />
+
+              <ValueSelector
+                label="Echo Ratio (x:y)" colSpans={[5,7]} placeholder="Optional, defaults to 1:1 (n/a yet)"
+                onChange={value => this.state.echoRatio = value}
+              />
+            </Panel>
+
+            <Panel header="Extra Parameters">
+              <ValueSelector
+                label="Aws Key Name" colSpans={[7,5]} placeholder="Optional, for ssh host access"
+                onChange={value => this.state.keyName = value}
+              />
+
+              <ValueSelector
+                label="Socket Send Buffer Size (kb)" colSpans={[7, 5]} placeholder="Optional, defaults to system's"
+                onValidate={value => this.validateValue(value, {min: 0, optional: true})}
+                onChange={value => this.state.socketSendBufferSize = value}
+              />
+
+              <ValueSelector
+                label="Socket Receive Buffer Size (kb)" colSpans={[7,5]} placeholder="Optional, defaults to system's"
+                onValidate={value => this.validateValue(value, {min: 0, optional: true})}
+                onChange={value => this.state.socketReceiveBufferSize = value}
+              />
+            </Panel>
+          </Col>
+
+          <Col md={5}>
             <ValueSelector
-              label="Backlog (int)" colSpans={[5,7]} placeholder="Optional, defaults to system's"
-              onValidate={value => this.validateValue(value, {min: 0, optional: true})}
-              onChange={value => this.state.backlog = value}
+              label="Benchmark Id" colSpans={[4,8]} placeholder="Optional, auto generated if missing"
+              onChange={value => this.state.benchmarkId = value}
             />
 
-            <ValueSelector
-              label="Echo Ratio (x:y)" colSpans={[5,7]} placeholder="Optional, defaults to 1:1 (n/a yet)"
-              onChange={value => this.state.echoRatio = value}
-            />
-          </Panel>
+            <Panel header="Clients">
+              <DropdownSelector
+                label="Geo Location" options={config.ec2Regions}
+                onChange={value => this.setState({clientsGeoLocation: value})}
+              />
 
-          <Panel header="Extra Parameters">
-            <ValueSelector
-              label="Aws Key Name" colSpans={[7,5]} placeholder="Optional, for ssh host access"
-              onChange={value => this.state.keyName = value}
-            />
+              <DropdownSelector
+                label="Host Type" options={config.ec2InstanceTypes}
+                onChange={value => this.setState({clientsHostType: value})}
+              />
 
-            <ValueSelector
-              label="Socket Send Buffer Size (kb)" colSpans={[7, 5]} placeholder="Optional, defaults to system's"
-              onValidate={value => this.validateValue(value, {min: 0, optional: true})}
-              onChange={value => this.state.socketSendBufferSize = value}
-            />
-
-            <ValueSelector
-              label="Socket Receive Buffer Size (kb)" colSpans={[7,5]} placeholder="Optional, defaults to system's"
-              onValidate={value => this.validateValue(value, {min: 0, optional: true})}
-              onChange={value => this.state.socketReceiveBufferSize = value}
-            />
-          </Panel>
-        </Col>
-
-        <Col md={5}>
-          <ValueSelector
-            label="Benchmark Id" colSpans={[4,8]} placeholder="Optional, auto generated if missing"
-            onChange={value => this.state.benchmarkId = value}
-          />
-
-          <Panel header="Clients">
-            <DropdownSelector
-              label="Geo Location" options={config.ec2Regions}
-              onChange={value => this.setState({clientsGeoLocation: value})}
-            />
-
-            <DropdownSelector
-              label="Host Type" options={config.ec2InstanceTypes}
-              onChange={value => this.setState({clientsHostType: value})}
-            />
-
-            <RangeSelector
-              label="Clients (count)" placeholders={["Per Host", "Total"]}
-              onValidate={value => validator.validateIntRangeWithinRange(value, {min: 1},
+              <RangeSelector
+                label="Clients (count)" placeholders={["Per Host", "Total"]}
+                onValidate={value => validator.validateIntRangeWithinRange(value, {min: 1},
                     {validateSubmittable: this.state.failedValidation, omitSuccessEffect: true, allowSuccessorEqualOrLesser: true})}
-              onChange={value => this.setState({clientsPerHost: value.min, clientCount: value.max})}
-            />
+                onChange={value => this.setState({clientsPerHost: value.min, clientCount: value.max})}
+              />
 
-            <RangeSelector
-              label="Payload (bytes)"
-              onValidate={value => this.validateRange(value, {min: 1})}
-              onChange={value => this.setState({payloadSize: value})}
-            />
+              <RangeSelector
+                label="Payload (bytes)"
+                onValidate={value => this.validateRange(value, {min: 1})}
+                onChange={value => this.setState({payloadSize: value})}
+              />
 
-            <RangeSelector
-              label="Delay Between Sends (millis)"
-              onValidate={value => this.validateRange(value, {min: 1})}
-              onChange={value => this.setState({delayMillisBetweenSends: value})}
-            />
+              <RangeSelector
+                label="Delay Between Sends (millis)"
+                onValidate={value => this.validateRange(value, {min: 1})}
+                onChange={value => this.setState({delayMillisBetweenSends: value})}
+              />
 
-            <RangeSelector
-              label="Delay Creating Client (millis)"
-              onValidate={value => this.validateRange(value, {min: 0})}
-              onChange={value => this.setState({delayMillisBeforeCreatingClient: value})}
-            />
+              <RangeSelector
+                label="Delay Creating Client (millis)"
+                onValidate={value => this.validateRange(value, {min: 0})}
+                onChange={value => this.setState({delayMillisBeforeCreatingClient: value})}
+              />
 
-            <RangeSelector
-              label="Client Lifespan (millis)"
-              onValidate={value => this.validateRange(value, {min: 1})}
-              onChange={value => this.setState({clientLifeMillis: value})}
-            />
-          </Panel>
+              <RangeSelector
+                label="Client Lifespan (millis)"
+                onValidate={value => this.validateRange(value, {min: 1})}
+                onChange={value => this.setState({clientLifeMillis: value})}
+              />
+            </Panel>
 
-          <Button bsStyle="primary" className="pull-right" disabled={this.state.pendingSubmission}
-                  onClick={() => this.handleStartBenchmarkClicked()}>
-            Start Benchmark
-          </Button>
-        </Col>
+            <Button bsStyle="primary" className="pull-right" disabled={this.state.pendingSubmission}
+                    onClick={() => this.handleStartBenchmarkClicked()}>
+              Start Benchmark
+            </Button>
+          </Col>
+        </Row>
       </Grid>
     );
   }
