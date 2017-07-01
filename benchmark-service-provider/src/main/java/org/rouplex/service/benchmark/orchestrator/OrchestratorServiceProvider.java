@@ -61,6 +61,9 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
                 configurationManager.putConfigurationEntry(BenchmarkConfigurationKey.GoogleCloudClientPassword,
                     System.getenv(BenchmarkConfigurationKey.GoogleCloudClientPassword.toString()));
 
+                configurationManager.putConfigurationEntry(BenchmarkConfigurationKey.RmiServerPortPlatformForJmx, "1705");
+                configurationManager.putConfigurationEntry(BenchmarkConfigurationKey.RmiRegistryPortPlatformForJmx, "1706");
+
                 benchmarkOrchestratorService = new OrchestratorServiceProvider(configurationManager.getConfiguration());
             }
 
@@ -125,17 +128,17 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
         checkAndSanitize(request);
 
         int clientHostCount = (request.getClientCount() - 1) / request.getClientsPerHost() + 1;
-        TcpMetricsExpectation clientsExpectation = buildClientsTcpMetricsExpectation(request);
-        long benchmarkExpiration = Util.convertIsoInstantToMillis(clientsExpectation.getFinishAsIsoInstant()) + 5 * 60 * 1000;
+        TcpMetricsExpectation clientsExpectation = buildClientsTcpMetricsExpectation(request, null, null);
+        TcpMetricsExpectation serverExpectation = buildServerTcpMetricsExpectation(clientHostCount, clientsExpectation);
 
         synchronized (this) {
             // the underlying host just became an orchestrator and is granted unlimited lease
             ConfigureServiceRequest configureServiceRequest = new ConfigureServiceRequest();
-            configureServiceRequest.setLeaseEndAsIsoInstant(Util.convertMillisToIsoInstant(Long.MAX_VALUE));
+            configureServiceRequest.setLeaseEndAsIsoInstant(Util.convertMillisToIsoInstant(Long.MAX_VALUE, null));
             ManagementServiceProvider.get().configureService(configureServiceRequest);
 
-            if (tcpBenchmarks.putIfAbsent(request.getBenchmarkId(),
-                new BenchmarkDescriptor(request, benchmarkExpiration)) != null) {
+            if (tcpBenchmarks.putIfAbsent(request.getBenchmarkId(), new BenchmarkDescriptor(
+                request, System.currentTimeMillis(), serverExpectation.getDurationMillis())) != null) {
                 throw new Exception(String.format("Distributed tcp benchmark [%s] already running",
                     request.getBenchmarkId()));
             }
@@ -154,7 +157,7 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
         response.setBenchmarkId(request.getBenchmarkId());
         response.setImageId(request.getImageId());
         response.setTcpClientsExpectation(clientsExpectation);
-        response.setTcpServerExpectation(buildServerTcpMetricsExpectation(clientHostCount, clientsExpectation));
+        response.setTcpServerExpectation(serverExpectation);
 
         return response;
     }
@@ -169,12 +172,13 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
 
             ensureEC2InstancesRunning(serverDescriptors);
             ensureBenchmarkServiceRunning(serverDescriptors.values());
-            InstanceDescriptor serverDescriptor = serverDescriptors.values().iterator().next();
             benchmarkDescriptor.getInstanceDescriptors().putAll(serverDescriptors);
 
             ensureEC2InstancesRunning(clientDescriptors);
             ensureBenchmarkServiceRunning(clientDescriptors.values());
             benchmarkDescriptor.getInstanceDescriptors().putAll(clientDescriptors);
+
+            InstanceDescriptor serverDescriptor = serverDescriptors.values().iterator().next();
 
             // start server remotely
             StartTcpServerResponse startTcpServerResponse = jaxrsClient.target(String.format(
@@ -195,6 +199,13 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
                     .request(MediaType.APPLICATION_JSON)
                     .post(startTcpClientsEntity);
             }
+
+            long now = System.currentTimeMillis();
+            for (InstanceDescriptor instanceDescriptor : benchmarkDescriptor.getInstanceDescriptors().values()) {
+                instanceDescriptor.setExpirationTimestamp(now + benchmarkDescriptor.getExpectedDurationMillis());
+            }
+
+            benchmarkDescriptor.setStartedTimestamp(System.currentTimeMillis());
         } catch (Exception e) {
             benchmarkDescriptor.setEventualException(e);
         }
@@ -206,7 +217,7 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
 
         int clientHostCount = (request.getClientCount() - 1) / request.getClientsPerHost() + 1;
         int maxSimultaneousConnectionsPerClient =
-            buildClientsTcpMetricsExpectation(request).getMaxSimultaneousConnections();
+            buildClientsTcpMetricsExpectation(request, null, null).getMaxSimultaneousConnections();
 
         int maxFileDescriptors;
         int instanceCount;
@@ -266,11 +277,13 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
 
     @Override
     public ListTcpEchoBenchmarksResponse listTcpEchoBenchmarks(String includePublic) throws Exception {
-        return null;
+        ListTcpEchoBenchmarksResponse response = new ListTcpEchoBenchmarksResponse();
+        response.setBenchmarkIds(tcpBenchmarks.keySet());
+        return response;
     }
 
     @Override
-    public DescribeTcpEchoBenchmarkResponse describeTcpEchoBenchmark(String benchmarkId) throws Exception {
+    public DescribeTcpEchoBenchmarkResponse describeTcpEchoBenchmark(String benchmarkId, Integer timeOffsetInMinutes) throws Exception {
         BenchmarkDescriptor<Boolean> benchmarkDescriptor =
             (BenchmarkDescriptor<Boolean>) tcpBenchmarks.get(benchmarkId);
 
@@ -280,50 +293,93 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
 
         StartTcpEchoBenchmarkRequest startRequest = benchmarkDescriptor.getStartTcpEchoBenchmarkRequest();
         int clientHostCount = (startRequest.getClientCount() - 1) / startRequest.getClientsPerHost() + 1;
-
-        TcpMetricsExpectation clientsExpectation = buildClientsTcpMetricsExpectation(startRequest);
-
+        TcpMetricsExpectation clientsExpectation = buildClientsTcpMetricsExpectation(
+            startRequest, benchmarkDescriptor.getStartedTimestamp(), timeOffsetInMinutes);
         TcpMetricsExpectation serverExpectation = buildServerTcpMetricsExpectation(clientHostCount, clientsExpectation);
 
-        // prepare and return response
         DescribeTcpEchoBenchmarkResponse response = new DescribeTcpEchoBenchmarkResponse();
+
+        // benchmark request related
+        response.setSsl(startRequest.isSsl());
+        response.setProvider(startRequest.getProvider());
         response.setBenchmarkId(startRequest.getBenchmarkId());
+
+        // server request related
+        response.setServerGeoLocation(startRequest.getServerGeoLocation());
+        response.setServerHostType(startRequest.getServerHostType());
+        response.setBacklog(startRequest.getBacklog());
+        response.setEchoRatio(startRequest.getEchoRatio());
+
+        // client request related
+        response.setClientsGeoLocation(startRequest.getClientsGeoLocation());
+        response.setClientsHostType(startRequest.getClientsHostType());
+
+        response.setClientCount(startRequest.getClientCount());
+        response.setClientsPerHost(startRequest.getClientsPerHost());
+        response.setMinPayloadSize(startRequest.getMinPayloadSize());
+        response.setMaxPayloadSize(startRequest.getMaxPayloadSize());
+        response.setMinDelayMillisBetweenSends(startRequest.getMinDelayMillisBetweenSends());
+        response.setMaxDelayMillisBetweenSends(startRequest.getMaxDelayMillisBetweenSends());
+        response.setMinDelayMillisBeforeCreatingClient(startRequest.getMinDelayMillisBeforeCreatingClient());
+        response.setMaxDelayMillisBeforeCreatingClient(startRequest.getMaxDelayMillisBeforeCreatingClient());
+        response.setMinClientLifeMillis(startRequest.getMinClientLifeMillis());
+        response.setMaxClientLifeMillis(startRequest.getMaxClientLifeMillis());
+
+        // extra request
+        response.setKeyName(startRequest.getKeyName());
+        response.setSocketSendBufferSize(startRequest.getSocketSendBufferSize());
+        response.setSocketReceiveBufferSize(startRequest.getSocketReceiveBufferSize());
         response.setImageId(startRequest.getImageId());
+        response.setTcpMemoryAsPercentOfTotal(startRequest.getTcpMemoryAsPercentOfTotal());
 
         InstanceDescriptor<Boolean> serverDescriptor = null;
         List<String> clientIpAddresses = new ArrayList<>();
         for (InstanceDescriptor<Boolean> instanceDescriptor : benchmarkDescriptor.getInstanceDescriptors().values()) {
             if (instanceDescriptor.getMetadata()) {
                 serverDescriptor = instanceDescriptor;
-                response.setServerHostType(HostType.fromString(instanceDescriptor.getEc2InstanceType().toString()));
-                response.setServerGeoLocation(GeoLocation.fromString(instanceDescriptor.getEc2Region().getRegionName()));
                 response.setServerIpAddress(instanceDescriptor.getPublicIpAddress());
             } else {
                 clientIpAddresses.add(instanceDescriptor.getPublicIpAddress());
-                response.setClientsHostType(HostType.fromString(instanceDescriptor.getEc2InstanceType().toString()));
-                response.setClientsGeoLocation(GeoLocation.fromString(instanceDescriptor.getEc2Region().getRegionName()));
             }
         }
 
-        StringBuilder jconsoleJmxLink = new StringBuilder("jconsole");
-        if (serverDescriptor != null) { // should never be null anyway
+        response.setClientIpAddresses(clientIpAddresses);
+
+        StringBuilder jconsoleJmxLink = new StringBuilder();
+        if (serverDescriptor != null) {
             addToJmxLink(jconsoleJmxLink, serverDescriptor.getPublicIpAddress());
         }
         for (String ipAddress : clientIpAddresses) {
             addToJmxLink(jconsoleJmxLink, ipAddress);
         }
+        if (jconsoleJmxLink.length() != 0) {
+            response.setJconsoleJmxLink("jconsole" + jconsoleJmxLink.toString());
+        }
 
-        response.setClientIpAddresses(clientIpAddresses);
-        response.setJconsoleJmxLink(jconsoleJmxLink.toString());
-
-        response.setTcpClientsExpectation(clientsExpectation);
         response.setTcpServerExpectation(serverExpectation);
+        response.setTcpClientsExpectation(clientsExpectation);
+
+        if (benchmarkDescriptor.getEventualException() != null) {
+            response.setEventualException(benchmarkDescriptor.getEventualException().getMessage());
+            response.setExecutionStatus(ExecutionStatus.FAILED);
+        }
+        else if (benchmarkDescriptor.getStartedTimestamp() == 0) {
+            response.setExecutionStatus(ExecutionStatus.STARTING);
+        }
+        else {
+            response.setExecutionStatus(ExecutionStatus.RUNNING);
+        }
 
         return response;
     }
 
     private void addToJmxLink(StringBuilder jmxLink, String ipAddress) {
-        jmxLink.append(String.format(" service:jmx:rmi://%s:1705/jndi/rmi://%s:1706/jmxrmi", ipAddress, ipAddress));
+        jmxLink
+            .append(" service:jmx:rmi://").append(ipAddress).append(":")
+            .append(configuration.get(BenchmarkConfigurationKey.RmiServerPortPlatformForJmx))
+            .append("/jndi/rmi://").append(ipAddress).append(":")
+            .append(configuration.get(BenchmarkConfigurationKey.RmiRegistryPortPlatformForJmx))
+            .append("/jmxrmi");
     }
 
     private Client createJaxRsClient() throws IOException {
@@ -397,7 +453,12 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
     }
 
     private <T> void monitorBenchmark(BenchmarkDescriptor<T> benchmarkDescriptor) {
-        if (System.currentTimeMillis() > benchmarkDescriptor.getExpirationTimestamp()) {
+        if (benchmarkDescriptor.getStartedTimestamp() == 0) {
+            return; // benchmark still starting
+        }
+
+        long expiration = benchmarkDescriptor.getStartedTimestamp() + benchmarkDescriptor.getExpectedDurationMillis();
+        if (System.currentTimeMillis() > expiration + 5 * 60 * 1000) { // check if benchmark is expired
             for (Map.Entry<String, InstanceDescriptor<T>> instanceDescriptor : benchmarkDescriptor.getInstanceDescriptors().entrySet()) {
                 logger.info(String.format(
                     "Terminating instance [%s] at ip [%s]. Cause: Benchmark has reached maximum time",
@@ -408,7 +469,7 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
             }
 
             benchmarkDescriptor.getInstanceDescriptors().clear();
-        } else {
+        } else { // renew leases, prune terminated workers
             int workerLeaseInMinutes = configuration.getAsInteger(BenchmarkConfigurationKey.WorkerLeaseInMinutes);
             long workerExpiration = System.currentTimeMillis() + workerLeaseInMinutes * 60 * 1000;
             Collection<String> expiredInstanceIds = new ArrayList<String>();
@@ -417,7 +478,7 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
                 InstanceDescriptor instanceDescriptor = entry.getValue();
                 try {
                     ConfigureServiceRequest configureServiceRequest = new ConfigureServiceRequest();
-                    configureServiceRequest.setLeaseEndAsIsoInstant(Util.convertMillisToIsoInstant(workerExpiration));
+                    configureServiceRequest.setLeaseEndAsIsoInstant(Util.convertMillisToIsoInstant(workerExpiration, null));
 
                     jaxrsClient.target(String.format(
                         configuration.get(BenchmarkConfigurationKey.ServiceHttpDescriptor),
@@ -603,19 +664,20 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
         return startTcpClientsRequest;
     }
 
-    private TcpMetricsExpectation buildClientsTcpMetricsExpectation(StartTcpEchoBenchmarkRequest request) {
-        TcpMetricsExpectation clientsExpectation = new TcpMetricsExpectation();
+    private TcpMetricsExpectation buildClientsTcpMetricsExpectation(
+        StartTcpEchoBenchmarkRequest request, Long startTimestamp, Integer timeOffsetInMinutes) {
 
-        clientsExpectation.setStartAsIsoInstant(Util.convertMillisToIsoInstant(System.currentTimeMillis()));
-
+        int durationMillis = request.getMaxDelayMillisBeforeCreatingClient() + request.getMaxClientLifeMillis();
         int connectionRampUpMillis = request.getMaxDelayMillisBeforeCreatingClient() - request.getMinDelayMillisBeforeCreatingClient();
         int clientAvgLifetimeMillis = (request.getMaxClientLifeMillis() + request.getMinClientLifeMillis()) / 2;
         int rampUpAsMillis = Math.min(connectionRampUpMillis, clientAvgLifetimeMillis);
 
+        TcpMetricsExpectation clientsExpectation = new TcpMetricsExpectation();
+        clientsExpectation.setDurationMillis(durationMillis);
         clientsExpectation.setRampUpInMillis(rampUpAsMillis);
-        clientsExpectation.setFinishRampUpAsIsoInstant(Util.convertMillisToIsoInstant(System.currentTimeMillis() + rampUpAsMillis));
         clientsExpectation.setConnectionsPerSecond((double) request.getClientsPerHost() * 1000 / connectionRampUpMillis);
-        clientsExpectation.setMaxSimultaneousConnections((int) (((long) request.getClientsPerHost() * rampUpAsMillis) / connectionRampUpMillis));
+        clientsExpectation.setMaxSimultaneousConnections(
+            (int) (((long) request.getClientsPerHost() * rampUpAsMillis) / connectionRampUpMillis));
 
         long avgPayloadSize = (request.getMaxPayloadSize() - 1 + request.getMinPayloadSize()) / 2;
         long avgPayloadPeriodMillis = (request.getMaxDelayMillisBetweenSends() - 1 + request.getMinDelayMillisBetweenSends()) / 2;
@@ -627,8 +689,15 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
         clientsExpectation.setMaxUploadSpeed(transferSpeedHuman);
         clientsExpectation.setMaxDownloadSpeed(transferSpeedHuman);
 
-        int durationAsMillis = request.getMaxDelayMillisBeforeCreatingClient() + request.getMaxClientLifeMillis();
-        clientsExpectation.setFinishAsIsoInstant(Util.convertMillisToIsoInstant(System.currentTimeMillis() + durationAsMillis));
+        if (startTimestamp != null) {
+            clientsExpectation.setStartAsIsoInstant(
+                Util.convertMillisToIsoInstant(startTimestamp, timeOffsetInMinutes));
+            clientsExpectation.setFinishRampUpAsIsoInstant(
+                Util.convertMillisToIsoInstant(startTimestamp + rampUpAsMillis, timeOffsetInMinutes));
+            clientsExpectation.setFinishAsIsoInstant(
+                Util.convertMillisToIsoInstant(startTimestamp + durationMillis, timeOffsetInMinutes));
+        }
+
         return clientsExpectation;
     }
 
@@ -636,9 +705,8 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
         int clientHostsCount, TcpMetricsExpectation clientsExpectation) {
 
         TcpMetricsExpectation serverExpectation = new TcpMetricsExpectation();
-        serverExpectation.setStartAsIsoInstant(clientsExpectation.getStartAsIsoInstant());
+        serverExpectation.setDurationMillis(clientsExpectation.getDurationMillis());
         serverExpectation.setRampUpInMillis(clientsExpectation.getRampUpInMillis());
-        serverExpectation.setFinishRampUpAsIsoInstant(clientsExpectation.getFinishRampUpAsIsoInstant());
         serverExpectation.setConnectionsPerSecond(clientHostsCount * clientsExpectation.getConnectionsPerSecond());
         serverExpectation.setMaxSimultaneousConnections(clientHostsCount * clientsExpectation.getMaxSimultaneousConnections());
 
@@ -649,6 +717,8 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
         serverExpectation.setMaxUploadSpeed(transferSpeedHuman);
         serverExpectation.setMaxDownloadSpeed(transferSpeedHuman);
 
+        serverExpectation.setStartAsIsoInstant(clientsExpectation.getStartAsIsoInstant());
+        serverExpectation.setFinishRampUpAsIsoInstant(clientsExpectation.getFinishRampUpAsIsoInstant());
         serverExpectation.setFinishAsIsoInstant(clientsExpectation.getFinishAsIsoInstant());
 
         return serverExpectation;

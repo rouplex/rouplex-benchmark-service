@@ -91,7 +91,7 @@ export default class ListBenchmarks extends React.Component {
     getRequest.setRequestHeader('Rouplex-Cookie-Enabled', navigator.cookieEnabled);
     getRequest.setRequestHeader('Rouplex-SessionId', this.props.sessionInfo.sessionId);
 
-    //alert("tcpEchoBenchmarkUrl.get.request: " + config.tcpEchoBenchmarkUrl + "/" + benchmarkId);
+    console.log("tcpEchoBenchmarkUrl.get.request: " + config.tcpEchoBenchmarkUrl + "/" + benchmarkId);
     getRequest.send();
   }
 
@@ -122,7 +122,7 @@ export default class ListBenchmarks extends React.Component {
     getRequest.setRequestHeader('Rouplex-Cookie-Enabled', navigator.cookieEnabled);
     getRequest.setRequestHeader('Rouplex-SessionId', this.props.sessionInfo.sessionId);
 
-    //alert("tcpEchoBenchmarkUrl.get.request: " + config.tcpEchoBenchmarkUrl);
+    console.log("tcpEchoBenchmarkUrl.get.request: " + config.tcpEchoBenchmarkUrl);
     getRequest.send();
   }
 

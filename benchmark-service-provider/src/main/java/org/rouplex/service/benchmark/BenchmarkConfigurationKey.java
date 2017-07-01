@@ -11,5 +11,7 @@ public enum BenchmarkConfigurationKey {
     GoogleCloudClientId,
     GoogleCloudClientPassword,
     GoogleUserInfoEndPoint,
-    BenchmarkUserProfilesS3Url
+    BenchmarkUserProfilesS3Url,
+    RmiServerPortPlatformForJmx,
+    RmiRegistryPortPlatformForJmx,
 }

@@ -68,4 +68,11 @@ public interface AuthService {
         @CookieParam("Rouplex-SessionId") String sessionIdViaCookie,
         @HeaderParam("Rouplex-SessionId") String sessionIdViaHeader
     ) throws Exception;
+
+    @POST
+    @Path("/user-preferences")
+    void setUserPreferences(
+        @HeaderParam("Rouplex-SessionId") String sessionIdViaHeader,
+        UserPreferences userPreferences
+    ) throws Exception;
 }

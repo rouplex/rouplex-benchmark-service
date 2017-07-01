@@ -8,25 +8,42 @@ import java.util.Map;
  */
 public class BenchmarkDescriptor<T> {
     private final StartTcpEchoBenchmarkRequest startTcpEchoBenchmarkRequest;
-    private final long expirationTimestamp;
+    private final long startingTimestamp;
+    private final long expectedDurationMillis;
     private final Map<String, InstanceDescriptor<T>> instanceDescriptors = new HashMap<>();
+
+    private long startedTimestamp;
     private Exception eventualException;
 
-    public BenchmarkDescriptor(StartTcpEchoBenchmarkRequest startTcpEchoBenchmarkRequest, long expirationTimestamp) {
+    public BenchmarkDescriptor(StartTcpEchoBenchmarkRequest startTcpEchoBenchmarkRequest,
+                               long startingTimestamp, long expectedDurationMillis) {
         this.startTcpEchoBenchmarkRequest = startTcpEchoBenchmarkRequest;
-        this.expirationTimestamp = expirationTimestamp;
+        this.startingTimestamp = startingTimestamp;
+        this.expectedDurationMillis = expectedDurationMillis;
     }
 
     public StartTcpEchoBenchmarkRequest getStartTcpEchoBenchmarkRequest() {
         return startTcpEchoBenchmarkRequest;
     }
 
-    public long getExpirationTimestamp() {
-        return expirationTimestamp;
+    public long getStartingTimestamp() {
+        return startingTimestamp;
+    }
+
+    public long getExpectedDurationMillis() {
+        return expectedDurationMillis;
     }
 
     public Map<String, InstanceDescriptor<T>> getInstanceDescriptors() {
         return instanceDescriptors;
+    }
+
+    public long getStartedTimestamp() {
+        return startedTimestamp;
+    }
+
+    public void setStartedTimestamp(long startedTimestamp) {
+        this.startedTimestamp = startedTimestamp;
     }
 
     public Exception getEventualException() {

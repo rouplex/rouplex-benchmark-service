@@ -5,6 +5,7 @@ package org.rouplex.service.benchmark.orchestrator;
  */
 public class TcpMetricsExpectation {
     int rampUpInMillis;
+    int durationMillis;
     double connectionsPerSecond;
     int maxSimultaneousConnections;
     long maxUploadSpeedInBitsPerSecond;
@@ -21,6 +22,14 @@ public class TcpMetricsExpectation {
 
     public void setRampUpInMillis(int rampUpInMillis) {
         this.rampUpInMillis = rampUpInMillis;
+    }
+
+    public int getDurationMillis() {
+        return durationMillis;
+    }
+
+    public void setDurationMillis(int durationMillis) {
+        this.durationMillis = durationMillis;
     }
 
     public double getConnectionsPerSecond() {

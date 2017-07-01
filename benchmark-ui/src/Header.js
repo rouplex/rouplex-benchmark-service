@@ -1,7 +1,7 @@
 import React from 'react';
 import Navbar from 'react-bootstrap/lib/Navbar';
 import SignIn from './components/SignIn';
-import SignOut from './components/SignOut';
+import SignedIn from './components/SignedIn';
 
 var config = require("./Config.js");
 
@@ -10,6 +10,12 @@ export default class Header extends React.Component {
   // this.props.sessionInfo
   // this.props.onPathUpdate
   // this.props.onSessionUpdate
+
+  handlePreferencesUpdate(newPreferences) {
+    this.props.sessionInfo.userInfo.userPreferences = newPreferences;
+    // post new preferences to server
+    this.props.onSessionUpdate(this.props.sessionInfo);
+  }
 
   render() {
     return (
@@ -33,11 +39,11 @@ export default class Header extends React.Component {
                 onSessionUpdate={sessionInfo => this.props.onSessionUpdate(sessionInfo)}
               />
               :
-              <SignOut
+              <SignedIn
                 mainUrl={config.mainUrl}
                 signOutUrl={config.signOutUrl}
                 sessionInfo={this.props.sessionInfo}
-                onSessionUpdate={sessionInfo => this.props.onSessionUpdate(sessionInfo)}
+                onPreferencesUpdate={newPreferences => this.handlePreferencesUpdate(newPreferences)}
               />
           }
           </Navbar.Form>

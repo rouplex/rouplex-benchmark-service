@@ -3,6 +3,7 @@ package org.rouplex.service.benchmark.auth;
 public class UserInfo {
     private String userIdAtProvider;
     private String userName; // if available
+    private UserPreferences userPreferences = new UserPreferences();
 
     public String getUserIdAtProvider() {
         return userIdAtProvider;
@@ -18,5 +19,13 @@ public class UserInfo {
 
     public void setUserName(String userName) {
         this.userName = userName;
+    }
+
+    public UserPreferences getUserPreferences() {
+        return userPreferences;
+    }
+
+    public void setUserPreferences(UserPreferences userPreferences) {
+        this.userPreferences = userPreferences;
     }
 }

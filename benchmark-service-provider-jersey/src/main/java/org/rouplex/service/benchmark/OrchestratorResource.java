@@ -51,9 +51,18 @@ public class OrchestratorResource extends ResourceConfig implements Orchestrator
 
     @Override
     public ListTcpEchoBenchmarksResponse listTcpEchoBenchmarks(String includePublic) throws Exception {
-        ListTcpEchoBenchmarksResponse response = new ListTcpEchoBenchmarksResponse();
-        response.setBenchmarkIds(Arrays.asList(UUID.randomUUID().toString(), UUID.randomUUID().toString(), UUID.randomUUID().toString()));
-        return response;
+        if (false) {
+            ListTcpEchoBenchmarksResponse response = new ListTcpEchoBenchmarksResponse();
+            response.setBenchmarkIds(Arrays.asList(UUID.randomUUID().toString(), UUID.randomUUID().toString(), UUID.randomUUID().toString()));
+            return response;
+        }
+
+        UserInfo userInfo = AuthServiceProvider.get().getUserInfo(httpServletRequest.getHeader("Rouplex-SessionId"));
+        if (userInfo == null) {
+            throw new UnauthenticatedException();
+        }
+
+        return OrchestratorServiceProvider.get().listTcpEchoBenchmarks(includePublic);
     }
 
     @ApiOperation(value = "Get the status of the benchmark")
@@ -61,7 +70,7 @@ public class OrchestratorResource extends ResourceConfig implements Orchestrator
         @ApiResponse(code = 200, message = "Success"),
         @ApiResponse(code = 500, message = "Error handling request")})
     @Override
-    public DescribeTcpEchoBenchmarkResponse describeTcpEchoBenchmark(String benchmarkId) throws Exception {
+    public DescribeTcpEchoBenchmarkResponse describeTcpEchoBenchmark(String benchmarkId, Integer timeOffsetInMinutes) throws Exception {
         if (false) {
             String jsonResponse = "{\n" +
                 "  \"benchmarkId\" : \"bb\",\n" +
@@ -109,6 +118,6 @@ public class OrchestratorResource extends ResourceConfig implements Orchestrator
             throw new UnauthenticatedException();
         }
 
-        return OrchestratorServiceProvider.get().describeTcpEchoBenchmark(benchmarkId);
+        return OrchestratorServiceProvider.get().describeTcpEchoBenchmark(benchmarkId, timeOffsetInMinutes);
     }
 }

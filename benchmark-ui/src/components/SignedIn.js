@@ -1,14 +1,16 @@
 import React from 'react';
 import DropdownButton from 'react-bootstrap/lib/DropdownButton';
 import MenuItem from 'react-bootstrap/lib/MenuItem';
+import Checkbox from 'react-bootstrap/lib/Checkbox';
 import Button from 'react-bootstrap/lib/Button';
 
-const leftMargin = {margin: '0px 0px 0px 5px'};
+const leftMargin = {margin: '0 0 0 5px'};
 
-export default class SignOut extends React.Component {
+export default class SignedIn extends React.Component {
   // this.props.signOutUrl
   // this.props.sessionInfo
   // this.props.mainUrl (optional)
+  // this.props.onPreferencesUpdate
   constructor() {
     super();
 
@@ -68,6 +70,13 @@ export default class SignOut extends React.Component {
         </MenuItem>
 
         <MenuItem divider/>
+
+        <MenuItem>
+          <Checkbox checked={this.props.sessionInfo.userInfo.userPreferences.useUtcTime}
+                    onChange={key => this.props.onPreferencesUpdate({useUtcTime: key.target.checked})}>
+            &nbsp;Use UTC Time
+          </Checkbox>
+        </MenuItem>
 
         <MenuItem>
           <Button bsStyle="default" style={leftMargin} block disabled>

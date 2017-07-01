@@ -132,6 +132,11 @@ public class AuthServiceProvider implements AuthService, Closeable {
     }
 
     @Override
+    public void setUserPreferences(String sessionIdViaHeader, UserPreferences userPreferences) throws Exception {
+        // to do
+    }
+
+    @Override
     public void close() throws IOException {
     }
 }

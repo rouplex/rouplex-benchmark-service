@@ -16,15 +16,18 @@ import CopyToClipboard from 'react-copy-to-clipboard';
 var config = require("./Config.js");
 
 export default class ShowBenchmark extends React.Component {
+  // this.props.sessionInfo
   // this.props.benchmarkId
   constructor() {
     super();
 
     this.state = {
       response: null,
-      exception: null
+      warning: null,
+      fatal: null
     }
   }
+
   componentDidMount() {
     this.update();
     this.intervalId = setInterval((t) => {
@@ -36,6 +39,11 @@ export default class ShowBenchmark extends React.Component {
     clearInterval(this.intervalId);
   }
 
+  handleFatal(message) {
+    return this.setState({fatal: message});
+    clearInterval(this.intervalId);
+  }
+
   update() {
     var getRequest = new XMLHttpRequest();
     getRequest.addEventListener("load", () => {
@@ -43,20 +51,27 @@ export default class ShowBenchmark extends React.Component {
       try {
         var response = JSON.parse(getRequest.responseText);
       } catch (err) {
-        return this.setState({exception: "Non parsable server response. Details: " + err});
+        return this.handleFatal("Could not describe benchmark. Reason: Non parsable server response. Details: " + err);
       }
 
       if (response.exceptionMessage) {
-        return this.setState({exception: "Server error. Details: " + response.exceptionMessage});
+        return this.setState({warning: "Could not describe benchmark. Reason: Server error. Details: " + response.exceptionMessage});
       }
 
-      this.setState({response: response, exception: null});
+      this.setState({response: response});
+      if (response.eventualException) {
+        this.handleFatal("Benchmark failed execution. Details: " + response.eventualException);
+      }
     });
-    getRequest.addEventListener("error", () => this.setState({exception: "Communication error"}));
+    getRequest.addEventListener("error", () => this.setState({warning: "Could not describe benchmark. Reason: Communication error"}));
 
     getRequest.open("GET", config.tcpEchoBenchmarkUrl + "/" + this.props.benchmarkId);
     getRequest.setRequestHeader('Accept', 'application/json');
     getRequest.setRequestHeader('Rouplex-Cookie-Enabled', navigator.cookieEnabled);
+    getRequest.setRequestHeader('Rouplex-SessionId', this.props.sessionInfo.sessionId);
+    if (this.props.sessionInfo.userInfo.userPreferences.useUtcTime) {
+      getRequest.setRequestHeader('Rouplex-TimeOffsetInMinutes', this.props.sessionInfo.sessionId);
+    }
 
     //alert("describeTcpEchoBenchmarkUrl.get.request: " + config.tcpEchoBenchmarkUrl + "/" + benchmarkId);
     getRequest.send();
@@ -145,8 +160,7 @@ export default class ShowBenchmark extends React.Component {
         <Col md={10}>
           <Panel header="Jconsole Jmx Link">
             <Row style={{margin: "0 0 15px 0"}}>
-              {response.jconsoleJmxLink
-                ?
+              {response.jconsoleJmxLink ?
                 <CopyToClipboard text={response.jconsoleJmxLink}>
                   <OverlayTrigger placement="bottom"
                                   overlay={(<Tooltip id="tooltip">Click to copy to clipboard</Tooltip>)}>
@@ -154,7 +168,7 @@ export default class ShowBenchmark extends React.Component {
                   </OverlayTrigger>
                 </CopyToClipboard>
                 :
-                <WaitingHorizontal/>
+                this.state.fatal ? "" : <WaitingHorizontal/>
               }
             </Row>
           </Panel>
@@ -163,12 +177,14 @@ export default class ShowBenchmark extends React.Component {
     );
   }
 
-  renderException(exception) {
+  renderException(exception, level) {
+    var exceptions = exception.split(".");
+
     return (
       <Row>
         <Col md={10}>
-          <Alert bsStyle="warning">
-            <strong>Could not describe benchmark.</strong>&nbsp;{exception}
+          <Alert bsStyle={level}>
+            <strong>{exceptions[0]}.</strong>&nbsp;{exceptions[1]}
           </Alert>
         </Col>
       </Row>
@@ -181,7 +197,8 @@ export default class ShowBenchmark extends React.Component {
         {this.state.response ? this.renderBenchmarkParams(this.state.response) : ""}
         {this.state.response ? this.renderServerExpectation(this.state.response.tcpServerExpectation) : ""}
         {this.state.response ? this.renderJconsoleJmxLink(this.state.response) : ""}
-        {this.state.exception ? this.renderException(this.state.exception) : ""}
+        {this.state.warning ? this.renderException(this.state.warning, "warning") : ""}
+        {this.state.fatal ? this.renderException(this.state.fatal, "danger") : ""}
       </Grid>
     );
   }

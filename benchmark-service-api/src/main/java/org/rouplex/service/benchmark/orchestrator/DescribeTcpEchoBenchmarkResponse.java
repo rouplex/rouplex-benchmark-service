@@ -25,25 +25,27 @@ public class DescribeTcpEchoBenchmarkResponse {
     private int socketReceiveBufferSize; // optional
     private int backlog; // optional
 
-    private int clientCount = 100000;
-    private int clientsPerHost = 50000;
+    private int clientCount;
+    private int clientsPerHost;
 
     private int minPayloadSize;
-    private int maxPayloadSize = 10000;
+    private int maxPayloadSize;
     private int minDelayMillisBetweenSends;
-    private int maxDelayMillisBetweenSends = 1000;
+    private int maxDelayMillisBetweenSends;
     private int minDelayMillisBeforeCreatingClient;
-    private int maxDelayMillisBeforeCreatingClient = 10000;
+    private int maxDelayMillisBeforeCreatingClient;
     private int minClientLifeMillis;
-    private int maxClientLifeMillis = 10000;
+    private int maxClientLifeMillis;
 
     String serverIpAddress;
     List<String> clientIpAddresses;
 
-    String jconsoleJmxLink;
-
     TcpMetricsExpectation tcpServerExpectation;
     TcpMetricsExpectation tcpClientsExpectation;
+
+    ExecutionStatus executionStatus;
+    String jconsoleJmxLink;
+    String eventualException;
 
     public String getBenchmarkId() {
         return benchmarkId;
@@ -261,14 +263,6 @@ public class DescribeTcpEchoBenchmarkResponse {
         this.clientIpAddresses = clientIpAddresses;
     }
 
-    public String getJconsoleJmxLink() {
-        return jconsoleJmxLink;
-    }
-
-    public void setJconsoleJmxLink(String jconsoleJmxLink) {
-        this.jconsoleJmxLink = jconsoleJmxLink;
-    }
-
     public TcpMetricsExpectation getTcpServerExpectation() {
         return tcpServerExpectation;
     }
@@ -283,5 +277,29 @@ public class DescribeTcpEchoBenchmarkResponse {
 
     public void setTcpClientsExpectation(TcpMetricsExpectation tcpClientsExpectation) {
         this.tcpClientsExpectation = tcpClientsExpectation;
+    }
+
+    public ExecutionStatus getExecutionStatus() {
+        return executionStatus;
+    }
+
+    public void setExecutionStatus(ExecutionStatus executionStatus) {
+        this.executionStatus = executionStatus;
+    }
+
+    public String getJconsoleJmxLink() {
+        return jconsoleJmxLink;
+    }
+
+    public void setJconsoleJmxLink(String jconsoleJmxLink) {
+        this.jconsoleJmxLink = jconsoleJmxLink;
+    }
+
+    public String getEventualException() {
+        return eventualException;
+    }
+
+    public void setEventualException(String eventualException) {
+        this.eventualException = eventualException;
     }
 }

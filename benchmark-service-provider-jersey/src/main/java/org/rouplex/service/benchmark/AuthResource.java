@@ -67,4 +67,9 @@ public class AuthResource extends ResourceConfig implements AuthService {
     public GetSessionInfoResponse getSessionInfo(String sessionIdViaCookie, String sessionIdViaHeader) throws Exception {
         return AuthServiceProvider.get().getSessionInfo(sessionIdViaCookie, sessionIdViaHeader);
     }
+
+    @Override
+    public void setUserPreferences(String sessionIdViaHeader, UserPreferences userPreferences) throws Exception {
+        AuthServiceProvider.get().setUserPreferences(sessionIdViaHeader, userPreferences);
+    }
 }

@@ -1,7 +1,7 @@
 var config = module.exports = {};
 
-config.env = "dev";
-config.version = "1.0.0.A3";
+config.env = "prod";
+config.version = "1.0.0";
 
 config.host = config.env == "dev" ? "http://localhost:8080" : "https://www.rouplex-demo.com";
 config.basePath = config.env == "dev" ? "/benchmark-service-provider-jersey-1.0.0-SNAPSHOT" : "";

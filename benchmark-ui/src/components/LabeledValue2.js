@@ -29,7 +29,7 @@ export default class LabeledValue2 extends React.Component {
           {this.props.label1 ? this.props.label1 : "Min"}:
         </Col>
         <Col style={style} md={this.getColSpan(2)}>
-          {this.props.value2}
+          {this.props.value1}
         </Col>
         <Col style={style} md={this.getColSpan(3)}>
           {this.props.label2 ? this.props.label2 : "Max"}:

@@ -4,7 +4,7 @@ import 'bootstrap/less/bootstrap.less';
 import './styles/custom-styles.css';
 
 import Header from './Header';
-import Body from './Body';
+import Body1 from './Body';
 import Footer from './Footer';
 import Button from 'react-bootstrap/lib/Button';
 
@@ -50,7 +50,7 @@ class App extends React.Component {
           onSessionUpdate={sessionInfo => this.setState({sessionInfo: sessionInfo ? sessionInfo : {}})}
         />
 
-        <Body
+        <Body1
           path={this.state.path}
           sessionInfo={this.state.sessionInfo}
           onPathUpdate={path => this.handlePathUpdate(path)}

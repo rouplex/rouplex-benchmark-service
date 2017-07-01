@@ -16,6 +16,10 @@ export default class Body extends React.Component {
   // this.props.onPathUpdate
 
   renderBody() {
+    if (!this.props.sessionInfo.userInfo) {
+      return <ShowcaseBenchmarks/>
+    }
+
     switch (this.props.path) {
       case "/benchmark/start":
         return <StartBenchmark sessionInfo={this.props.sessionInfo} onPathUpdate={this.props.onPathUpdate}/>;
@@ -26,7 +30,7 @@ export default class Body extends React.Component {
     var res = this.props.path.split("#");
     switch (res[0]) {
       case "/benchmark/show":
-        return <ShowBenchmark benchmarkId={res[1]}/>;
+        return <ShowBenchmark sessionInfo={this.props.sessionInfo} benchmarkId={res[1]}/>;
     }
 
     return <Button bsStyle="primary" block> Unkonwn Path: {this.props.path}</Button>

@@ -14,5 +14,8 @@ public interface OrchestratorService {
 
     @GET
     @Path("tcp-echo-benchmarks/{benchmarkId}")
-    DescribeTcpEchoBenchmarkResponse describeTcpEchoBenchmark(@PathParam("benchmarkId") String benchmarkId) throws Exception;
+    DescribeTcpEchoBenchmarkResponse describeTcpEchoBenchmark(
+        @PathParam("benchmarkId") String benchmarkId,
+        @HeaderParam("Rouplex-TimeOffsetInMinutes") Integer timeOffsetInMinutes
+    ) throws Exception;
 }
