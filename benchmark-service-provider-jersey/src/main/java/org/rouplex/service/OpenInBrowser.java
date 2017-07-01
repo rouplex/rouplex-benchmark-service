@@ -10,6 +10,7 @@ import java.net.URI;
  */
 public class OpenInBrowser {
     public static void main(String[] args) throws Exception {
-        Desktop.getDesktop().browse(URI.create("http://localhost:8080/benchmark-service-provider-jersey/webjars/swagger-ui/2.2.5/index.html?url=http://localhost:8080/benchmark-service-provider-jersey/rouplex/swagger.json"));
+        Desktop.getDesktop().browse(URI.create(
+            "http://localhost:8080/benchmark-service-provider-jersey-1.0.0-SNAPSHOT/index.html"));
     }
 }

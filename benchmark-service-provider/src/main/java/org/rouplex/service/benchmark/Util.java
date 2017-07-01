@@ -2,8 +2,7 @@ package org.rouplex.service.benchmark;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.Calendar;
-import java.util.Date;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -19,6 +18,7 @@ public class Util {
     };
 
     private static final SimpleDateFormat UTC_DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ");
+    private static final SimpleDateFormat LOCAL_DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSSZ", Locale.US);
 
     public static Date getDateAfterDuration(String duration) throws ParseException {
         Matcher matcher = ISO_8601_SIMPLE.matcher(duration);
@@ -41,8 +41,17 @@ public class Util {
         return UTC_DATE_FORMAT.parse(isoInstant).getTime();
     }
 
-    public static String convertMillisToIsoInstant(long millis) {
-        return UTC_DATE_FORMAT.format(millis);
+    public static String convertMillisToIsoInstant(long millis, Integer timeOffsetInMinutes) {
+        if (timeOffsetInMinutes == null) {
+            return UTC_DATE_FORMAT.format(millis);
+        }
+
+        TimeZone timeZone = TimeZone.getTimeZone("GMT");
+        timeZone.setRawOffset(timeOffsetInMinutes * 60 * 1000);
+
+        GregorianCalendar calendar = new GregorianCalendar(timeZone);
+        calendar.setTimeInMillis(millis);
+        return LOCAL_DATE_FORMAT.format(calendar.getTime());
     }
 
     public static void checkNonNullArg(Object val, String fieldName) {

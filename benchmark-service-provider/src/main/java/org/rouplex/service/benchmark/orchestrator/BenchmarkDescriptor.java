@@ -6,23 +6,51 @@ import java.util.Map;
 /**
  * @author Andi Mullaraj (andimullaraj at gmail.com)
  */
-public class BenchmarkDescriptor {
-    TcpMetricsExpectation tcpMetricsExpectation;
-    Map<String, InstanceDescriptor> benchmarkInstances = new HashMap<String, InstanceDescriptor>();
+public class BenchmarkDescriptor<T> {
+    private final StartTcpEchoBenchmarkRequest startTcpEchoBenchmarkRequest;
+    private final long startingTimestamp;
+    private final long expectedDurationMillis;
+    private final Map<String, InstanceDescriptor<T>> instanceDescriptors = new HashMap<>();
 
-    public TcpMetricsExpectation getTcpMetricsExpectation() {
-        return tcpMetricsExpectation;
+    private long startedTimestamp;
+    private Exception eventualException;
+
+    public BenchmarkDescriptor(StartTcpEchoBenchmarkRequest startTcpEchoBenchmarkRequest,
+                               long startingTimestamp, long expectedDurationMillis) {
+        this.startTcpEchoBenchmarkRequest = startTcpEchoBenchmarkRequest;
+        this.startingTimestamp = startingTimestamp;
+        this.expectedDurationMillis = expectedDurationMillis;
     }
 
-    public void setTcpMetricsExpectation(TcpMetricsExpectation tcpMetricsExpectation) {
-        this.tcpMetricsExpectation = tcpMetricsExpectation;
+    public StartTcpEchoBenchmarkRequest getStartTcpEchoBenchmarkRequest() {
+        return startTcpEchoBenchmarkRequest;
     }
 
-    public Map<String, InstanceDescriptor> getBenchmarkInstances() {
-        return benchmarkInstances;
+    public long getStartingTimestamp() {
+        return startingTimestamp;
     }
 
-    public void setBenchmarkInstances(Map<String, InstanceDescriptor> benchmarkInstances) {
-        this.benchmarkInstances = benchmarkInstances;
+    public long getExpectedDurationMillis() {
+        return expectedDurationMillis;
+    }
+
+    public Map<String, InstanceDescriptor<T>> getInstanceDescriptors() {
+        return instanceDescriptors;
+    }
+
+    public long getStartedTimestamp() {
+        return startedTimestamp;
+    }
+
+    public void setStartedTimestamp(long startedTimestamp) {
+        this.startedTimestamp = startedTimestamp;
+    }
+
+    public Exception getEventualException() {
+        return eventualException;
+    }
+
+    public void setEventualException(Exception eventualException) {
+        this.eventualException = eventualException;
     }
 }

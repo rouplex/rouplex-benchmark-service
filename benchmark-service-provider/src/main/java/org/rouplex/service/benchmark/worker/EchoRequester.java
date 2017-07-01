@@ -22,7 +22,7 @@ import java.util.logging.Logger;
  */
 public class EchoRequester {
     private static final Logger logger = Logger.getLogger(EchoRequester.class.getSimpleName());
-    final BenchmarkWorkerServiceProvider benchmarkServiceProvider;
+    final WorkerServiceProvider benchmarkServiceProvider;
     final StartTcpClientsRequest request;
 
     int maxSendBufferSize;
@@ -42,7 +42,7 @@ public class EchoRequester {
     Timer.Context pauseTimer;
     long timeCreatedNano = System.nanoTime();
 
-    EchoRequester(BenchmarkWorkerServiceProvider benchmarkServiceProvider,
+    EchoRequester(WorkerServiceProvider benchmarkServiceProvider,
                   StartTcpClientsRequest startTcpClientsRequest, RouplexTcpBinder tcpBinder) {
 
         this.benchmarkServiceProvider = benchmarkServiceProvider;
@@ -56,8 +56,8 @@ public class EchoRequester {
                         socketChannel = org.rouplex.nio.channels.SSLSocketChannel.open(RouplexTcpClient.buildRelaxedSSLContext());
                         break;
                     case SCALABLE_SSL:
-                        socketChannel = scalablessl.SSLSocketChannel.open(RouplexTcpClient.buildRelaxedSSLContext());
-                        break;
+                        // socketChannel = scalablessl.SSLSocketChannel.open(RouplexTcpClient.buildRelaxedSSLContext());
+                        // break;
                     case CLASSIC_NIO:
                     default:
                         throw new Exception("This provider cannot provide ssl communication");

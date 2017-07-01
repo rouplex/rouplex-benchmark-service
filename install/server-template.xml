@@ -73,12 +73,12 @@
                <!--redirectPort="8443" />-->
 
     <Connector
-            clientAuth="true" port="8088" minSpareThreads="5" maxSpareThreads="75"
+            clientAuth="false" port="#sslConnector-sslPort#" minSpareThreads="5" maxSpareThreads="75"
             enableLookups="true" disableUploadTimeout="true"
             acceptCount="100" maxThreads="200"
             scheme="https" secure="true" SSLEnabled="true"
             keystoreFile="#sslConnector-keystoreFile#" keystoreType="JKS" keystorePass="#sslConnector-keystorePass#"
-            SSLVerifyClient="optional" SSLEngine="on" SSLVerifyDepth="3" sslProtocol="TLS"
+            SSLVerifyClient="none" SSLEngine="on" SSLVerifyDepth="3" sslProtocol="TLS"
     />
 
     <!-- A "Connector" using the shared thread pool-->

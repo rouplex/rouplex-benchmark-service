@@ -11,6 +11,17 @@ setup_tomcat_ssl_certificate() {
 
 setup_tomcat_ssl_connector() {
     echo "=========== Rouplex ============= Setting up the tomcat's ssl connector"
+    aws s3 cp s3://rouplex/deploys/services/benchmark/environments/"$ENV"/server_port.txt rouplex-environment > /dev/null 2>&1
+    local server_port=`cat rouplex-environment/server_port.txt`
+    if (( server_port < 1025 )); then
+        rpm -Uvh https://s3.amazonaws.com/aaronsilber/public/authbind-2.1.1-0.1.x86_64.rpm
+        touch /etc/authbind/byport/$server_port
+        chmod 500 /etc/authbind/byport/$server_port
+        chown ec2-user /etc/authbind/byport/$server_port
+        search_and_replace $TOMCAT_PATH/bin/startup.sh "exec " "exec authbind --deep "
+    fi
+
+    search_and_replace rouplex-benchmark-service/install/server-template.xml "#sslConnector-sslPort#" $server_port
     search_and_replace rouplex-benchmark-service/install/server-template.xml "#sslConnector-keystoreFile#" $TOMCAT_CERT_PATH
     search_and_replace rouplex-benchmark-service/install/server-template.xml "#sslConnector-keystorePass#" $TOMCAT_CERT_PASS
     cp rouplex-benchmark-service/install/server-template.xml "$TOMCAT_FOLDER"/conf/server.xml
@@ -31,6 +42,15 @@ setup_tomcat_run_environment() {
     echo "=========== Rouplex ============= Setting up tomcat environment"
     search_and_replace rouplex-benchmark-service/install/setenv-template.sh "#keystoreFile#" $TOMCAT_CERT_PATH
     search_and_replace rouplex-benchmark-service/install/setenv-template.sh "#keystorePass#" $TOMCAT_CERT_PASS
+
+    aws s3 cp s3://rouplex/deploys/services/benchmark/environments/"$ENV"/benchmark_main_url.txt rouplex-environment > /dev/null 2>&1
+    search_and_replace rouplex-benchmark-service/install/setenv-template.sh "#BenchmarkMainUrl#" `cat rouplex-environment/benchmark_main_url.txt`
+
+    aws s3 cp s3://rouplex/deploys/services/benchmark/environments/"$ENV"/google_cloud.clientid rouplex-environment > /dev/null 2>&1
+    search_and_replace rouplex-benchmark-service/install/setenv-template.sh "#GoogleCloudClientId#" `cat rouplex-environment/google_cloud.clientid`
+
+    aws s3 cp s3://rouplex/deploys/services/benchmark/environments/"$ENV"/google_cloud.password rouplex-environment > /dev/null 2>&1
+    search_and_replace rouplex-benchmark-service/install/setenv-template.sh "#GoogleCloudClientPassword#" `cat rouplex-environment/google_cloud.password`
 
     cp rouplex-benchmark-service/install/setenv-template.sh "$TOMCAT_FOLDER"/bin/setenv.sh
     chmod 700 "$TOMCAT_FOLDER"/bin/setenv.sh

@@ -24,7 +24,7 @@ public class EchoResponder {
     ByteBuffer sendBuffer;
     Integer clientId;
 
-    EchoResponder(StartTcpServerRequest startTcpServerRequest, BenchmarkWorkerServiceProvider benchmarkServiceProvider,
+    EchoResponder(StartTcpServerRequest startTcpServerRequest, WorkerServiceProvider benchmarkServiceProvider,
                   RouplexTcpClient rouplexTcpClient) throws IOException {
 
         rouplexTcpClient.setAttachment(this);

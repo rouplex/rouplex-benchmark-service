@@ -8,8 +8,6 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
-import org.rouplex.service.benchmark.management.SnapCounter;
-import org.rouplex.service.benchmark.management.SnapMeter;
 
 import java.io.IOException;
 import java.util.*;
@@ -55,7 +53,7 @@ public class SSLSelectorWithMixSslAndPlainChannelsTest {
     Provider provider;
     boolean secure;
     boolean aggregated;
-    BenchmarkWorkerServiceProvider bmService;
+    WorkerServiceProvider bmService;
 
     public SSLSelectorWithMixSslAndPlainChannelsTest(Provider provider, boolean secure, boolean aggregated) {
         this.provider = provider;
@@ -65,7 +63,7 @@ public class SSLSelectorWithMixSslAndPlainChannelsTest {
 
     @Before
     public void setup() throws Exception {
-        bmService = new BenchmarkWorkerServiceProvider();
+        bmService = new WorkerServiceProvider();
     }
 
     @After
@@ -88,8 +86,8 @@ public class SSLSelectorWithMixSslAndPlainChannelsTest {
         startTcpServerRequest.setHostname(null); // any local address
         startTcpServerRequest.setPort(0); // any port
         startTcpServerRequest.setSsl(secure);
-//        startTcpServerRequest.setOptionalSocketSendBufferSize(150000);
-//        startTcpServerRequest.setOptionalSocketReceiveBufferSize(150000);
+//        startTcpServerRequest.setSocketSendBufferSize(150000);
+//        startTcpServerRequest.setSocketReceiveBufferSize(150000);
         startTcpServerRequest.setMetricsAggregation(metricsAggregation);
         startTcpServerRequest.setBacklog(1000);
         StartTcpServerResponse startTcpServerResponse = bmService.startTcpServer(startTcpServerRequest);
@@ -101,8 +99,8 @@ public class SSLSelectorWithMixSslAndPlainChannelsTest {
 //        startTcpClientsRequest.setHostname("www.rouplex-demo.com");
 //        startTcpClientsRequest.setPort(8888);
         startTcpClientsRequest.setSsl(secure);
-//        startTcpClientsRequest.setOptionalSocketSendBufferSize(150000);
-//        startTcpClientsRequest.setOptionalSocketReceiveBufferSize(150000);
+//        startTcpClientsRequest.setSocketSendBufferSize(150000);
+//        startTcpClientsRequest.setSocketReceiveBufferSize(150000);
         startTcpClientsRequest.setClientCount(1);
         startTcpClientsRequest.setMinDelayMillisBeforeCreatingClient(1);
         startTcpClientsRequest.setMaxDelayMillisBeforeCreatingClient(2001);

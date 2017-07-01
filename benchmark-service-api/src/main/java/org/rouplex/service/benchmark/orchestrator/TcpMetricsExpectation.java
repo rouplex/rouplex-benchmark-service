@@ -4,23 +4,32 @@ package org.rouplex.service.benchmark.orchestrator;
  * @author Andi Mullaraj (andimullaraj at gmail.com)
  */
 public class TcpMetricsExpectation {
-    int rampUpAsMillis;
+    int rampUpInMillis;
+    int durationMillis;
     double connectionsPerSecond;
     int maxSimultaneousConnections;
-    long maxUploadSpeedAsBitsPerSecond;
-    long maxDownloadSpeedAsBitsPerSecond;
+    long maxUploadSpeedInBitsPerSecond;
+    long maxDownloadSpeedInBitsPerSecond;
     String startAsIsoInstant;
     String finishRampUpAsIsoInstant;
     String finishAsIsoInstant;
     String maxUploadSpeed;
     String maxDownloadSpeed;
 
-    public int getRampUpAsMillis() {
-        return rampUpAsMillis;
+    public int getRampUpInMillis() {
+        return rampUpInMillis;
     }
 
-    public void setRampUpAsMillis(int rampUpAsMillis) {
-        this.rampUpAsMillis = rampUpAsMillis;
+    public void setRampUpInMillis(int rampUpInMillis) {
+        this.rampUpInMillis = rampUpInMillis;
+    }
+
+    public int getDurationMillis() {
+        return durationMillis;
+    }
+
+    public void setDurationMillis(int durationMillis) {
+        this.durationMillis = durationMillis;
     }
 
     public double getConnectionsPerSecond() {
@@ -39,20 +48,20 @@ public class TcpMetricsExpectation {
         this.maxSimultaneousConnections = maxSimultaneousConnections;
     }
 
-    public long getMaxUploadSpeedAsBitsPerSecond() {
-        return maxUploadSpeedAsBitsPerSecond;
+    public long getMaxUploadSpeedInBitsPerSecond() {
+        return maxUploadSpeedInBitsPerSecond;
     }
 
-    public void setMaxUploadSpeedAsBitsPerSecond(long maxUploadSpeedAsBitsPerSecond) {
-        this.maxUploadSpeedAsBitsPerSecond = maxUploadSpeedAsBitsPerSecond;
+    public void setMaxUploadSpeedInBitsPerSecond(long maxUploadSpeedInBitsPerSecond) {
+        this.maxUploadSpeedInBitsPerSecond = maxUploadSpeedInBitsPerSecond;
     }
 
-    public long getMaxDownloadSpeedAsBitsPerSecond() {
-        return maxDownloadSpeedAsBitsPerSecond;
+    public long getMaxDownloadSpeedInBitsPerSecond() {
+        return maxDownloadSpeedInBitsPerSecond;
     }
 
-    public void setMaxDownloadSpeedAsBitsPerSecond(long maxDownloadSpeedAsBitsPerSecond) {
-        this.maxDownloadSpeedAsBitsPerSecond = maxDownloadSpeedAsBitsPerSecond;
+    public void setMaxDownloadSpeedInBitsPerSecond(long maxDownloadSpeedInBitsPerSecond) {
+        this.maxDownloadSpeedInBitsPerSecond = maxDownloadSpeedInBitsPerSecond;
     }
 
     public String getStartAsIsoInstant() {
