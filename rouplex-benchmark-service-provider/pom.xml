@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.rouplex</groupId>
+        <artifactId>rouplex-benchmark-service-parent</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>rouplex-benchmark-service-provider</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <packaging>jar</packaging>
+
+    <dependencies>
+        <!-- Service provider always depends on the interface it is implementing -->
+        <dependency>
+            <groupId>org.rouplex</groupId>
+            <artifactId>rouplex-benchmark-service-api</artifactId>
+        </dependency>
+
+        <!-- Useful functionality in one place -->
+        <dependency>
+            <groupId>org.rouplex</groupId>
+            <artifactId>rouplex-commons</artifactId>
+            <version>1.0.2-SNAPSHOT</version>
+        </dependency>
+
+        <!--Temporary Shortcut: We instantiate a deployment service provider, but normally should be its own service-->
+        <dependency>
+            <groupId>org.rouplex</groupId>
+            <artifactId>rouplex-deployment-service-provider</artifactId>
+            <version>1.0.0-SNAPSHOT</version>
+        </dependency>
+
+        <!--Used to call out to benchmark workers-->
+        <dependency>
+            <groupId>org.rouplex</groupId>
+            <artifactId>rouplex-benchmark-worker-service-api</artifactId>
+        </dependency>
+
+        <!-- https://mvnrepository.com/artifact/com.google.apis/google-api-services-oauth2 -->
+        <dependency>
+            <groupId>com.google.apis</groupId>
+            <artifactId>google-api-services-oauth2</artifactId>
+            <version>v2-rev127-1.22.0</version>
+        </dependency>
+
+        <!--<dependency>-->
+            <!--<groupId>com.google.api-client</groupId>-->
+            <!--<artifactId>google-api-client</artifactId>-->
+            <!--<version>1.22.0</version>-->
+        <!--</dependency>-->
+
+        <!--Provides serialization for jax-rs client-->
+        <dependency>
+            <groupId>com.fasterxml.jackson.jaxrs</groupId>
+            <artifactId>jackson-jaxrs-json-provider</artifactId>
+            <version>2.6.6</version>
+        </dependency>
+
+        <!--Use Gson for serialization in various parts-->
+        <dependency>
+            <groupId>com.google.code.gson</groupId>
+            <artifactId>gson</artifactId>
+            <version>1.7.1</version>
+        </dependency>
+
+        <!--Will be used for adding metrics to es-->
+        <dependency>
+            <groupId>org.elasticsearch.client</groupId>
+            <artifactId>rest</artifactId>
+            <version>5.3.3</version>
+        </dependency>
+    </dependencies>
+</project>

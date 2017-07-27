@@ -1,9 +1,12 @@
 rouplex-benchmark-service
 =======
 
-This repo provides a web application built using rouplex-platform-jersey and for managing rouplex-platform components
-(for configuring/starting/stopping service providers and consumers) as well as orchestration of complex scenarios for
-testing and/or benchmarking.
+This repo provides a set of java libraries, services, and a web application for running distributed benchmarks. It can 
+be used for testing and profiling communication characteristics (speed, throughput, latency) of actors scattered in 
+public clouds (such as Amazon AWS, Google Cloud, Azure etc).
+
+Built using Rouplex platform and using a variety of Rouplex common services, it handles automatic deployment of the
+clusters performing the benchmark, automatic metrics collection, automatic shutdown of the involved clusters.
 
 # Description #
 This service will be used for testing and benchmarking various configurations of rouplex-platform services and
@@ -29,9 +32,24 @@ be installed in your local maven repo.
 `mvn test` will execute all the tests and the console output should show success upon finishing.
 
 # Run #
-To run locally and mostly for debugging purposes, type `cd benchmark-service-provider-jersey; mvn tomcat7:run` on a
-shell window to start the server then `mvn exec:java` on a separate window to start a browser client (pointing at
-http://localhost:8080/benchmark-service-provider-jersey/webjars/swagger-ui/2.2.5/index.html?url=http://localhost:8080/benchmark-service-provider-jersey/rouplex/swagger.json)
+This service is intended to run in Amazon Ec2 with the actors being deployed in Ec2, Google Compute or Azure. You can 
+still run it locally but it will not be fully functional, at least for now. The main reason is that the worker hosts 
+get deployed in the cloud and your server instance needs to be addressable by them in order to report their state. 
+
+## Option 1 -- No Google Oauth2 ##
+If you don't have or want to create a gmail developer account, then you can run this service without the Google Oauth2
+functionality (which would have authenticated your users by their own google/gmail credentials). In that case type 
+`cd rouplex-benchmark-webapp; export MAVEN_OPTS="-DGoogleCloudClientId= -DGoogleCloudClientPassword="; mvn tomcat7:run` 
+on a shell window to start the server. Then type `mvn exec:java` on a separate window to start a browser client 
+(pointing at http://localhost:8080/webjars/swagger-ui/2.2.5/index.html?url=http://localhost:8080/rest/swagger.json)
+Refer to the API section for details on requests and related responses.
+
+## Option 2 -- Include Google Oauth2 ##
+If you have a google developer account, you can create a project using google console (then create a user for this 
+project -- details coming soon). 
+To run type `cd rouplex-benchmark-webapp; export MAVEN_OPTS="-DGoogleCloudClientId=<your-google-client-id> -DGoogleCloudClientPassword=<your-google-client-password>"; mvn tomcat7:run` on a
+shell window to start the server. Then `mvn exec:java` on a separate window to start a browser client
+(pointing at http://localhost:8080/webjars/swagger-ui/2.2.5/index.html?url=http://localhost:8080/rest/swagger.json)
 Refer to the API section for details on requests and related responses.
 
 # Deploy #
@@ -69,13 +87,15 @@ deployment (or one can opt for a static deployment, equivalent, but out of the s
 <user username="tomcat" password="<password>" roles="manager-gui"/>
 </tomcat-users>
 ```
-1. Deploy the benchmark service by uploading it in tomcat via deploy button (context path will be: benchmark-service-provider-jersey-1.0.0-SNAPSHOT/).
+1. We suggest you rename the produced war to ROOT.war so that this app can be deployed as the main app on your server.
 
-1. Use the browser to get to url (http://domain.com:8080/benchmark-service-provider-jersey-1.0.0-SNAPSHOT/webjars/swagger-ui/2.2.5/index.html?url=http://domain.com:8080/benchmark-service-provider-jersey-1.0-SNAPSHOT/rouplex/swagger.json)
+1. Deploy the benchmark service by uploading it in tomcat via (context path will be: "/" without the quotes).
 
-1. The UI is not fancy but quite intuitive. You can click the yellowish area on the right side to have a template copied
-on the left which you can then modify prior to trying it via the Try button. Use something like this snippet to start a
-new echo server:
+1. Use the browser to get to url (http://domain.com:8080/webjars/swagger-ui/2.2.5/index.html?url=http://domain.com:8080/rest/swagger.json)
+
+1. The Swagger UI is not fancy but quite intuitive. You can click the yellowish area on the right side to have a 
+template copied on the left which you can then modify prior to trying it via the Try button. Use something like this 
+snippet to start a new echo server:
 
 ```json
 {
@@ -127,7 +147,12 @@ The result will show the effective ip address (xx.xx.xx.xx), hostname, and port 
 }
 ```
 
-# Configure Host (Optional) #
+# Configure Host #
+
+Various system level configuration may be necessary before launching a benchmark which would be pushing the usual 
+limits. For example, a server host that will have to accept millions (or even hundred thousands) connections, or a 
+client host that will simulate individual clients in order of millions. This configuration is performed automatically
+with the latest versions of the service but we are keeping the older documentation as a reference.
 
 ## File Descriptors ##
 If you will test with a high number of connections you must adjust the number of open file descriptors allowed for the
@@ -164,7 +189,7 @@ service:jmx:rmi://xx.xx.xx.xx:1705/jndi/rmi://xx.xx.xx.xx:1706/jmxrmi
 1. Go to MBeans tab, then to metrics node in the tree (make sure there are metrics available first by starting a server and at least a client)
 
 ## Tomcat as an init.d service ##
-1. As root user, copy the file at benchmark-service-provider-jersey/config/initd.tomcat.template to your host's /etc/init.d/tomcat
+1. As root user, copy the file at install/initd.tomcat.template to your host's /etc/init.d/tomcat
 1. Grant exec permission to /etc/init.d/tomcat
 1. Exec shell command `sudo service tomcat restart` and the tomcat will be running with the new settings, now and on a
 system reboot
