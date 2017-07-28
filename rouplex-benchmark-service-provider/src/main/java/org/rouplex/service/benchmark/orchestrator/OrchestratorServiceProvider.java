@@ -257,8 +257,8 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
 
             // ensure both clusters are ready
             long expirationTimestamp = System.currentTimeMillis() + 10 * 60_000;
-            Ec2Cluster serverCluster = ensureDeployed(benchmark.getBenchmarkId(), serverClusterId, expirationTimestamp);
-            Cluster clientsCluster = ensureDeployed(benchmark.getBenchmarkId(), clientsClusterId, expirationTimestamp);
+            Cluster<Host> serverCluster = ensureDeployed(benchmark.getBenchmarkId(), serverClusterId, expirationTimestamp);
+            Cluster<Host> clientsCluster = ensureDeployed(benchmark.getBenchmarkId(), clientsClusterId, expirationTimestamp);
 
             benchmark.setServerHost(serverCluster.getHosts().values().iterator().next());
             benchmark.setClientHosts(clientsCluster.getHosts().values());
@@ -301,14 +301,14 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
         }
     }
 
-    private Ec2Cluster ensureDeployed(String deploymentId, String clusterId, long expirationTimestamp) throws Exception {
+    private <H extends Host> Cluster<H> ensureDeployed(String deploymentId, String clusterId, long expirationTimestamp) throws Exception {
         while (System.currentTimeMillis() < expirationTimestamp) {
-            Ec2Cluster ec2Cluster = deploymentService.getEc2Cluster(deploymentId, clusterId);
+            Cluster<H> cluster = deploymentService.getCluster(deploymentId, clusterId);
 
-            if (ec2Cluster.getHosts().values().parallelStream()
+            if (cluster.getHosts().values().parallelStream()
                 .filter(h -> h.getDeploymentState() == null || h.getPublicIpAddress() == null)
                 .count() == 0) {
-                return ec2Cluster;
+                return cluster;
             }
 
             Thread.sleep(1000);
