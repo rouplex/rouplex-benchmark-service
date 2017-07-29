@@ -13,6 +13,8 @@ This service will be used for testing and benchmarking various configurations of
 components. For now, it has support for rouplex-platform-tcp. The build artifact is a war that can be deployed in an
 application container such as tomcat.
 
+<b>Detailed documentation coming soon!</b>
+
 # Versioning #
 We use semantic versioning, in its representation x.y.z, x stands for API update, y for dependencies update, and z for
 build number.

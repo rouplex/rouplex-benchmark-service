@@ -52,7 +52,7 @@ public class TcpEchoBenchmark {
     private long startedTimestamp;
 
     private Host serverHost;
-    private Collection<Host> clientHosts;
+    private Collection<? extends Host> clientHosts;
 
     public String getBenchmarkId() {
         return benchmarkId;
@@ -334,11 +334,11 @@ public class TcpEchoBenchmark {
         this.serverHost = serverHost;
     }
 
-    public Collection<Host> getClientHosts() {
+    public Collection<? extends Host> getClientHosts() {
         return clientHosts;
     }
 
-    public void setClientHosts(Collection<Host> clientHosts) {
+    public void setClientHosts(Collection<? extends Host> clientHosts) {
         this.clientHosts = clientHosts;
     }
 }

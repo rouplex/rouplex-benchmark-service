@@ -142,9 +142,12 @@ public class WorkerServiceProvider implements WorkerService, Closeable {
     @Override
     public CreateTcpServerResponse createTcpServer(CreateTcpServerRequest request) throws Exception {
         ValidationUtils.checkNonNullArg(request.getProvider(), "Provider");
+        String secure = request.isSsl() ? "secure " : "";
 
         try {
-            logger.info(String.format("Creating EchoServer at %s:%s", request.getHostname(), request.getPort()));
+            logger.info(String.format("Creating %sEchoServer using provider %s at %s:%s",
+                secure, request.getProvider(), request.getHostname(), request.getPort()));
+
             RouplexTcpBinder tcpBinder = request.isUseSharedBinder()
                     ? sharedTcpBinders.get(request.getProvider()) : createRouplexTcpBinder(request.getProvider());
 
@@ -178,8 +181,8 @@ public class WorkerServiceProvider implements WorkerService, Closeable {
                     .build();
 
             InetSocketAddress isa = (InetSocketAddress) rouplexTcpServer.getLocalAddress();
-            logger.info(String.format("Created EchoServer at %s:%s",
-                    isa.getAddress().getHostAddress().replace('.', '-'), isa.getPort()));
+            logger.info(String.format("Created %sEchoServer using provider %s at %s:%s",
+                secure, request.getProvider(), isa.getAddress().getHostAddress().replace('.', '-'), isa.getPort()));
 
             String serverId = String.format("%s:%s", isa.getHostName().replace('.', '-'), isa.getPort());
             tcpServers.put(serverId, rouplexTcpServer);
@@ -191,8 +194,8 @@ public class WorkerServiceProvider implements WorkerService, Closeable {
             response.setPort(isa.getPort());
             return response;
         } catch (Exception e) {
-            logger.warning(String.format("Failed creating EchoServer at %s:%s. Cause: %s: %s",
-                    request.getHostname(), request.getPort(), e.getClass().getSimpleName(), e.getMessage()));
+            logger.warning(String.format("Failed creating %sEchoServer using provider %s at %s:%s. Cause: %s: %s",
+                secure, request.getProvider(), request.getHostname(), request.getPort(), e.getClass().getSimpleName(), e.getMessage()));
             throw e;
         }
     }
@@ -237,8 +240,9 @@ public class WorkerServiceProvider implements WorkerService, Closeable {
             throw new IllegalArgumentException(String.format("Unresolved address %s", inetSocketAddress));
         }
 
-        logger.info(String.format("Creating %s EchoClients for server at %s:%s",
-                request.getClientCount(), request.getHostname(), request.getPort()));
+        String secure = request.isSsl() ? "secure " : "";
+        logger.info(String.format("Creating %s %sEchoClients using provider %s for server at %s:%s",
+                request.getClientCount(), secure, request.getProvider(), request.getHostname(), request.getPort()));
 
         final RouplexTcpBinder tcpBinder = request.isUseSharedBinder()
                 ? sharedTcpBinders.get(request.getProvider()) : createRouplexTcpBinder(request.getProvider());

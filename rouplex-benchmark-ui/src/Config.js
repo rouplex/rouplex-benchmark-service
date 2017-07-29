@@ -45,9 +45,11 @@ config.ec2Regions = [
 ];
 
 config.nioProviders = [
-    {key: "CLASSIC_NIO", value: "Classic NIO (No SSL support)"},
-    {key: "ROUPLEX_NIOSSL", value: "Rouplex NIO (With SSL support)"},
-    {key: "SCALABLE_SSL", value: "Scalable NIO (With SSL support)"}
+  {key: "CLASSIC_NIO", value: "Classic NIO (No SSL support)"},
+  {key: "ROUPLEX_NIOSSL", value: "Rouplex NIO (With SSL support)"}
+
+  // todo: include the following provider later, for comparison with ROUPLEX_NIOSSL
+  // {key: "SCALABLE_SSL", value: "Scalable NIO (With SSL support)"}
 ];
 
 // experimental from here on
@@ -56,7 +58,7 @@ config.paths = [
   {path: "/benchmark/list", label: "List Benchmarks"}
 ];
 
-config.getSanitizedPath = function(unsanitizedPath) {
+config.getSanitizedPath = function (unsanitizedPath) {
   if (!unsanitizedPath) {
     unsanitizedPath = window.location.search;
     if (unsanitizedPath.startsWith("?")) {
@@ -65,7 +67,7 @@ config.getSanitizedPath = function(unsanitizedPath) {
   }
 
   var sanitizedPath = config.paths[0].path;
-  config.paths.map(function(x) {
+  config.paths.map(function (x) {
     if (x.path === unsanitizedPath) {
       sanitizedPath = unsanitizedPath;
     }

@@ -2,7 +2,6 @@ package org.rouplex.service.benchmark.auth;
 
 import org.rouplex.commons.configuration.Configuration;
 import org.rouplex.commons.configuration.ConfigurationManager;
-import org.rouplex.service.benchmark.BenchmarkConfigurationKey;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -15,22 +14,27 @@ import java.util.logging.Logger;
  * @author Andi Mullaraj (andimullaraj at gmail.com)
  */
 public class AuthServiceProvider implements AuthService, Closeable {
+    public enum ConfigurationKey {
+        BenchmarkMainUrl,
+        GoogleCloudClientId,
+        GoogleCloudClientPassword,
+        GoogleUserInfoEndPoint,
+    }
+
     private static final Logger logger = Logger.getLogger(AuthServiceProvider.class.getSimpleName());
-
     private static AuthServiceProvider benchmarkAuthService;
-
     public static AuthServiceProvider get() throws Exception {
         synchronized (AuthServiceProvider.class) {
             if (benchmarkAuthService == null) {
                 ConfigurationManager configurationManager = new ConfigurationManager();
 
-                configurationManager.putConfigurationEntry(BenchmarkConfigurationKey.BenchmarkMainUrl,
-                    System.getProperty(BenchmarkConfigurationKey.BenchmarkMainUrl.toString()));
-                configurationManager.putConfigurationEntry(BenchmarkConfigurationKey.GoogleCloudClientId,
-                    System.getProperty(BenchmarkConfigurationKey.GoogleCloudClientId.toString()));
-                configurationManager.putConfigurationEntry(BenchmarkConfigurationKey.GoogleCloudClientPassword,
-                    System.getProperty(BenchmarkConfigurationKey.GoogleCloudClientPassword.toString()));
-                configurationManager.putConfigurationEntry(BenchmarkConfigurationKey.GoogleUserInfoEndPoint,
+                configurationManager.putConfigurationEntry(ConfigurationKey.BenchmarkMainUrl,
+                    System.getProperty(ConfigurationKey.BenchmarkMainUrl.toString()));
+                configurationManager.putConfigurationEntry(ConfigurationKey.GoogleCloudClientId,
+                    System.getProperty(ConfigurationKey.GoogleCloudClientId.toString()));
+                configurationManager.putConfigurationEntry(ConfigurationKey.GoogleCloudClientPassword,
+                    System.getProperty(ConfigurationKey.GoogleCloudClientPassword.toString()));
+                configurationManager.putConfigurationEntry(ConfigurationKey.GoogleUserInfoEndPoint,
                     "https://www.googleapis.com/oauth2/v3/userinfo");
 
                 benchmarkAuthService = new AuthServiceProvider(configurationManager.getConfiguration());
@@ -133,7 +137,7 @@ public class AuthServiceProvider implements AuthService, Closeable {
 
     @Override
     public void setUserPreferences(String sessionIdViaHeader, UserPreferences userPreferences) throws Exception {
-        // to do
+        // todo
     }
 
     @Override

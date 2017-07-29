@@ -12,7 +12,6 @@ import com.google.api.client.json.jackson2.JacksonFactory;
 import com.google.api.services.oauth2.Oauth2Scopes;
 import com.google.gson.Gson;
 import org.rouplex.commons.configuration.Configuration;
-import org.rouplex.service.benchmark.BenchmarkConfigurationKey;
 
 import javax.ws.rs.core.MediaType;
 import java.util.Collections;
@@ -34,12 +33,12 @@ class GoogleAuthProvider extends AuthProvider<UserAtGoogle> {
 
     GoogleAuthProvider(Configuration configuration) {
         this.configuration = configuration;
-        googleRedirectUri = configuration.get(BenchmarkConfigurationKey.BenchmarkMainUrl);
+        googleRedirectUri = configuration.get(AuthServiceProvider.ConfigurationKey.BenchmarkMainUrl);
 
         authClient = new GoogleAuthorizationCodeFlow.Builder(
                 httpTransport, new JacksonFactory(),
-                configuration.get(BenchmarkConfigurationKey.GoogleCloudClientId),
-                configuration.get(BenchmarkConfigurationKey.GoogleCloudClientPassword),
+                configuration.get(AuthServiceProvider.ConfigurationKey.GoogleCloudClientId),
+                configuration.get(AuthServiceProvider.ConfigurationKey.GoogleCloudClientPassword),
                 Oauth2Scopes.all()).setAccessType("online").setApprovalPrompt("force")
                 .build();
     }
@@ -76,7 +75,7 @@ class GoogleAuthProvider extends AuthProvider<UserAtGoogle> {
 
         HttpRequestFactory requestFactory = httpTransport.createRequestFactory(credential);
         HttpRequest request = requestFactory.buildGetRequest(new GenericUrl(
-                configuration.get(BenchmarkConfigurationKey.GoogleUserInfoEndPoint)));
+                configuration.get(AuthServiceProvider.ConfigurationKey.GoogleUserInfoEndPoint)));
         request.getHeaders().setContentType(MediaType.APPLICATION_JSON);
 
         String jsonIdentity = request.execute().parseAsString();

@@ -8,7 +8,6 @@ import org.rouplex.commons.configuration.ConfigurationManager;
 import org.rouplex.commons.utils.SecurityUtils;
 import org.rouplex.commons.utils.TimeUtils;
 import org.rouplex.commons.utils.ValidationUtils;
-import org.rouplex.service.benchmark.BenchmarkConfigurationKey;
 import org.rouplex.service.benchmark.auth.UserInfo;
 import org.rouplex.service.benchmark.worker.CreateTcpClientBatchRequest;
 import org.rouplex.service.benchmark.worker.CreateTcpServerRequest;
@@ -32,6 +31,18 @@ import java.util.logging.Logger;
  * @author Andi Mullaraj (andimullaraj at gmail.com)
  */
 public class OrchestratorServiceProvider implements OrchestratorService, Closeable {
+    public enum ConfigurationKey {
+        AuthorizedPrincipals,
+        WorkerImageId,
+        WorkerInstanceProfileName,
+        WorkerSubnetId,
+        WorkerSecurityGroupIds,
+        WorkerLostHostIntervalMillis,
+        WorkerServiceHttpDescriptor,
+        RmiServerPortPlatformForJmx,
+        RmiRegistryPortPlatformForJmx,
+    }
+
     private static final Logger logger = Logger.getLogger(OrchestratorServiceProvider.class.getSimpleName());
     private static final String JERSEY_CLIENT_CONNECT_TIMEOUT = "jersey.config.client.connectTimeout";
     private static final String JERSEY_CLIENT_READ_TIMEOUT = "jersey.config.client.readTimeout";
@@ -45,37 +56,31 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
                 ConfigurationManager configurationManager = new ConfigurationManager();
 
                 configurationManager.putConfigurationEntry( // poor man's authorization
-                    BenchmarkConfigurationKey.AuthorizedPrincipals, "andimullaraj@gmail.com,silvanatase@gmail.com");
+                    ConfigurationKey.AuthorizedPrincipals, "andimullaraj@gmail.com,silvanatase@gmail.com");
 
                 configurationManager.putConfigurationEntry(
-                    BenchmarkConfigurationKey.WorkerImageId, "ami-00cdd779");
+                    ConfigurationKey.WorkerImageId, "ami-3af41142");
 
                 configurationManager.putConfigurationEntry(
-                    BenchmarkConfigurationKey.WorkerInstanceProfileName, "RouplexBenchmarkWorkerRole");
+                    ConfigurationKey.WorkerInstanceProfileName, "RouplexBenchmarkWorkerRole");
 
                 configurationManager.putConfigurationEntry(
-                    BenchmarkConfigurationKey.WorkerSubnetId, "subnet-9f1784c7");
+                    ConfigurationKey.WorkerSubnetId, "subnet-9f1784c7");
 
                 configurationManager.putConfigurationEntry(
-                    BenchmarkConfigurationKey.WorkerSecurityGroupIds, "sg-bef226c5");
+                    ConfigurationKey.WorkerSecurityGroupIds, "sg-bef226c5");
 
                 configurationManager.putConfigurationEntry(
-                    BenchmarkConfigurationKey.ServiceHttpDescriptor, "https://%s:443/rest/benchmark");
+                    ConfigurationKey.WorkerServiceHttpDescriptor, "https://%s:443/rest/benchmark/worker");
 
                 configurationManager.putConfigurationEntry(
-                    BenchmarkConfigurationKey.WorkerLeaseInMinutes, "30");
-
-                configurationManager.putConfigurationEntry(BenchmarkConfigurationKey.GoogleCloudClientId,
-                    System.getenv(BenchmarkConfigurationKey.GoogleCloudClientId.toString()));
-
-                configurationManager.putConfigurationEntry(BenchmarkConfigurationKey.GoogleCloudClientPassword,
-                    System.getenv(BenchmarkConfigurationKey.GoogleCloudClientPassword.toString()));
+                    ConfigurationKey.WorkerLostHostIntervalMillis, 5 * 60_000 + ""); // 5 minutes
 
                 configurationManager.putConfigurationEntry(
-                    BenchmarkConfigurationKey.RmiServerPortPlatformForJmx, "1705");
+                    ConfigurationKey.RmiServerPortPlatformForJmx, "1705");
 
                 configurationManager.putConfigurationEntry(
-                    BenchmarkConfigurationKey.RmiRegistryPortPlatformForJmx, "1706");
+                    ConfigurationKey.RmiRegistryPortPlatformForJmx, "1706");
 
                 benchmarkOrchestratorService = new OrchestratorServiceProvider(configurationManager.getConfiguration());
             }
@@ -101,7 +106,7 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
     OrchestratorServiceProvider(Configuration configuration) throws Exception {
         this.configuration = configuration;
         this.authorizedPrincipals = new HashSet<>(Arrays.asList(
-            configuration.get(BenchmarkConfigurationKey.AuthorizedPrincipals).split(",")));
+            configuration.get(ConfigurationKey.AuthorizedPrincipals).split(",")));
 
         jaxrsClient = createJaxRsClient();
         startMonitoringBenchmarkInstances();
@@ -135,7 +140,7 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
         }
 
         if (request.getImageId() == null) {
-            request.setImageId(configuration.get(BenchmarkConfigurationKey.WorkerImageId));
+            request.setImageId(configuration.get(ConfigurationKey.WorkerImageId));
         }
 
         if (request.getTcpMemoryAsPercentOfTotal() <= 0) {
@@ -215,6 +220,7 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
             String expirationDateTime = TimeUtils
                 .convertMillisToIsoInstant(System.currentTimeMillis() + deploymentDuration, 0);
             deploymentConfiguration.setLeaseExpirationDateTime(expirationDateTime);
+            deploymentConfiguration.setLostHostIntervalMillis(configuration.getAsInteger(ConfigurationKey.WorkerLostHostIntervalMillis)); // 5 minutes
             createDeploymentRequest.setDeploymentConfiguration(deploymentConfiguration);
             deploymentService.createDeployment(benchmark.getBenchmarkId(), createDeploymentRequest);
 
@@ -225,14 +231,14 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
             createEc2ClusterRequest.setHostType(benchmark.getServerHostType());
 
             createEc2ClusterRequest.setHostCount(1);
-            createEc2ClusterRequest.setIamRole(configuration.get(BenchmarkConfigurationKey.WorkerInstanceProfileName));
+            createEc2ClusterRequest.setIamRole(configuration.get(ConfigurationKey.WorkerInstanceProfileName));
             createEc2ClusterRequest.setUserData(Base64.getEncoder().encodeToString(buildSystemTuningScript(
                 benchmark.getTcpServerExpectation().getMaxSimultaneousConnections() * 2,
                 benchmark.getTcpMemoryAsPercentOfTotal()).getBytes(StandardCharsets.UTF_8)));
 
-            createEc2ClusterRequest.setSubnetId(configuration.get(BenchmarkConfigurationKey.WorkerSubnetId));
+            createEc2ClusterRequest.setSubnetId(configuration.get(ConfigurationKey.WorkerSubnetId));
             createEc2ClusterRequest.setSecurityGroupIds(Arrays.asList(
-                configuration.get(BenchmarkConfigurationKey.WorkerSecurityGroupIds).split(",")));
+                configuration.get(ConfigurationKey.WorkerSecurityGroupIds).split(",")));
             createEc2ClusterRequest.setTags(new HashMap<String, String>() {{
                 put("Name", "bm-server-" + benchmark.getBenchmarkId());
             }});
@@ -257,8 +263,10 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
 
             // ensure both clusters are ready
             long expirationTimestamp = System.currentTimeMillis() + 10 * 60_000;
-            Cluster<Host> serverCluster = ensureDeployed(benchmark.getBenchmarkId(), serverClusterId, expirationTimestamp);
-            Cluster<Host> clientsCluster = ensureDeployed(benchmark.getBenchmarkId(), clientsClusterId, expirationTimestamp);
+            Cluster<? extends Host> serverCluster = ensureDeployed(
+                benchmark.getBenchmarkId(), serverClusterId, expirationTimestamp);
+            Cluster<? extends Host> clientsCluster = ensureDeployed(
+                benchmark.getBenchmarkId(), clientsClusterId, expirationTimestamp);
 
             benchmark.setServerHost(serverCluster.getHosts().values().iterator().next());
             benchmark.setClientHosts(clientsCluster.getHosts().values());
@@ -267,22 +275,23 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
 
             // start server remotely
             CreateTcpServerResponse createTcpServerResponse = jaxrsClient.target(String.format(
-                configuration.get(BenchmarkConfigurationKey.ServiceHttpDescriptor), benchmark.getServerHost().getPublicIpAddress()))
-                .path("/worker/tcp/servers")
+                configuration.get(ConfigurationKey.WorkerServiceHttpDescriptor),
+                benchmark.getServerHost().getPublicIpAddress()))
+                .path("/tcp/servers")
                 .request(MediaType.APPLICATION_JSON)
                 .post(Entity.entity(buildCreateTcpServerRequest(benchmark),
                     MediaType.APPLICATION_JSON), CreateTcpServerResponse.class);
 
             // start clients remotely
-            benchmark.getClientHosts().parallelStream().forEach(h -> {
+            benchmark.getClientHosts().parallelStream().forEach(h ->
                 jaxrsClient.target(String.format(
-                    configuration.get(BenchmarkConfigurationKey.ServiceHttpDescriptor), h.getPublicIpAddress()))
-                    .path("/worker/tcp/client-batches")
+                    configuration.get(ConfigurationKey.WorkerServiceHttpDescriptor), h.getPublicIpAddress()))
+                    .path("/tcp/client-batches")
                     .request(MediaType.APPLICATION_JSON)
                     .post(Entity.entity(buildCreateTcpClientBatchRequest(
                         benchmark, createTcpServerResponse.getHostaddress(), createTcpServerResponse.getPort()),
-                        MediaType.APPLICATION_JSON));
-            });
+                        MediaType.APPLICATION_JSON))
+            );
 
             // create jconsole link
             StringBuilder jconsoleJmxLink = new StringBuilder();
@@ -301,9 +310,9 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
         }
     }
 
-    private <H extends Host> Cluster<H> ensureDeployed(String deploymentId, String clusterId, long expirationTimestamp) throws Exception {
+    private Cluster<? extends Host> ensureDeployed(String deploymentId, String clusterId, long expirationTimestamp) throws Exception {
         while (System.currentTimeMillis() < expirationTimestamp) {
-            Cluster<H> cluster = deploymentService.getCluster(deploymentId, clusterId);
+            Cluster<? extends Host> cluster = deploymentService.getCluster(deploymentId, clusterId);
 
             if (cluster.getHosts().values().parallelStream()
                 .filter(h -> h.getDeploymentState() == null || h.getPublicIpAddress() == null)
@@ -519,9 +528,9 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
     private void addToJmxLink(StringBuilder jmxLink, String ipAddress) {
         jmxLink
             .append(" service:jmx:rmi://").append(ipAddress).append(":")
-            .append(configuration.get(BenchmarkConfigurationKey.RmiServerPortPlatformForJmx))
+            .append(configuration.get(ConfigurationKey.RmiServerPortPlatformForJmx))
             .append("/jndi/rmi://").append(ipAddress).append(":")
-            .append(configuration.get(BenchmarkConfigurationKey.RmiRegistryPortPlatformForJmx))
+            .append(configuration.get(ConfigurationKey.RmiRegistryPortPlatformForJmx))
             .append("/jmxrmi");
     }
 }

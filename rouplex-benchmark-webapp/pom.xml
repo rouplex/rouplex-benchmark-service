@@ -77,24 +77,28 @@
         <dependency>
             <groupId>org.rouplex</groupId>
             <artifactId>rouplex-benchmark-service-provider</artifactId>
+            <version>1.0.0-SNAPSHOT</version>
         </dependency>
 
         <!--The deployment management resource for the workers to update their state and renew their leases-->
         <dependency>
             <groupId>org.rouplex</groupId>
             <artifactId>rouplex-deployment-service-provider-jersey</artifactId>
+            <version>1.0.0</version>
         </dependency>
 
         <!-- Get servlet, swagger dependencies transitively -->
         <dependency>
             <groupId>org.rouplex</groupId>
             <artifactId>rouplex-platform-jersey</artifactId>
+            <version>1.0.2</version>
         </dependency>
 
         <!--html/css/js sources to be served to browser-->
         <dependency>
             <groupId>org.rouplex</groupId>
             <artifactId>rouplex-benchmark-ui</artifactId>
+            <version>1.0.0-SNAPSHOT</version>
         </dependency>
 
         <!--The Jersey implementation, to run our application-->
