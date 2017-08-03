@@ -92,7 +92,10 @@ public class EchoRequester {
         echoReporter = new EchoReporter(
                 request, benchmarkServiceProvider.benchmarkerMetrics, EchoRequester.class, rouplexTcpClient);
 
-        echoReporter.connectionTime.update(System.nanoTime() - timeCreatedNano, TimeUnit.NANOSECONDS);
+        long connectionNano = System.nanoTime() - timeCreatedNano;
+        // poor man's implementation for bucketizing: just divide in buckets of power of 10 in millis (from nanos)
+        echoReporter.connectionTimes.get(Math.max(("" + connectionNano).length() - 6, 0)).mark();
+        echoReporter.connectionTime.update(connectionNano, TimeUnit.NANOSECONDS);
         echoReporter.connectionEstablished.mark();
         echoReporter.liveConnections.mark();
         clientId = benchmarkServiceProvider.incrementalId.incrementAndGet();

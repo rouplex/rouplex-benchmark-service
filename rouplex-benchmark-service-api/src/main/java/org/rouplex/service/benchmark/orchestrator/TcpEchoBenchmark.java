@@ -10,7 +10,7 @@ import java.util.Collection;
  * @author Andi Mullaraj (andimullaraj at gmail.com)
  */
 public class TcpEchoBenchmark {
-    private String benchmarkId;
+    private String id;
     private HostType serverHostType;
     private GeoLocation serverGeoLocation;
     private HostType clientsHostType;
@@ -54,12 +54,12 @@ public class TcpEchoBenchmark {
     private Host serverHost;
     private Collection<? extends Host> clientHosts;
 
-    public String getBenchmarkId() {
-        return benchmarkId;
+    public String getId() {
+        return id;
     }
 
-    public void setBenchmarkId(String benchmarkId) {
-        this.benchmarkId = benchmarkId;
+    public void setId(String id) {
+        this.id = id;
     }
 
     public HostType getServerHostType() {

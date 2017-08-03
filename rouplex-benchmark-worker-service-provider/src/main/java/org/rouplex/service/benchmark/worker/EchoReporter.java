@@ -9,6 +9,8 @@ import org.rouplex.service.benchmark.orchestrator.MetricsAggregation;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.logging.Logger;
 
 /**
@@ -19,17 +21,10 @@ public class EchoReporter {
     public static final String format = "%s.%s.%s.%s:%s::%s:%s";
     // [Provider].[S,P].[EchoRequester,EchoResponder].[Server]:[Port]::[Client]:[Port]
 
-    final MetricRegistry benchmarkerMetrics;
-    final String actor;
-
-    final String serverAddress;
-    final String serverPort;
-    final String clientAddress;
-    final String clientPort;
-
     final Meter connectionEstablished;
     final Meter liveConnections;
     final Timer connectionTime;
+    final ConcurrentMap<Integer, Meter> connectionTimes = new ConcurrentHashMap<>();
     final Meter disconnectedOk;
     final Meter disconnectedKo;
 
@@ -46,46 +41,38 @@ public class EchoReporter {
     final Meter receivedDisconnect;
     final Histogram receivedSizes;
 
-    final String aggregatedId;
-    final String completeId;
+    private final String aggregatedId;
 
     public EchoReporter(CreateTcpEndPointRequest createTcpEndPointRequest, MetricRegistry benchmarkerMetrics,
                         Class<?> clazz, RouplexTcpClient tcpClient) throws IOException {
 
-        this.benchmarkerMetrics = benchmarkerMetrics;
-        this.actor = clazz.getSimpleName();
-
         InetSocketAddress localIsa = (InetSocketAddress) tcpClient.getLocalAddress();
-        clientAddress = localIsa.getAddress().getHostAddress().replace('.', '-');
-        clientPort = "" + localIsa.getPort();
+        String clientAddress = localIsa.getAddress().getHostAddress().replace('.', '-');
+        String clientPort = "" + localIsa.getPort();
 
         InetSocketAddress remoteIsa = (InetSocketAddress) tcpClient.getRemoteAddress();
-        serverAddress = remoteIsa.getAddress().getHostAddress().replace('.', '-');
-        serverPort = "" + remoteIsa.getPort();
+        String serverAddress = remoteIsa.getAddress().getHostAddress().replace('.', '-');
+        String serverPort = "" + remoteIsa.getPort();
 
         String secureTag = createTcpEndPointRequest.isSsl() ? "S" : "P";
-        completeId = String.format(format,
-                createTcpEndPointRequest.getProvider(),
-                secureTag,
-                actor,
-                serverAddress,
-                serverPort,
-                clientAddress,
-                clientPort
-        );
 
         MetricsAggregation ma = createTcpEndPointRequest.getMetricsAggregation();
         aggregatedId = String.format(format,
-                createTcpEndPointRequest.getProvider(),
-                ma.isAggregateSslWithPlain() ? "A" : secureTag,
-                actor,
-                ma.isAggregateServerAddresses() ? "A" : serverAddress,
-                ma.isAggregateServerPorts() ? "A" : serverPort,
-                ma.isAggregateClientAddresses() ? "A" : clientAddress,
-                ma.isAggregateClientPorts() ? "A" : clientPort
+            createTcpEndPointRequest.getProvider(),
+            ma.isAggregateSslWithPlain() ? "A" : secureTag,
+            clazz.getSimpleName(),
+            ma.isAggregateServerAddresses() ? "A" : serverAddress,
+            ma.isAggregateServerPorts() ? "A" : serverPort,
+            ma.isAggregateClientAddresses() ? "A" : clientAddress,
+            ma.isAggregateClientPorts() ? "A" : clientPort
         );
 
         if (benchmarkerMetrics != null) {
+            for (int bucket = 1; bucket < 7; bucket++) {
+                connectionTimes.put(bucket, benchmarkerMetrics.meter(MetricRegistry.name(
+                    aggregatedId, "connectionTime.millisBucket", "100000".substring(0, bucket))));
+            }
+
             connectionEstablished = benchmarkerMetrics.meter(MetricRegistry.name(aggregatedId, "connection.established"));
             liveConnections = benchmarkerMetrics.meter(MetricRegistry.name(aggregatedId, "connection.live"));
 
@@ -107,7 +94,7 @@ public class EchoReporter {
             receivedSizes = benchmarkerMetrics.histogram(MetricRegistry.name(aggregatedId, "receivedSizes"));
         } else {
             connectionEstablished = liveConnections = disconnectedOk = disconnectedKo = sentBytes = sentEos =
-                    sendFailures = discardedSendBytes = receivedBytes = receivedEos = receivedDisconnect = null;
+                sendFailures = discardedSendBytes = receivedBytes = receivedEos = receivedDisconnect = null;
             receivedSizes = sentSizes = sendBufferFilled = null;
             connectionTime = sendPauseTime = null;
         }

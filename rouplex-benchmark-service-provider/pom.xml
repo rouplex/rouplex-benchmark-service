@@ -74,7 +74,7 @@
         <dependency>
             <groupId>org.elasticsearch.client</groupId>
             <artifactId>rest</artifactId>
-            <version>5.3.3</version>
+            <version>5.5.1</version>
         </dependency>
     </dependencies>
 </project>

@@ -86,7 +86,7 @@ export default class ListBenchmarks extends React.Component {
         response.tcpServerExpectation.maxUploadSpeed : response.tcpServerExpectation.maxDownloadSpeed;
 
       this.entries.push({
-        benchmarkId: response.benchmarkId,
+        benchmarkId: benchmarkId,
         startTime: new Date(response.startingTimestamp).toISOString(),
         connectionsPerSec: response.tcpServerExpectation.connectionsPerSecond,
         maxConnections: response.tcpServerExpectation.maxSimultaneousConnections,

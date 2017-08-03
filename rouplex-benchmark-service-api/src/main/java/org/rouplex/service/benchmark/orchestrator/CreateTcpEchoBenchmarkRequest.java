@@ -7,7 +7,6 @@ import org.rouplex.service.deployment.HostType;
  * @author Andi Mullaraj (andimullaraj at gmail.com)
  */
 public class CreateTcpEchoBenchmarkRequest {
-    private String benchmarkId; // optional
     private HostType serverHostType; // optional
     private GeoLocation serverGeoLocation; // optional
     private HostType clientsHostType; // optional
@@ -37,14 +36,6 @@ public class CreateTcpEchoBenchmarkRequest {
     private int maxClientLifeMillis;
 
     private MetricsAggregation metricsAggregation = new MetricsAggregation();
-
-    public String getBenchmarkId() {
-        return benchmarkId;
-    }
-
-    public void setBenchmarkId(String benchmarkId) {
-        this.benchmarkId = benchmarkId;
-    }
 
     public HostType getServerHostType() {
         return serverHostType;

@@ -66,7 +66,7 @@ public class SSLSelectorWithMixSslAndPlainChannelsTest {
 
     @Before
     public void setup() throws Exception {
-        bmService = new WorkerServiceProvider();
+        bmService = WorkerServiceProvider.get();
     }
 
     @After

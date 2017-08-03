@@ -28,13 +28,22 @@ public class OrchestratorResource extends ResourceConfig implements Orchestrator
     @Context
     HttpServletResponse httpServletResponse;
 
-    @ApiOperation(value = "Create a benchmarking scenario with one server and a number of client instances")
+    @ApiOperation(value = "Create a benchmark with one server and a number of client instances")
     @ApiResponses(value = {
             @ApiResponse(code = 200, message = "Success"),
             @ApiResponse(code = 500, message = "Error handling request")})
     @Override
     public TcpEchoBenchmark createTcpEchoBenchmark(CreateTcpEchoBenchmarkRequest request) throws Exception {
-        return OrchestratorServiceProvider.get().createTcpBenchmark(request, getUserInfo());
+        return OrchestratorServiceProvider.get().createTcpBenchmark(null, request, getUserInfo());
+    }
+
+    @ApiOperation(value = "Create a benchmark with one server and a number of client instances")
+    @ApiResponses(value = {
+        @ApiResponse(code = 200, message = "Success"),
+        @ApiResponse(code = 500, message = "Error handling request")})
+    @Override
+    public TcpEchoBenchmark createTcpEchoBenchmark(String id, CreateTcpEchoBenchmarkRequest request) throws Exception {
+        return OrchestratorServiceProvider.get().createTcpBenchmark(id, request, getUserInfo());
     }
 
     @ApiOperation(value = "List all benchmarks (executed or executing)")

@@ -3,6 +3,8 @@ package org.rouplex.service.benchmark.worker;
 import com.codahale.metrics.*;
 import com.codahale.metrics.Timer;
 import org.rouplex.commons.Supplier;
+import org.rouplex.commons.configuration.Configuration;
+import org.rouplex.commons.configuration.ConfigurationManager;
 import org.rouplex.commons.utils.ValidationUtils;
 import org.rouplex.platform.tcp.RouplexTcpBinder;
 import org.rouplex.platform.tcp.RouplexTcpClient;
@@ -27,13 +29,22 @@ import java.util.logging.Logger;
  * @author Andi Mullaraj (andimullaraj at gmail.com)
  */
 public class WorkerServiceProvider implements WorkerService, Closeable {
+    public enum ConfigurationKey {
+        JmxDomainName
+    }
+
     private static final Logger logger = Logger.getLogger(WorkerServiceProvider.class.getSimpleName());
 
-    private static WorkerService workerService;
-    public static WorkerService get() throws Exception {
+    private static WorkerServiceProvider workerService;
+    public static WorkerServiceProvider get() throws Exception {
         synchronized (WorkerServiceProvider.class) {
             if (workerService == null) {
-                workerService = new WorkerServiceProvider();
+                ConfigurationManager configurationManager = new ConfigurationManager();
+
+                configurationManager.putConfigurationEntry(
+                    ConfigurationKey.JmxDomainName, "rouplex-benchmark");
+
+                workerService = new WorkerServiceProvider(configurationManager.getConfiguration());
             }
 
             return workerService;
@@ -117,7 +128,7 @@ public class WorkerServiceProvider implements WorkerService, Closeable {
         }
     };
 
-    WorkerServiceProvider() throws Exception {
+    WorkerServiceProvider(Configuration configuration) throws Exception {
         sharedTcpBinders.put(Provider.CLASSIC_NIO, createRouplexTcpBinder(Provider.CLASSIC_NIO));
 
         try {
@@ -135,6 +146,7 @@ public class WorkerServiceProvider implements WorkerService, Closeable {
         addCloseable(JmxReporter.forRegistry(benchmarkerMetrics)
                 .convertRatesTo(TimeUnit.SECONDS)
                 .convertDurationsTo(TimeUnit.MILLISECONDS)
+                .inDomain(configuration.get(ConfigurationKey.JmxDomainName))
                 .build()
         ).start();
     }

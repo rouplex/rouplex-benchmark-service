@@ -73,7 +73,7 @@ export default class ShowBenchmark extends React.Component {
     });
     getRequest.addEventListener("error", () => this.setState({warning: "Could not describe benchmark. Reason: Communication error"}));
 
-    getRequest.open("GET", config.tcpEchoBenchmarkUrl + "/" + this.props.benchmarkId);
+    getRequest.open("GET", config.tcpEchoBenchmarkUrl + "/" + encodeURIComponent(this.props.benchmarkId));
     getRequest.setRequestHeader('Accept', 'application/json');
     getRequest.setRequestHeader('Rouplex-Cookie-Enabled', navigator.cookieEnabled);
     getRequest.setRequestHeader('Rouplex-SessionId', this.props.sessionInfo.sessionId);
@@ -81,7 +81,6 @@ export default class ShowBenchmark extends React.Component {
       getRequest.setRequestHeader('Rouplex-TimeOffsetInMinutes', this.props.sessionInfo.sessionId);
     }
 
-    //alert("describeTcpEchoBenchmarkUrl.get.request: " + config.tcpEchoBenchmarkUrl + "/" + benchmarkId);
     getRequest.send();
   }
 
@@ -120,7 +119,7 @@ export default class ShowBenchmark extends React.Component {
         </Col>
 
         <Col md={6}>
-          <LabeledValue label="Benchmark Id" value={response.benchmarkId} colSpans={[4,8]}/>
+          <LabeledValue label="Benchmark Id" value={response.id} colSpans={[4,8]}/>
 
           <Panel header="Clients">
             <LabeledValue label="Geo Location" value={response.clientsGeoLocation} colSpans={[5,7]}/>

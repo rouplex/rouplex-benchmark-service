@@ -12,6 +12,10 @@ public interface OrchestratorService {
     @Path("tcp-echo-benchmarks")
     TcpEchoBenchmark createTcpEchoBenchmark(CreateTcpEchoBenchmarkRequest request) throws Exception;
 
+    @PUT
+    @Path("tcp-echo-benchmarks/{id}")
+    TcpEchoBenchmark createTcpEchoBenchmark(@PathParam("id") String id, CreateTcpEchoBenchmarkRequest request) throws Exception;
+
     @GET
     @Path("tcp-echo-benchmarks")
     Set<String> listTcpEchoBenchmarks(@QueryParam("includePublic") String includePublic) throws Exception;

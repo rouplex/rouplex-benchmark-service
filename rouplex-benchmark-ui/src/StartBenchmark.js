@@ -46,7 +46,6 @@ export default class StartBenchmark extends React.Component {
 
   buildRequestBody() {
     var echoRatioQuoted = this.quote(this.state.echoRatio);
-    var benchmarkIdQuoted = this.quote(this.state.benchmarkId);
     var keyNameQuoted = this.quote(this.state.keyName);
 
     var socketSendBufferSize = this.parseIntValue("Socket Send Buffer Size", this.state.socketSendBufferSize, 0);
@@ -114,7 +113,6 @@ export default class StartBenchmark extends React.Component {
     var requestBody =
       '{\n' +
       '  "echoRatio" : ' + echoRatioQuoted + ',\n' +
-      '  "benchmarkId" : ' + benchmarkIdQuoted + ',\n' +
       '  "serverHostType" : "' + this.state.serverHostType + '",\n' +
       '  "serverGeoLocation" : "' + this.state.serverGeoLocation + '",\n' +
       '  "clientsHostType" : "' + this.state.clientsHostType + '",\n' +
@@ -163,7 +161,7 @@ export default class StartBenchmark extends React.Component {
       }
 
       this.setState({failedSubmission: false});
-      this.props.onPathUpdate("/benchmark/show#" + response.benchmarkId)
+      this.props.onPathUpdate("/benchmark/show#" + response.id)
     });
 
     postRequest.addEventListener("error", () => {
@@ -177,13 +175,18 @@ export default class StartBenchmark extends React.Component {
       alert("Could not start benchmark. Cause: " + postRequest.responseText);
     });
 
-    postRequest.open("POST", config.tcpEchoBenchmarkUrl);
+    if (this.state.benchmarkId == null) {
+      postRequest.open("POST", config.tcpEchoBenchmarkUrl);
+    } else {
+      postRequest.open("PUT", config.tcpEchoBenchmarkUrl + "/" + encodeURIComponent(this.state.benchmarkId));
+    }
+
     postRequest.setRequestHeader('Content-Type', 'application/json');
     postRequest.setRequestHeader('Accept', 'application/json');
     postRequest.setRequestHeader('Rouplex-Cookie-Enabled', navigator.cookieEnabled);
     postRequest.setRequestHeader('Rouplex-SessionId', this.props.sessionInfo.sessionId);
 
-    console.log("startTcpBenchmark.post.request: " + requestBody);
+    console.log("startTcpBenchmark.put-or-post.request: " + requestBody);
     postRequest.send(requestBody);
   }
 
@@ -241,6 +244,12 @@ export default class StartBenchmark extends React.Component {
   validateValue(value, range) {
     return validator.validateIntValueWithinRange(value, range,
       {validateSubmittable: this.state.failedValidation, omitSuccessEffect: true});
+  }
+
+  checkNoSlash(stringValue) {
+    if (!validator.isUndefinedNullOrEmpty(stringValue) && stringValue.indexOf("/") != -1) {
+      return "error";
+    }
   }
 
   validateRange(value, range) {
@@ -305,6 +314,7 @@ export default class StartBenchmark extends React.Component {
           <Col md={5}>
             <ValueSelector
               label="Benchmark Id" colSpans={[4,8]} placeholder="Optional, auto generated if missing"
+              onValidate={value => this.checkNoSlash(value)}
               onChange={value => this.state.benchmarkId = value}
             />
 

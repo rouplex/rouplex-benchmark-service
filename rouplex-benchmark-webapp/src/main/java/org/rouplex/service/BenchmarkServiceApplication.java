@@ -68,7 +68,7 @@ public class BenchmarkServiceApplication extends RouplexJerseyApplication implem
             getSwaggerBeanConfig().setDescription(String.format(
                     "jconsole service:jmx:rmi://%s:1705/jndi/rmi://%s:1706/jmxrmi", publicIp, publicIp));
         } catch (Throwable t) {
-            String errorMessage = String.format("Could1 not locate the public ip address. Cause: %s: %s",
+            String errorMessage = String.format("Could not locate the public ip address. Cause: %s: %s",
                     t.getClass().getSimpleName(), t.getMessage());
 
             logger.severe(errorMessage);
