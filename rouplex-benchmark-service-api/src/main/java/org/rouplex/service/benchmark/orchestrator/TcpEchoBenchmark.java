@@ -21,6 +21,7 @@ public class TcpEchoBenchmark {
     private int tcpMemoryAsPercentOfTotal; // optional, experimental for now
 
     private Provider provider;
+    private String serverIpAddress; // if non-null this ip address will be used and no servers will be deployed
     private int port;
     private boolean ssl;
     private int socketSendBufferSize; // optional
@@ -62,110 +63,6 @@ public class TcpEchoBenchmark {
         this.id = id;
     }
 
-    public HostType getServerHostType() {
-        return serverHostType;
-    }
-
-    public void setServerHostType(HostType serverHostType) {
-        this.serverHostType = serverHostType;
-    }
-
-    public GeoLocation getServerGeoLocation() {
-        return serverGeoLocation;
-    }
-
-    public void setServerGeoLocation(GeoLocation serverGeoLocation) {
-        this.serverGeoLocation = serverGeoLocation;
-    }
-
-    public HostType getClientsHostType() {
-        return clientsHostType;
-    }
-
-    public void setClientsHostType(HostType clientsHostType) {
-        this.clientsHostType = clientsHostType;
-    }
-
-    public GeoLocation getClientsGeoLocation() {
-        return clientsGeoLocation;
-    }
-
-    public void setClientsGeoLocation(GeoLocation clientsGeoLocation) {
-        this.clientsGeoLocation = clientsGeoLocation;
-    }
-
-    public String getImageId() {
-        return imageId;
-    }
-
-    public void setImageId(String imageId) {
-        this.imageId = imageId;
-    }
-
-    public String getKeyName() {
-        return keyName;
-    }
-
-    public void setKeyName(String keyName) {
-        this.keyName = keyName;
-    }
-
-    public String getEchoRatio() {
-        return echoRatio;
-    }
-
-    public void setEchoRatio(String echoRatio) {
-        this.echoRatio = echoRatio;
-    }
-
-    public int getTcpMemoryAsPercentOfTotal() {
-        return tcpMemoryAsPercentOfTotal;
-    }
-
-    public void setTcpMemoryAsPercentOfTotal(int tcpMemoryAsPercentOfTotal) {
-        this.tcpMemoryAsPercentOfTotal = tcpMemoryAsPercentOfTotal;
-    }
-
-    public Provider getProvider() {
-        return provider;
-    }
-
-    public void setProvider(Provider provider) {
-        this.provider = provider;
-    }
-
-    public int getPort() {
-        return port;
-    }
-
-    public void setPort(int port) {
-        this.port = port;
-    }
-
-    public boolean isSsl() {
-        return ssl;
-    }
-
-    public void setSsl(boolean ssl) {
-        this.ssl = ssl;
-    }
-
-    public int getSocketSendBufferSize() {
-        return socketSendBufferSize;
-    }
-
-    public void setSocketSendBufferSize(int socketSendBufferSize) {
-        this.socketSendBufferSize = socketSendBufferSize;
-    }
-
-    public int getSocketReceiveBufferSize() {
-        return socketReceiveBufferSize;
-    }
-
-    public void setSocketReceiveBufferSize(int socketReceiveBufferSize) {
-        this.socketReceiveBufferSize = socketReceiveBufferSize;
-    }
-
     public int getBacklog() {
         return backlog;
     }
@@ -182,6 +79,30 @@ public class TcpEchoBenchmark {
         this.clientCount = clientCount;
     }
 
+    public Collection<? extends Host> getClientHosts() {
+        return clientHosts;
+    }
+
+    public void setClientHosts(Collection<? extends Host> clientHosts) {
+        this.clientHosts = clientHosts;
+    }
+
+    public GeoLocation getClientsGeoLocation() {
+        return clientsGeoLocation;
+    }
+
+    public void setClientsGeoLocation(GeoLocation clientsGeoLocation) {
+        this.clientsGeoLocation = clientsGeoLocation;
+    }
+
+    public HostType getClientsHostType() {
+        return clientsHostType;
+    }
+
+    public void setClientsHostType(HostType clientsHostType) {
+        this.clientsHostType = clientsHostType;
+    }
+
     public int getClientsPerHost() {
         return clientsPerHost;
     }
@@ -190,108 +111,12 @@ public class TcpEchoBenchmark {
         this.clientsPerHost = clientsPerHost;
     }
 
-    public int getMinPayloadSize() {
-        return minPayloadSize;
+    public String getEchoRatio() {
+        return echoRatio;
     }
 
-    public void setMinPayloadSize(int minPayloadSize) {
-        this.minPayloadSize = minPayloadSize;
-    }
-
-    public int getMaxPayloadSize() {
-        return maxPayloadSize;
-    }
-
-    public void setMaxPayloadSize(int maxPayloadSize) {
-        this.maxPayloadSize = maxPayloadSize;
-    }
-
-    public int getMinDelayMillisBetweenSends() {
-        return minDelayMillisBetweenSends;
-    }
-
-    public void setMinDelayMillisBetweenSends(int minDelayMillisBetweenSends) {
-        this.minDelayMillisBetweenSends = minDelayMillisBetweenSends;
-    }
-
-    public int getMaxDelayMillisBetweenSends() {
-        return maxDelayMillisBetweenSends;
-    }
-
-    public void setMaxDelayMillisBetweenSends(int maxDelayMillisBetweenSends) {
-        this.maxDelayMillisBetweenSends = maxDelayMillisBetweenSends;
-    }
-
-    public int getMinDelayMillisBeforeCreatingClient() {
-        return minDelayMillisBeforeCreatingClient;
-    }
-
-    public void setMinDelayMillisBeforeCreatingClient(int minDelayMillisBeforeCreatingClient) {
-        this.minDelayMillisBeforeCreatingClient = minDelayMillisBeforeCreatingClient;
-    }
-
-    public int getMaxDelayMillisBeforeCreatingClient() {
-        return maxDelayMillisBeforeCreatingClient;
-    }
-
-    public void setMaxDelayMillisBeforeCreatingClient(int maxDelayMillisBeforeCreatingClient) {
-        this.maxDelayMillisBeforeCreatingClient = maxDelayMillisBeforeCreatingClient;
-    }
-
-    public int getMinClientLifeMillis() {
-        return minClientLifeMillis;
-    }
-
-    public void setMinClientLifeMillis(int minClientLifeMillis) {
-        this.minClientLifeMillis = minClientLifeMillis;
-    }
-
-    public int getMaxClientLifeMillis() {
-        return maxClientLifeMillis;
-    }
-
-    public void setMaxClientLifeMillis(int maxClientLifeMillis) {
-        this.maxClientLifeMillis = maxClientLifeMillis;
-    }
-
-    public MetricsAggregation getMetricsAggregation() {
-        return metricsAggregation;
-    }
-
-    public void setMetricsAggregation(MetricsAggregation metricsAggregation) {
-        this.metricsAggregation = metricsAggregation;
-    }
-
-    public TcpMetricsExpectation getTcpServerExpectation() {
-        return tcpServerExpectation;
-    }
-
-    public void setTcpServerExpectation(TcpMetricsExpectation tcpServerExpectation) {
-        this.tcpServerExpectation = tcpServerExpectation;
-    }
-
-    public TcpMetricsExpectation getTcpClientsExpectation() {
-        return tcpClientsExpectation;
-    }
-
-    public void setTcpClientsExpectation(TcpMetricsExpectation tcpClientsExpectation) {
-        this.tcpClientsExpectation = tcpClientsExpectation;
-    }
-
-    public ExecutionStatus getExecutionStatus() {
-        return executionStatus;
-    }
-
-    public void setExecutionStatus(ExecutionStatus executionStatus) {
-        this.executionStatus = executionStatus;
-    }
-
-    public String getJconsoleJmxLink() {
-        return jconsoleJmxLink;
-    }
-
-    public void setJconsoleJmxLink(String jconsoleJmxLink) {
-        this.jconsoleJmxLink = jconsoleJmxLink;
+    public void setEchoRatio(String echoRatio) {
+        this.echoRatio = echoRatio;
     }
 
     public String getException() {
@@ -302,12 +127,12 @@ public class TcpEchoBenchmark {
         this.exception = exception;
     }
 
-    public long getStartingTimestamp() {
-        return startingTimestamp;
+    public ExecutionStatus getExecutionStatus() {
+        return executionStatus;
     }
 
-    public void setStartingTimestamp(long startingTimestamp) {
-        this.startingTimestamp = startingTimestamp;
+    public void setExecutionStatus(ExecutionStatus executionStatus) {
+        this.executionStatus = executionStatus;
     }
 
     public long getExpectedDurationMillis() {
@@ -318,12 +143,124 @@ public class TcpEchoBenchmark {
         this.expectedDurationMillis = expectedDurationMillis;
     }
 
-    public long getStartedTimestamp() {
-        return startedTimestamp;
+    public String getImageId() {
+        return imageId;
     }
 
-    public void setStartedTimestamp(long startedTimestamp) {
-        this.startedTimestamp = startedTimestamp;
+    public void setImageId(String imageId) {
+        this.imageId = imageId;
+    }
+
+    public String getJconsoleJmxLink() {
+        return jconsoleJmxLink;
+    }
+
+    public void setJconsoleJmxLink(String jconsoleJmxLink) {
+        this.jconsoleJmxLink = jconsoleJmxLink;
+    }
+
+    public String getKeyName() {
+        return keyName;
+    }
+
+    public void setKeyName(String keyName) {
+        this.keyName = keyName;
+    }
+
+    public int getMaxClientLifeMillis() {
+        return maxClientLifeMillis;
+    }
+
+    public void setMaxClientLifeMillis(int maxClientLifeMillis) {
+        this.maxClientLifeMillis = maxClientLifeMillis;
+    }
+
+    public int getMaxDelayMillisBeforeCreatingClient() {
+        return maxDelayMillisBeforeCreatingClient;
+    }
+
+    public void setMaxDelayMillisBeforeCreatingClient(int maxDelayMillisBeforeCreatingClient) {
+        this.maxDelayMillisBeforeCreatingClient = maxDelayMillisBeforeCreatingClient;
+    }
+
+    public int getMaxDelayMillisBetweenSends() {
+        return maxDelayMillisBetweenSends;
+    }
+
+    public void setMaxDelayMillisBetweenSends(int maxDelayMillisBetweenSends) {
+        this.maxDelayMillisBetweenSends = maxDelayMillisBetweenSends;
+    }
+
+    public int getMaxPayloadSize() {
+        return maxPayloadSize;
+    }
+
+    public void setMaxPayloadSize(int maxPayloadSize) {
+        this.maxPayloadSize = maxPayloadSize;
+    }
+
+    public MetricsAggregation getMetricsAggregation() {
+        return metricsAggregation;
+    }
+
+    public void setMetricsAggregation(MetricsAggregation metricsAggregation) {
+        this.metricsAggregation = metricsAggregation;
+    }
+
+    public int getMinClientLifeMillis() {
+        return minClientLifeMillis;
+    }
+
+    public void setMinClientLifeMillis(int minClientLifeMillis) {
+        this.minClientLifeMillis = minClientLifeMillis;
+    }
+
+    public int getMinDelayMillisBeforeCreatingClient() {
+        return minDelayMillisBeforeCreatingClient;
+    }
+
+    public void setMinDelayMillisBeforeCreatingClient(int minDelayMillisBeforeCreatingClient) {
+        this.minDelayMillisBeforeCreatingClient = minDelayMillisBeforeCreatingClient;
+    }
+
+    public int getMinDelayMillisBetweenSends() {
+        return minDelayMillisBetweenSends;
+    }
+
+    public void setMinDelayMillisBetweenSends(int minDelayMillisBetweenSends) {
+        this.minDelayMillisBetweenSends = minDelayMillisBetweenSends;
+    }
+
+    public int getMinPayloadSize() {
+        return minPayloadSize;
+    }
+
+    public void setMinPayloadSize(int minPayloadSize) {
+        this.minPayloadSize = minPayloadSize;
+    }
+
+    public int getPort() {
+        return port;
+    }
+
+    public void setPort(int port) {
+        this.port = port;
+    }
+
+    public Provider getProvider() {
+        return provider;
+    }
+
+    public void setProvider(Provider provider) {
+        this.provider = provider;
+    }
+
+    public GeoLocation getServerGeoLocation() {
+        return serverGeoLocation;
+    }
+
+    public void setServerGeoLocation(GeoLocation serverGeoLocation) {
+        this.serverGeoLocation = serverGeoLocation;
     }
 
     public Host getServerHost() {
@@ -334,11 +271,83 @@ public class TcpEchoBenchmark {
         this.serverHost = serverHost;
     }
 
-    public Collection<? extends Host> getClientHosts() {
-        return clientHosts;
+    public HostType getServerHostType() {
+        return serverHostType;
     }
 
-    public void setClientHosts(Collection<? extends Host> clientHosts) {
-        this.clientHosts = clientHosts;
+    public void setServerHostType(HostType serverHostType) {
+        this.serverHostType = serverHostType;
+    }
+
+    public String getServerIpAddress() {
+        return serverIpAddress;
+    }
+
+    public void setServerIpAddress(String serverIpAddress) {
+        this.serverIpAddress = serverIpAddress;
+    }
+
+    public int getSocketReceiveBufferSize() {
+        return socketReceiveBufferSize;
+    }
+
+    public void setSocketReceiveBufferSize(int socketReceiveBufferSize) {
+        this.socketReceiveBufferSize = socketReceiveBufferSize;
+    }
+
+    public int getSocketSendBufferSize() {
+        return socketSendBufferSize;
+    }
+
+    public void setSocketSendBufferSize(int socketSendBufferSize) {
+        this.socketSendBufferSize = socketSendBufferSize;
+    }
+
+    public boolean isSsl() {
+        return ssl;
+    }
+
+    public void setSsl(boolean ssl) {
+        this.ssl = ssl;
+    }
+
+    public long getStartedTimestamp() {
+        return startedTimestamp;
+    }
+
+    public void setStartedTimestamp(long startedTimestamp) {
+        this.startedTimestamp = startedTimestamp;
+    }
+
+    public long getStartingTimestamp() {
+        return startingTimestamp;
+    }
+
+    public void setStartingTimestamp(long startingTimestamp) {
+        this.startingTimestamp = startingTimestamp;
+    }
+
+    public TcpMetricsExpectation getTcpClientsExpectation() {
+        return tcpClientsExpectation;
+    }
+
+    public void setTcpClientsExpectation(TcpMetricsExpectation tcpClientsExpectation) {
+        this.tcpClientsExpectation = tcpClientsExpectation;
+    }
+
+    public int getTcpMemoryAsPercentOfTotal() {
+        return tcpMemoryAsPercentOfTotal;
+    }
+
+    public void setTcpMemoryAsPercentOfTotal(int tcpMemoryAsPercentOfTotal) {
+        this.tcpMemoryAsPercentOfTotal = tcpMemoryAsPercentOfTotal;
+    }
+
+    public TcpMetricsExpectation getTcpServerExpectation() {
+        return tcpServerExpectation;
+    }
+
+    public void setTcpServerExpectation(TcpMetricsExpectation tcpServerExpectation) {
+        this.tcpServerExpectation = tcpServerExpectation;
     }
 }

@@ -26,23 +26,23 @@ export default class RangeSelector extends React.Component {
   render() {
     return (
       <Form horizontal>
-        <FormGroup validationState={this.props.onValidate(this.value)}>
+        <FormGroup validationState={this.validationState}>
           <Col componentClass={ControlLabel} md={this.getColSpan(0)}>
             {this.props.label}
           </Col>
           <Col md={this.getColSpan(1)}>
             <OverlayTrigger placement="right" delayShow={2000} overlay={<Tooltip id="0">{this.getPlaceholder(0)}</Tooltip>}>
-              <FormControl
+              <FormControl disabled={this.props.disabled}
                 type="text" placeholder={this.getPlaceholder(0)}
-                onChange={min => {this.value.min = min.target.value; this.setState({}); this.props.onChange(this.value)}}
+                onChange={min => {this.value.min = min.target.value; this.validationState = this.props.onChange(this.value)}}
               />
             </OverlayTrigger>
           </Col>
           <Col md={this.getColSpan(2)}>
             <OverlayTrigger placement="right" delayShow={2000} overlay={<Tooltip id="1">{this.getPlaceholder(1)}</Tooltip>}>
-              <FormControl
+              <FormControl disabled={this.props.disabled}
                 type="text" placeholder={this.getPlaceholder(1)}
-                onChange={max => {this.value.max = max.target.value; this.setState({}); this.props.onChange(this.value)}}
+                onChange={max => {this.value.max = max.target.value; this.validationState = this.props.onChange(this.value)}}
               />
             </OverlayTrigger>
           </Col>

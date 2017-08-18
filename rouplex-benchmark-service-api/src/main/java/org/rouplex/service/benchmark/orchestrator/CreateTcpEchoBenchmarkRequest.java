@@ -17,6 +17,7 @@ public class CreateTcpEchoBenchmarkRequest {
     private int tcpMemoryAsPercentOfTotal; // optional, experimental for now
 
     private Provider provider;
+    private String serverIpAddress; // if non-null this ip address will be used and no servers will be deployed
     private int port;
     private boolean ssl;
     private int socketSendBufferSize; // optional
@@ -107,6 +108,14 @@ public class CreateTcpEchoBenchmarkRequest {
 
     public void setProvider(Provider provider) {
         this.provider = provider;
+    }
+
+    public String getServerIpAddress() {
+        return serverIpAddress;
+    }
+
+    public void setServerIpAddress(String serverIpAddress) {
+        this.serverIpAddress = serverIpAddress;
     }
 
     public int getPort() {

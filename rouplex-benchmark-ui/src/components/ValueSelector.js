@@ -27,7 +27,7 @@ export default class ValueSelector extends React.Component {
           <Col md={this.getColSpan(1)}>
             <OverlayTrigger placement="right" delayShow={2000} overlay={<Tooltip id="0">{this.props.placeholder}</Tooltip>}>
               <FormControl
-                type="text" placeholder={this.props.placeholder}
+                type="text" placeholder={this.props.placeholder} disabled={this.props.disabled}
                 onChange={value => {this.value = value.target.value; this.setState({}); this.props.onChange(this.value)}}
               />
             </OverlayTrigger>

@@ -158,6 +158,11 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
         if (request.getTcpMemoryAsPercentOfTotal() <= 0) {
             request.setTcpMemoryAsPercentOfTotal(50); // 50%
         }
+
+        if (request.getServerIpAddress() != null && !request.getServerIpAddress().isEmpty()) {
+            ValidationUtils.checkIpAddress(request.getServerIpAddress(), "serverIpAddress");
+            ValidationUtils.checkPositiveArg(request.getPort(), "port");
+        }
     }
 
     public TcpEchoBenchmark createTcpBenchmark(String benchmarkId, final CreateTcpEchoBenchmarkRequest request, UserInfo userInfo) throws Exception {
@@ -180,6 +185,7 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
         benchmark.setTcpMemoryAsPercentOfTotal(request.getTcpMemoryAsPercentOfTotal());
 
         benchmark.setProvider(request.getProvider());
+        benchmark.setServerIpAddress(request.getServerIpAddress());
         benchmark.setPort(request.getPort());
         benchmark.setSsl(request.isSsl());
         benchmark.setSocketSendBufferSize(request.getSocketSendBufferSize());
@@ -236,37 +242,47 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
             deploymentConfiguration.setLostHostIntervalMillis(configuration.getAsInteger(ConfigurationKey.WorkerLostHostIntervalMillis)); // 5 minutes
             createDeploymentRequest.setDeploymentConfiguration(deploymentConfiguration);
             deploymentService.createDeployment(benchmark.getId(), createDeploymentRequest);
+            CreateEc2ClusterRequest createEc2ClusterRequest;
+            String serverClusterId = null;
 
-            // create server
-            CreateEc2ClusterRequest createEc2ClusterRequest = new CreateEc2ClusterRequest();
-            createEc2ClusterRequest.setRegion(benchmark.getServerGeoLocation());
-            createEc2ClusterRequest.setImageId(benchmark.getImageId());
-            createEc2ClusterRequest.setHostType(benchmark.getServerHostType());
+            // create server, if not already available
+            if (benchmark.getServerIpAddress() == null) {
+                createEc2ClusterRequest = new CreateEc2ClusterRequest();
+                createEc2ClusterRequest.setRegion(benchmark.getServerGeoLocation());
+                createEc2ClusterRequest.setImageId(benchmark.getImageId());
+                createEc2ClusterRequest.setHostType(benchmark.getServerHostType());
 
-            createEc2ClusterRequest.setHostCount(1);
-            createEc2ClusterRequest.setIamRole(configuration.get(ConfigurationKey.WorkerInstanceProfileName));
-            createEc2ClusterRequest.setUserData(Base64.getEncoder().encodeToString(buildSystemTuningScript(
-                benchmark.getTcpServerExpectation().getMaxSimultaneousConnections() * 2 + 1024,
-                benchmark.getTcpMemoryAsPercentOfTotal()).getBytes(StandardCharsets.UTF_8)));
+                createEc2ClusterRequest.setHostCount(1);
+                createEc2ClusterRequest.setIamRole(configuration.get(ConfigurationKey.WorkerInstanceProfileName));
+                createEc2ClusterRequest.setUserData(Base64.getEncoder().encodeToString(buildSystemTuningScript(
+                    benchmark.getTcpServerExpectation().getMaxSimultaneousConnections() * 2 + 1024,
+                    benchmark.getTcpMemoryAsPercentOfTotal()).getBytes(StandardCharsets.UTF_8)));
 
-            createEc2ClusterRequest.setSubnetId(configuration.get(ConfigurationKey.WorkerSubnetId));
-            createEc2ClusterRequest.setSecurityGroupIds(Arrays.asList(
-                configuration.get(ConfigurationKey.WorkerSecurityGroupIds).split(",")));
-            createEc2ClusterRequest.setTags(new HashMap<String, String>() {{
-                put("Name", "bm-server-" + benchmark.getId());
-            }});
+                createEc2ClusterRequest.setSubnetId(configuration.get(ConfigurationKey.WorkerSubnetId));
+                createEc2ClusterRequest.setSecurityGroupIds(Arrays.asList(
+                    configuration.get(ConfigurationKey.WorkerSecurityGroupIds).split(",")));
+                createEc2ClusterRequest.setTags(new HashMap<String, String>() {{
+                    put("Name", "bm-server-" + benchmark.getId());
+                }});
 
-            createEc2ClusterRequest.setKeyName(benchmark.getKeyName());
-            String serverClusterId = deploymentService
-                .createEc2Cluster(benchmark.getId(), createEc2ClusterRequest).getClusterId();
+                createEc2ClusterRequest.setKeyName(benchmark.getKeyName());
+                serverClusterId = deploymentService
+                    .createEc2Cluster(benchmark.getId(), createEc2ClusterRequest).getClusterId();
+            }
 
-            // create clients cluster
+            // create clients
+            createEc2ClusterRequest = new CreateEc2ClusterRequest();
             createEc2ClusterRequest.setRegion(benchmark.getClientsGeoLocation());
+            createEc2ClusterRequest.setImageId(benchmark.getImageId());
             createEc2ClusterRequest.setHostType(benchmark.getClientsHostType());
             createEc2ClusterRequest.setHostCount((benchmark.getClientCount() - 1) / benchmark.getClientsPerHost() + 1);
+            createEc2ClusterRequest.setIamRole(configuration.get(ConfigurationKey.WorkerInstanceProfileName));
             createEc2ClusterRequest.setUserData(Base64.getEncoder().encodeToString(buildSystemTuningScript(
                 benchmark.getTcpClientsExpectation().getMaxSimultaneousConnections() * 2 + 1024,
                 benchmark.getTcpMemoryAsPercentOfTotal()).getBytes(StandardCharsets.UTF_8)));
+            createEc2ClusterRequest.setSubnetId(configuration.get(ConfigurationKey.WorkerSubnetId));
+            createEc2ClusterRequest.setSecurityGroupIds(Arrays.asList(
+                configuration.get(ConfigurationKey.WorkerSecurityGroupIds).split(",")));
             createEc2ClusterRequest.setTags(new HashMap<String, String>() {{
                 put("Name", "bm-client-" + benchmark.getId());
             }});
@@ -274,26 +290,39 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
             String clientsClusterId = deploymentService
                 .createEc2Cluster(benchmark.getId(), createEc2ClusterRequest).getClusterId();
 
-            // ensure both clusters are ready
             long expirationTimestamp = System.currentTimeMillis() + 10 * 60_000;
-            Cluster<? extends Host> serverCluster = ensureDeployed(
-                benchmark.getId(), serverClusterId, expirationTimestamp);
+            if (serverClusterId != null) { // we own and manage the server
+                // ensure server is ready
+                Cluster<? extends Host> serverCluster = ensureDeployed(
+                    benchmark.getId(), serverClusterId, expirationTimestamp);
+                benchmark.setServerHost(serverCluster.getHosts().values().iterator().next());
+            }
+
+            // ensure client cluster is ready
             Cluster<? extends Host> clientsCluster = ensureDeployed(
                 benchmark.getId(), clientsClusterId, expirationTimestamp);
-
-            benchmark.setServerHost(serverCluster.getHosts().values().iterator().next());
             benchmark.setClientHosts(clientsCluster.getHosts().values());
 
             Thread.sleep(10000); // todo remove this asap after completing the deployment service
+            String serverIpAddress;
+            int serverPort;
 
             // start server remotely
-            CreateTcpServerResponse createTcpServerResponse = jaxrsClient.target(String.format(
-                configuration.get(ConfigurationKey.WorkerServiceHttpDescriptor),
-                benchmark.getServerHost().getPublicIpAddress()))
-                .path("/tcp/servers")
-                .request(MediaType.APPLICATION_JSON)
-                .post(Entity.entity(buildCreateTcpServerRequest(benchmark),
-                    MediaType.APPLICATION_JSON), CreateTcpServerResponse.class);
+            if (serverClusterId != null) { // we own and manage the server
+                CreateTcpServerResponse createTcpServerResponse = jaxrsClient.target(String.format(
+                    configuration.get(ConfigurationKey.WorkerServiceHttpDescriptor),
+                    benchmark.getServerHost().getPublicIpAddress()))
+                    .path("/tcp/servers")
+                    .request(MediaType.APPLICATION_JSON)
+                    .post(Entity.entity(buildCreateTcpServerRequest(benchmark),
+                        MediaType.APPLICATION_JSON), CreateTcpServerResponse.class);
+
+                serverIpAddress = createTcpServerResponse.getHostaddress();
+                serverPort = createTcpServerResponse.getPort();
+            } else {
+                serverIpAddress = benchmark.getServerIpAddress();
+                serverPort = benchmark.getPort();
+            }
 
             // start clients remotely
             benchmark.getClientHosts().parallelStream().forEach(h ->
@@ -301,8 +330,8 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
                     configuration.get(ConfigurationKey.WorkerServiceHttpDescriptor), h.getPublicIpAddress()))
                     .path("/tcp/client-batches")
                     .request(MediaType.APPLICATION_JSON)
-                    .post(Entity.entity(buildCreateTcpClientBatchRequest(
-                        benchmark, createTcpServerResponse.getHostaddress(), createTcpServerResponse.getPort()),
+                    .post(Entity.entity(buildCreateTcpClientBatchRequest
+                        (benchmark, serverIpAddress, serverPort),
                         MediaType.APPLICATION_JSON))
             );
 

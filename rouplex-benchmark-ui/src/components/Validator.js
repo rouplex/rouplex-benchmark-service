@@ -30,7 +30,8 @@ validator.validateIntValueWithinRange = function (value, range, params) {
   else if (params.validateSubmittable && !range.optional) {
     return "error";
   }
-  else if (!params.omitSuccessEffect) {
+
+  if (!params.omitSuccessEffect) {
     return "success";
   }
 };

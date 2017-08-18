@@ -4,11 +4,14 @@ import Grid from 'react-bootstrap/lib/Grid';
 import Row from 'react-bootstrap/lib/Row';
 import Col from 'react-bootstrap/lib/Col';
 import Button from 'react-bootstrap/lib/Button';
+import Checkbox from 'react-bootstrap/lib/Checkbox';
 
 import NioProviderSelector from './components/NioProviderSelector';
 import DropdownSelector from './components/DropdownSelector';
 import RangeSelector from './components/RangeSelector';
 import ValueSelector from './components/ValueSelector';
+import LabeledValue from './components/LabeledValue';
+import BenchmarkGraphs from './BenchmarkGraphs';
 
 var config = require("./Config.js");
 var validator = require("./components/Validator.js");
@@ -20,59 +23,26 @@ export default class StartBenchmark extends React.Component {
     super();
 
     this.state = {
-      ssl: false,
-      provider: null,
-      serverGeoLocation: null,
-      serverHostType: null,
-      backlog: null,
-      echoRatio: null,
-      keyName: null,
-      socketSendBufferSize: null,
-      socketReceiveBufferSize: null,
-      benchmarkId: null,
-      clientsGeoLocation: null,
-      clientsHostType: null,
-      clientCount: null,
-      clientsPerHost: null,
-      payloadSize: {},
-      delayMillisBetweenSends: {},
-      delayMillisBeforeCreatingClient: {},
-      clientLifeMillis: {},
-
+      connectParams: null,
+      transferParams: null,
+      serverDeployed: false,
       pendingSubmission: false,
+      failedSubmission: false,
       failedValidation: false
+    };
+
+    this.sourceParams = {
+      ssl: false
     }
   }
 
-  buildRequestBody() {
-    var echoRatioQuoted = this.quote(this.state.echoRatio);
-    var keyNameQuoted = this.quote(this.state.keyName);
-
-    var socketSendBufferSize = this.parseIntValue("Socket Send Buffer Size", this.state.socketSendBufferSize, 0);
-    var socketReceiveBufferSize = this.parseIntValue("Socket Receive Buffer Size", this.state.socketReceiveBufferSize, 0);
-    var backlog = this.parseIntValue("Backlog", this.state.backlog, 0);
-    var clientCount = this.parseIntValue("Clients", this.state.clientCount);
-    var clientsPerHost = this.parseIntValue("Clients", this.state.clientsPerHost);
-    var minPayloadSize = this.parseIntValue("Payload", this.state.payloadSize.min);
-    var maxPayloadSize = this.parseIntValue("Payload", this.state.payloadSize.max);
-    var minDelayMillisBetweenSends = this.parseIntValue("Delay Between Sends", this.state.delayMillisBetweenSends.min);
-    var maxDelayMillisBetweenSends = this.parseIntValue("Delay Between Sends", this.state.delayMillisBetweenSends.max);
-    var minDelayMillisBeforeCreatingClient = this.parseIntValue("Delay Creating Client", this.state.delayMillisBeforeCreatingClient.min);
-    var maxDelayMillisBeforeCreatingClient = this.parseIntValue("Delay Creating Client", this.state.delayMillisBeforeCreatingClient.max);
-    var minClientLifeMillis = this.parseIntValue("Client Lifespan", this.state.clientLifeMillis.min);
-    var maxClientLifeMillis = this.parseIntValue("Client Lifespan", this.state.clientLifeMillis.max);
-
-    if (socketSendBufferSize < 0) {
-      throw "Socket Send Buffer Size must be non-negative"
-    }
-
-    if (socketReceiveBufferSize < 0) {
-      throw "Socket Receive Buffer Size must be non-negative"
-    }
-
-    if (backlog < 0) {
-      throw "Backlog must be non-negative"
-    }
+  getConnectParams() {
+    var clientCount = this.parseIntValue("Clients", this.sourceParams.clientCount);
+    var clientsPerHost = this.parseIntValue("Clients", this.sourceParams.clientsPerHost);
+    var minDelayMillisBeforeCreatingClient = this.parseIntValue("Delay Creating Client", this.sourceParams.delayMillisBeforeCreatingClient.min);
+    var maxDelayMillisBeforeCreatingClient = this.parseIntValue("Delay Creating Client", this.sourceParams.delayMillisBeforeCreatingClient.max);
+    var minClientLifeMillis = this.parseIntValue("Client Lifespan", this.sourceParams.clientLifeMillis.min);
+    var maxClientLifeMillis = this.parseIntValue("Client Lifespan", this.sourceParams.clientLifeMillis.max);
 
     if (clientCount <= 0) {
       throw "Total Clients must be positive"
@@ -80,20 +50,6 @@ export default class StartBenchmark extends React.Component {
 
     if (clientsPerHost <= 0) {
       throw "Clients Per Host must be positive"
-    }
-
-    if (minPayloadSize <= 0) {
-      throw "Minimum Payload Size must be positive"
-    }
-    if (maxPayloadSize <= minPayloadSize) {
-      throw "Maximum Payload Size must be greater than Minimum Payload Size"
-    }
-
-    if (minDelayMillisBetweenSends <= 0) {
-      throw "Minimum Delay Between Sends must be positive"
-    }
-    if (maxDelayMillisBetweenSends <= minDelayMillisBetweenSends) {
-      throw "Maximum Delay Between Sends must be greater than Minimum Delay Between Sends"
     }
 
     if (minDelayMillisBeforeCreatingClient < 0) {
@@ -110,32 +66,122 @@ export default class StartBenchmark extends React.Component {
       throw "Maximum Client Life must be greater than Minimum Client Life"
     }
 
+    return {
+      clientCount: clientCount,
+      clientsPerHost: clientsPerHost,
+      minDelayMillisBeforeCreatingClient: minDelayMillisBeforeCreatingClient,
+      maxDelayMillisBeforeCreatingClient: maxDelayMillisBeforeCreatingClient,
+      minClientLifeMillis: minClientLifeMillis,
+      maxClientLifeMillis: maxClientLifeMillis
+    }
+  }
+
+  getTransferParams() {
+    var minPayloadSize = this.parseIntValue("Payload", this.sourceParams.payloadSize.min);
+    var maxPayloadSize = this.parseIntValue("Payload", this.sourceParams.payloadSize.max);
+    var minDelayMillisBetweenSends = this.parseIntValue("Delay Between Sends", this.sourceParams.delayMillisBetweenSends.min);
+    var maxDelayMillisBetweenSends = this.parseIntValue("Delay Between Sends", this.sourceParams.delayMillisBetweenSends.max);
+
+    if (minPayloadSize <= 0) {
+      throw "Minimum Payload Size must be positive"
+    }
+    if (maxPayloadSize <= minPayloadSize) {
+      throw "Maximum Payload Size must be greater than Minimum Payload Size"
+    }
+
+    if (minDelayMillisBetweenSends <= 0) {
+      throw "Minimum Delay Between Sends must be positive"
+    }
+    if (maxDelayMillisBetweenSends <= minDelayMillisBetweenSends) {
+      throw "Maximum Delay Between Sends must be greater than Minimum Delay Between Sends"
+    }
+
+    return {
+      minPayloadSize: minPayloadSize,
+      maxPayloadSize: maxPayloadSize,
+      minDelayMillisBetweenSends: minDelayMillisBetweenSends,
+      maxDelayMillisBetweenSends: maxDelayMillisBetweenSends,
+      echoRatio: this.sourceParams.echoRatio
+    }
+  }
+
+  updateState() {
+    try {
+      this.setState({connectParams: this.getConnectParams()});
+    } catch (e) {
+      this.setState({
+        connectParams: null,
+        transferParams: null
+      });
+      return
+    }
+
+    try {
+      this.setState({transferParams: this.getTransferParams()});
+    } catch (e) {
+      this.setState({transferParams: null});
+    }
+  }
+
+  buildRequestBody() {
+    var connectParams = this.getConnectParams();
+    var transferParams = this.getTransferParams();
+
+    var keyNameQuoted = this.quote(this.sourceParams.keyName);
+    var socketSendBufferSize = this.parseIntValue("Socket Send Buffer Size", this.sourceParams.socketSendBufferSize, 0);
+    var socketReceiveBufferSize = this.parseIntValue("Socket Receive Buffer Size", this.sourceParams.socketReceiveBufferSize, 0);
+    var backlog = this.parseIntValue("Backlog", this.sourceParams.backlog, 0);
+    var echoRatioQuoted = this.quote(transferParams.echoRatio);
+
+    if (socketSendBufferSize < 0) {
+      throw "Socket Send Buffer Size must be non-negative"
+    }
+
+    if (socketReceiveBufferSize < 0) {
+      throw "Socket Receive Buffer Size must be non-negative"
+    }
+
+    if (backlog < 0) {
+      throw "Backlog must be non-negative"
+    }
+
+    if (this.state.serverDeployed) {
+      var serverIpAddress = this.sourceParams.serverIpAddress;
+      var serverPort = this.sourceParams.serverPort;
+    } else {
+      var serverIpAddress = null;
+      var serverPort = 8888;
+    }
+
+    var serverIpAddressQuoted = this.quote(serverIpAddress);
+
     var requestBody =
       '{\n' +
       '  "echoRatio" : ' + echoRatioQuoted + ',\n' +
-      '  "serverHostType" : "' + this.state.serverHostType + '",\n' +
-      '  "serverGeoLocation" : "' + this.state.serverGeoLocation + '",\n' +
-      '  "clientsHostType" : "' + this.state.clientsHostType + '",\n' +
-      '  "clientsGeoLocation" : "' + this.state.clientsGeoLocation + '",\n' +
+      '  "serverHostType" : "' + this.sourceParams.serverHostType + '",\n' +
+      '  "serverGeoLocation" : "' + this.sourceParams.serverGeoLocation + '",\n' +
+      '  "clientsHostType" : "' + this.sourceParams.clientsHostType + '",\n' +
+      '  "clientsGeoLocation" : "' + this.sourceParams.clientsGeoLocation + '",\n' +
       '  "imageId" : null,\n' +
       '  "keyName" : ' + keyNameQuoted + ',\n' +
       '  "tcpMemoryAsPercentOfTotal" : 0,\n' +
-      '  "provider" : "' + this.state.provider + '",\n' +
-      '  "port" : 8888,\n' +
-      '  "ssl" : "' + this.state.ssl + '",\n' +
+      '  "provider" : "' + this.sourceParams.provider + '",\n' +
+      '  "serverIpAddress" : ' + serverIpAddressQuoted + ',\n' +
+      '  "port" : ' + serverPort + ',\n' +
+      '  "ssl" : "' + this.sourceParams.ssl + '",\n' +
       '  "socketSendBufferSize" : ' + socketSendBufferSize + ',\n' +
       '  "socketReceiveBufferSize" : ' + socketReceiveBufferSize + ',\n' +
       '  "backlog" : ' + backlog + ',\n' +
-      '  "clientCount" : ' + clientCount + ',\n' +
-      '  "clientsPerHost" : ' + clientsPerHost + ',\n' +
-      '  "minPayloadSize" : ' + minPayloadSize + ',\n' +
-      '  "maxPayloadSize" : ' + maxPayloadSize + ',\n' +
-      '  "minDelayMillisBetweenSends" : ' + minDelayMillisBetweenSends + ',\n' +
-      '  "maxDelayMillisBetweenSends" : ' + maxDelayMillisBetweenSends + ',\n' +
-      '  "minDelayMillisBeforeCreatingClient" : ' + minDelayMillisBeforeCreatingClient + ',\n' +
-      '  "maxDelayMillisBeforeCreatingClient" : ' + maxDelayMillisBeforeCreatingClient + ',\n' +
-      '  "minClientLifeMillis" : ' + minClientLifeMillis + ',\n' +
-      '  "maxClientLifeMillis" : ' + maxClientLifeMillis + '\n' +
+      '  "clientCount" : ' + connectParams.clientCount + ',\n' +
+      '  "clientsPerHost" : ' + connectParams.clientsPerHost + ',\n' +
+      '  "minPayloadSize" : ' + transferParams.minPayloadSize + ',\n' +
+      '  "maxPayloadSize" : ' + transferParams.maxPayloadSize + ',\n' +
+      '  "minDelayMillisBetweenSends" : ' + transferParams.minDelayMillisBetweenSends + ',\n' +
+      '  "maxDelayMillisBetweenSends" : ' + transferParams.maxDelayMillisBetweenSends + ',\n' +
+      '  "minDelayMillisBeforeCreatingClient" : ' + connectParams.minDelayMillisBeforeCreatingClient + ',\n' +
+      '  "maxDelayMillisBeforeCreatingClient" : ' + connectParams.maxDelayMillisBeforeCreatingClient + ',\n' +
+      '  "minClientLifeMillis" : ' + connectParams.minClientLifeMillis + ',\n' +
+      '  "maxClientLifeMillis" : ' + connectParams.maxClientLifeMillis + '\n' +
       '}\n';
 
     return requestBody;
@@ -146,9 +192,9 @@ export default class StartBenchmark extends React.Component {
     postRequest.addEventListener("load", () => {
       console.log("startTcpBenchmark.post.response: " + postRequest.status + " " + postRequest.responseText);
       //alert("startTcpBenchmark.post.response: " + postRequest.responseText);
-      this.setState({pendingSubmission: false});
+      this.setState({pendingSubmission: false}); // failedSubmission is set in following statements
 
-      if (postRequest.status != 200)  {
+      if (postRequest.status != 200) {
         this.setState({failedSubmission: true});
         return alert("Could not start benchmark. Details: " + postRequest.responseText);
       }
@@ -175,10 +221,10 @@ export default class StartBenchmark extends React.Component {
       alert("Could not start benchmark. Cause: " + postRequest.responseText);
     });
 
-    if (this.state.benchmarkId == null) {
+    if (this.sourceParams.benchmarkId == null) {
       postRequest.open("POST", config.tcpEchoBenchmarkUrl);
     } else {
-      postRequest.open("PUT", config.tcpEchoBenchmarkUrl + "/" + encodeURIComponent(this.state.benchmarkId));
+      postRequest.open("PUT", config.tcpEchoBenchmarkUrl + "/" + encodeURIComponent(this.sourceParams.benchmarkId));
     }
 
     postRequest.setRequestHeader('Content-Type', 'application/json');
@@ -199,17 +245,6 @@ export default class StartBenchmark extends React.Component {
     try {
       var requestBody = this.buildRequestBody();
       this.setState({failedValidation: false});
-    }
-    catch (err) {
-      alert("Error starting benchmark. Cause: " + err);
-      this.setState({
-        pendingSubmission: false,
-        failedValidation: true
-      });
-      return;
-    }
-
-    try {
       this.postRequest(requestBody);
     }
     catch (err) {
@@ -257,6 +292,60 @@ export default class StartBenchmark extends React.Component {
       {validateSubmittable: this.state.failedValidation, omitSuccessEffect: true});
   }
 
+  calculateComputeCostForInstances(instanceType, count) {
+    var costPerInstance = 0;
+    config.ec2InstanceTypes.map(function (instance) {
+      if (instance.key === instanceType) {
+        costPerInstance = instance.cost;
+      }
+    });
+
+    return costPerInstance * count;
+  }
+
+  calculateComputeCost() {
+    var cp = this.state.connectParams;
+    if (!cp) {
+      return 0;
+    }
+
+    var costPerHour = 0;
+    var clientHosts = cp.clientCount / cp.clientsPerHost;
+
+    if (validator.validateIntValueWithinRange(clientHosts, {min: 0}, {validateSubmittable: true}) === "success") {
+      costPerHour += this.calculateComputeCostForInstances(this.sourceParams.clientsHostType, clientHosts);
+    }
+
+    if (!this.sourceParams.serverDeployed) {
+      costPerHour += this.calculateComputeCostForInstances(this.sourceParams.serverHostType, 1);
+    }
+
+    var benchmarkMillis = cp.maxDelayMillisBeforeCreatingClient + cp.maxClientLifeMillis;
+    benchmarkMillis += 1000 * 10 * 60; // 10 mins for setup
+    return (Math.ceil(benchmarkMillis / 3600000) * costPerHour).toFixed(2);
+  }
+
+  getBenchmarkDuration() {
+    var benchmarkMillis = this.state.connectParams
+      ? this.state.connectParams.maxDelayMillisBeforeCreatingClient
+        + this.state.connectParams.maxClientLifeMillis + 1000 * 10 * 60 : 0;
+
+    return this.convertMillisUp(benchmarkMillis);
+  }
+
+  convertMillisUp(timeValue) {
+    var unitNames = [" Millis", " Secs", " Mins", " Hrs", " Days"];
+    var unitRatios = [1000, 60, 60, 24];
+
+    var index = 0;
+    while (index < unitNames.length && timeValue >= 10 * unitRatios[index]) {
+      timeValue = Math.floor(timeValue / unitRatios[index]);
+      index++;
+    }
+
+    return timeValue + unitNames[index];
+  }
+
   render() {
     return (
       <Grid style={{padding: '0'}}>
@@ -264,49 +353,81 @@ export default class StartBenchmark extends React.Component {
           <Col md={5}>
             <NioProviderSelector
               nioProviders={config.nioProviders}
-              onSslChange={value => this.state.ssl = value}
-              onNioProviderChange={value => this.state.provider = value}
+              onSslChange={value => this.sourceParams.ssl = value}
+              onNioProviderChange={value => this.sourceParams.provider = value}
             />
 
             <Panel header="Server">
               <DropdownSelector
                 label="Geo Location" colSpans={[5,7]} options={config.ec2Regions}
-                onChange={value => this.setState({serverGeoLocation: value})}
+                disabled={this.state.serverDeployed}
+                onChange={value => this.sourceParams.serverGeoLocation = value}
               />
 
               <DropdownSelector
                 label="Host Type" colSpans={[5,7]} options={config.ec2InstanceTypes}
-                onChange={value => this.setState({serverHostType: value})}
+                disabled={this.state.serverDeployed}
+                onChange={value => this.sourceParams.serverHostType = value}
               />
 
               <ValueSelector
                 label="Backlog (int)" colSpans={[5,7]} placeholder="Optional, defaults to system's"
-                onValidate={value => this.validateValue(value, {min: 0, optional: true})}
-                onChange={value => this.state.backlog = value}
+                disabled={this.state.serverDeployed}
+                onChange={value => {
+                  this.sourceParams.backlog = value;
+                  return this.validateValue(value, {min: 0, optional: true});
+                }}
               />
 
               <ValueSelector
                 label="Echo Ratio (x:y)" colSpans={[5,7]} placeholder="Optional, defaults to 1:1 (n/a yet)"
-                onChange={value => this.state.echoRatio = value}
+                disabled={this.state.serverDeployed}
+                onChange={value => {
+                  this.sourceParams.echoRatio = value;
+                  this.updateState();
+                }}
+              />
+
+              <Row>
+                <Col mdOffset={5} md={7}>
+                  <Checkbox style={{marginTop: '0'}}
+                            onChange={key => this.setState({serverDeployed: key.target.checked})}>
+                    &nbsp; Server already running
+                  </Checkbox>
+                </Col>
+              </Row>
+
+              <RangeSelector
+                label="Server Address" disabled={!this.state.serverDeployed}
+                colSpans={[5,4,3]} placeholders={["IP (xx.xx.xx.xx)", "Port"]}
+                onChange={value => {
+                  this.sourceParams.serverIpAddress = value.min;
+                  this.sourceParams.serverPort = value.max;
+                  this.updateState();
+                }}
               />
             </Panel>
 
             <Panel header="Extra Parameters">
               <ValueSelector
                 label="Aws Key Name" colSpans={[7,5]} placeholder="Optional, for ssh host access"
-                onChange={value => this.state.keyName = value}
+                onChange={value => this.sourceParams.keyName = value}
               />
 
               <ValueSelector
                 label="Socket Send Buffer Size (kb)" colSpans={[7, 5]} placeholder="Optional, defaults to system's"
-                onValidate={value => this.validateValue(value, {min: 0, optional: true})}
-                onChange={value => this.state.socketSendBufferSize = value}
+                onChange={value => {
+                  this.sourceParams.socketSendBufferSize = value;
+                  return this.validateValue(value, {min: 0, optional: true});
+                }}
               />
 
               <ValueSelector
                 label="Socket Receive Buffer Size (kb)" colSpans={[7,5]} placeholder="Optional, defaults to system's"
-                onValidate={value => this.validateValue(value, {min: 0, optional: true})}
-                onChange={value => this.state.socketReceiveBufferSize = value}
+                onChange={value => {
+                  this.sourceParams.socketReceiveBufferSize = value;
+                  return this.validateValue(value, {min: 0, optional: true});
+                }}
               />
             </Panel>
           </Col>
@@ -314,51 +435,79 @@ export default class StartBenchmark extends React.Component {
           <Col md={5}>
             <ValueSelector
               label="Benchmark Id" colSpans={[4,8]} placeholder="Optional, auto generated if missing"
-              onValidate={value => this.checkNoSlash(value)}
-              onChange={value => this.state.benchmarkId = value}
+              onChange={value => {
+                this.sourceParams.benchmarkId = value;
+                return this.checkNoSlash(value);
+              }}
             />
 
             <Panel header="Clients">
               <DropdownSelector
                 label="Geo Location" options={config.ec2Regions}
-                onChange={value => this.setState({clientsGeoLocation: value})}
+                onChange={value => this.sourceParams.clientsGeoLocation = value}
               />
 
               <DropdownSelector
                 label="Host Type" options={config.ec2InstanceTypes}
-                onChange={value => this.setState({clientsHostType: value})}
+                onChange={value => this.sourceParams.clientsHostType = value}
               />
 
               <RangeSelector
                 label="Clients (count)" placeholders={["Per Host", "Total"]}
-                onValidate={value => validator.validateIntRangeWithinRange(value, {min: 1},
-                    {validateSubmittable: this.state.failedValidation, omitSuccessEffect: true, allowSuccessorEqualOrLesser: true})}
-                onChange={value => this.setState({clientsPerHost: value.min, clientCount: value.max})}
+                onChange={value => {
+                  this.sourceParams.clientsPerHost = value.min;
+                  this.sourceParams.clientCount = value.max;
+                  this.updateState();
+
+                  return validator.validateIntRangeWithinRange(value, {min: 1}, {
+                    validateSubmittable: this.state.failedValidation,
+                    omitSuccessEffect: true,
+                    allowSuccessorEqualOrLesser: true
+                  });
+                }}
               />
 
               <RangeSelector
-                label="Payload (bytes)"
-                onValidate={value => this.validateRange(value, {min: 1})}
-                onChange={value => this.setState({payloadSize: value})}
-              />
-
-              <RangeSelector
-                label="Delay Between Sends (millis)"
-                onValidate={value => this.validateRange(value, {min: 1})}
-                onChange={value => this.setState({delayMillisBetweenSends: value})}
-              />
-
-              <RangeSelector
-                label="Delay Creating Client (millis)"
-                onValidate={value => this.validateRange(value, {min: 0})}
-                onChange={value => this.setState({delayMillisBeforeCreatingClient: value})}
+                label="Client Arrivals (millis)"
+                onChange={value => {
+                  this.sourceParams.delayMillisBeforeCreatingClient = value;
+                  this.updateState();
+                  return this.validateRange(value, {min: 0});
+                }}
               />
 
               <RangeSelector
                 label="Client Lifespan (millis)"
-                onValidate={value => this.validateRange(value, {min: 1})}
-                onChange={value => this.setState({clientLifeMillis: value})}
+                onChange={value => {
+                  this.sourceParams.clientLifeMillis = value;
+                  this.updateState();
+                  return this.validateRange(value, {min: 0});
+                }}
               />
+
+              <RangeSelector
+                label="Payload (bytes)"
+                onChange={value => {
+                  this.sourceParams.payloadSize = value;
+                  this.updateState();
+                  return this.validateRange(value, {min: 0});
+                }}
+              />
+
+              <RangeSelector
+                label="Delay Between Sends (millis)"
+                onChange={value => {
+                  this.sourceParams.delayMillisBetweenSends = value;
+                  this.updateState();
+                  return this.validateRange(value, {min: 0});
+                }}
+              />
+            </Panel>
+
+            <Panel header={"Approximate running cost (" + this.getBenchmarkDuration() + ")"}>
+              <LabeledValue label="Compute" value={"$" + this.calculateComputeCost()} colSpans={[6,6]}/>
+              <LabeledValue label="Network" value="$0 (n/a yet)" colSpans={[6,6]}/>
+              <LabeledValue label="Other" value="$0 (n/a yet)" colSpans={[6,6]}/>
             </Panel>
 
             <Button bsStyle="primary" className="pull-right" disabled={this.state.pendingSubmission}
@@ -366,6 +515,14 @@ export default class StartBenchmark extends React.Component {
                     onClick={() => this.handleStartBenchmarkClicked()}>
               Start Benchmark
             </Button>
+          </Col>
+        </Row>
+        <Row>
+          <Col md={10}>
+            <BenchmarkGraphs
+              connectParams={this.state.connectParams}
+              transferParams={this.state.transferParams}
+            />
           </Col>
         </Row>
       </Grid>

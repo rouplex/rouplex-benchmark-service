@@ -10,10 +10,10 @@ export default class LabeledValue extends React.Component {
   render() {
     return (
       <Row>
-        <Col style={{textAlign: 'right'}} md={this.getColSpan(0)}>
+        <Col style={{textAlign: 'right', marginBottom:"1px"}} md={this.getColSpan(0)}>
           <label>{this.props.label}</label>
         </Col>
-        <Col style={{textAlign: 'right'}} md={this.getColSpan(1)}>
+        <Col style={{textAlign: 'right', marginBottom:"1px"}} md={this.getColSpan(1)}>
           {this.props.value}
         </Col>
       </Row>

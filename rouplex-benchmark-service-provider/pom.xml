@@ -26,7 +26,7 @@
         <dependency>
             <groupId>org.rouplex</groupId>
             <artifactId>rouplex-commons</artifactId>
-            <version>1.0.2</version>
+            <version>1.0.3-SNAPSHOT</version>
         </dependency>
 
         <!--Temporary Shortcut: We instantiate a deployment service provider, but normally should be its own service-->

@@ -24,6 +24,7 @@ export default class DropdownSelector extends React.Component {
           </Col>
           <Col md={this.getColSpan(1)}>
             <FormControl componentClass="select"
+                         disabled={this.props.disabled}
                          onChange={key => this.props.onChange(key.target.value)}
                          inputRef={key => {
                            if (this.initializing && key) {
