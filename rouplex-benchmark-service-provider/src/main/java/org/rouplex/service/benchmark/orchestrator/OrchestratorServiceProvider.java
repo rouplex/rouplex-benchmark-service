@@ -22,7 +22,9 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
-import java.util.concurrent.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeoutException;
 import java.util.logging.Logger;
 
 /**
@@ -160,7 +162,7 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
         }
 
         if (request.getServerIpAddress() != null && !request.getServerIpAddress().isEmpty()) {
-            ValidationUtils.checkIpAddress(request.getServerIpAddress(), "serverIpAddress");
+            ValidationUtilsExtension.checkIpAddress(request.getServerIpAddress(), "serverIpAddress");
             ValidationUtils.checkPositiveArg(request.getPort(), "port");
         }
     }
