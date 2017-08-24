@@ -6,9 +6,9 @@ import com.amazonaws.util.EC2MetadataUtils;
 import org.rouplex.platform.jersey.RouplexJerseyApplication;
 import org.rouplex.service.benchmark.AuthResource;
 import org.rouplex.service.benchmark.OrchestratorResource;
+import org.rouplex.service.benchmark.auth.AuthException;
 import org.rouplex.service.benchmark.auth.AuthServiceProvider;
 import org.rouplex.service.benchmark.orchestrator.OrchestratorServiceProvider;
-import org.rouplex.service.benchmark.orchestrator.UnauthenticatedException;
 import org.rouplex.service.deployment.DeploymentManagementResource;
 import org.rouplex.service.deployment.DeploymentResource;
 import org.rouplex.service.deployment.DeploymentServiceProvider;
@@ -81,7 +81,7 @@ public class BenchmarkServiceApplication extends RouplexJerseyApplication implem
     @Override
     protected void initExceptionMapper() {
         register(new SevereExceptionMapper());
-        register(new UnauthorizedExceptionMapper());
+        register(new AuthExceptionMapper());
     }
 
     private class SevereExceptionMapper implements ExceptionMapper<Exception> {
@@ -95,10 +95,10 @@ public class BenchmarkServiceApplication extends RouplexJerseyApplication implem
         }
     }
 
-    private class UnauthorizedExceptionMapper implements ExceptionMapper<UnauthenticatedException> {
+    private class AuthExceptionMapper implements ExceptionMapper<AuthException> {
         final SevereExceptionMapper severeExceptionMapper = new SevereExceptionMapper();
         @Override
-        public Response toResponse(UnauthenticatedException unauthenticatedException) {
+        public Response toResponse(AuthException authException) {
             try {
                 return Response
                         .temporaryRedirect(URI.create("/index.html"))

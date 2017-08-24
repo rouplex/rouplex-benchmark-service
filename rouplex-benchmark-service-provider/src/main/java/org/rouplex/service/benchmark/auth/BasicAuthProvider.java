@@ -9,7 +9,7 @@ class BasicAuthProvider extends AuthProvider<UserAtRouplex> {
 
     BasicAuthProvider() {
         // todo remove this hack, when proper user registration is implemented
-        addBetaTester();
+        addBetaTesters();
     }
 
     SignInUsingBasicAuthResponse signInUsingBasicAuth(String userId, String password) throws Exception {
@@ -22,13 +22,18 @@ class BasicAuthProvider extends AuthProvider<UserAtRouplex> {
         return new SignInUsingBasicAuthResponse(sessionInfo);
     }
 
-    private void addBetaTester() {
+    private void addBetaTesters() {
+        addBetaTester("tester@rouplex-demo.com", "tester", "Beta Tester");
+        addBetaTester("jonschulz@aol.com", "jonschulz@aol.com", "John Schulz");
+    }
+
+    private void addBetaTester(String userId, String userPassword, String userName) {
         UserAtRouplex userAtRouplex = new UserAtRouplex();
-        userAtRouplex.setUserId("tester@rouplex-demo.com");
-        userAtRouplex.setPassword("tester");
+        userAtRouplex.setUserId(userId);
+        userAtRouplex.setPassword(userPassword);
 
         User user = defaultUserProfile();
-        user.setUserName("Beta Tester");
+        user.setUserName(userName);
         userAtRouplex.setUser(user);
 
         try {

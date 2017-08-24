@@ -132,6 +132,7 @@ export default class StartBenchmark extends React.Component {
     var socketReceiveBufferSize = this.parseIntValue("Socket Receive Buffer Size", this.sourceParams.socketReceiveBufferSize, 0);
     var backlog = this.parseIntValue("Backlog", this.sourceParams.backlog, 0);
     var echoRatioQuoted = this.quote(transferParams.echoRatio);
+    var tcpMemoryAsPercentOfTotal = this.parseIntValue("Memory As Percent Of Total", this.sourceParams.tcpMemoryAsPercentOfTotal, 0);
 
     if (socketSendBufferSize < 0) {
       throw "Socket Send Buffer Size must be non-negative"
@@ -164,7 +165,7 @@ export default class StartBenchmark extends React.Component {
       '  "clientsGeoLocation" : "' + this.sourceParams.clientsGeoLocation + '",\n' +
       '  "imageId" : null,\n' +
       '  "keyName" : ' + keyNameQuoted + ',\n' +
-      '  "tcpMemoryAsPercentOfTotal" : 0,\n' +
+      '  "tcpMemoryAsPercentOfTotal" : ' + tcpMemoryAsPercentOfTotal + ',\n' +
       '  "provider" : "' + this.sourceParams.provider + '",\n' +
       '  "serverIpAddress" : ' + serverIpAddressQuoted + ',\n' +
       '  "port" : ' + serverPort + ',\n' +
@@ -415,7 +416,15 @@ export default class StartBenchmark extends React.Component {
               />
 
               <ValueSelector
-                label="Socket Send Buffer Size (kb)" colSpans={[7, 5]} placeholder="Optional, defaults to system's"
+                label="Tcp Memory (% of total)" colSpans={[7, 5]} placeholder="Optional, defaults to system's"
+                onChange={value => {
+                  this.sourceParams.tcpMemoryAsPercentOfTotal = value;
+                  return this.validateValue(value, {min: 0, optional: true});
+                }}
+              />
+
+              <ValueSelector
+                label="Socket Send Buffer Size (bytes)" colSpans={[7, 5]} placeholder="Optional, defaults to system's"
                 onChange={value => {
                   this.sourceParams.socketSendBufferSize = value;
                   return this.validateValue(value, {min: 0, optional: true});
@@ -423,7 +432,7 @@ export default class StartBenchmark extends React.Component {
               />
 
               <ValueSelector
-                label="Socket Receive Buffer Size (kb)" colSpans={[7,5]} placeholder="Optional, defaults to system's"
+                label="Socket Receive Buffer Size (bytes)" colSpans={[7,5]} placeholder="Optional, defaults to system's"
                 onChange={value => {
                   this.sourceParams.socketReceiveBufferSize = value;
                   return this.validateValue(value, {min: 0, optional: true});
@@ -504,7 +513,7 @@ export default class StartBenchmark extends React.Component {
               />
             </Panel>
 
-            <Panel header={"Approximate running cost (" + this.getBenchmarkDuration() + ")"}>
+            <Panel header={"Approximate cost (" + this.getBenchmarkDuration() + ")"}>
               <LabeledValue label="Compute" value={"$" + this.calculateComputeCost()} colSpans={[6,6]}/>
               <LabeledValue label="Network" value="$0 (n/a yet)" colSpans={[6,6]}/>
               <LabeledValue label="Other" value="$0 (n/a yet)" colSpans={[6,6]}/>

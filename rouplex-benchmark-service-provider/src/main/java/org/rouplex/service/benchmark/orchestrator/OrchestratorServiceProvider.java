@@ -8,6 +8,7 @@ import org.rouplex.commons.configuration.ConfigurationManager;
 import org.rouplex.commons.utils.SecurityUtils;
 import org.rouplex.commons.utils.TimeUtils;
 import org.rouplex.commons.utils.ValidationUtils;
+import org.rouplex.service.benchmark.auth.AuthException;
 import org.rouplex.service.benchmark.auth.UserInfo;
 import org.rouplex.service.benchmark.worker.CreateTcpClientBatchRequest;
 import org.rouplex.service.benchmark.worker.CreateTcpServerRequest;
@@ -59,10 +60,10 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
                 ConfigurationManager configurationManager = new ConfigurationManager();
 
                 configurationManager.putConfigurationEntry( // poor man's authorization
-                    ConfigurationKey.AuthorizedPrincipals, "andimullaraj@gmail.com,silvanatase@gmail.com");
+                    ConfigurationKey.AuthorizedPrincipals, "andimullaraj@gmail.com,jschulz907@gmail.com");
 
                 configurationManager.putConfigurationEntry(
-                    ConfigurationKey.WorkerImageId, "ami-1d6c8865");
+                    ConfigurationKey.WorkerImageId, "ami-61b95019");
 
                 configurationManager.putConfigurationEntry(
                     ConfigurationKey.WorkerInstanceProfileName, "RouplexBenchmarkWorkerRole");
@@ -157,10 +158,6 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
             request.setImageId(configuration.get(ConfigurationKey.WorkerImageId));
         }
 
-        if (request.getTcpMemoryAsPercentOfTotal() <= 0) {
-            request.setTcpMemoryAsPercentOfTotal(50); // 50%
-        }
-
         if (request.getServerIpAddress() != null && !request.getServerIpAddress().isEmpty()) {
             ValidationUtilsExtension.checkIpAddress(request.getServerIpAddress(), "serverIpAddress");
             ValidationUtils.checkPositiveArg(request.getPort(), "port");
@@ -169,6 +166,11 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
 
     public TcpEchoBenchmark createTcpBenchmark(String benchmarkId, final CreateTcpEchoBenchmarkRequest request, UserInfo userInfo) throws Exception {
         checkAndSanitize(request);
+
+        if (!authorizedPrincipals.contains(userInfo.getUserIdAtProvider())) {
+            throw new AuthException(String.format("User %s not authorized to create benchmarks",
+                userInfo.getUserIdAtProvider()), AuthException.Reason.NotAuthorized);
+        }
 
         if (benchmarkId == null) {
             benchmarkId = UUID.randomUUID().toString();
@@ -225,10 +227,7 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
         logger.info(String.format("Starting TcpEchoBenchmark [%s]. 1 ec2 server host and %s ec2 client hosts",
             benchmarkId, clientHostCount));
 
-        if (authorizedPrincipals.contains(userInfo.getUserIdAtProvider())) {
-            executorService.submit((Runnable) () -> startBenchmark(benchmark));
-        }
-
+        executorService.submit((Runnable) () -> startBenchmark(benchmark));
         return benchmark;
     }
 
@@ -398,15 +397,15 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
         provider.setMapper(mapper);
 
         return ClientBuilder.newBuilder()
-            .property(JERSEY_CLIENT_CONNECT_TIMEOUT, 12000)
-            .property(JERSEY_CLIENT_READ_TIMEOUT, 12000)
+            .property(JERSEY_CLIENT_CONNECT_TIMEOUT, 60000)
+            .property(JERSEY_CLIENT_READ_TIMEOUT, 60000)
             .register(provider)
             .sslContext(SecurityUtils.buildRelaxedSSLContext())
             .hostnameVerifier((s, sslSession) -> true)
             .build();
     }
 
-    private String buildSystemTuningScript(int maxFileDescriptors, int tcpAsPercentOfTotalMemory) {
+    private String buildSystemTuningScript(int maxFileDescriptors, int tcpMemoryAsPercentOfTotal) {
         if (maxFileDescriptors < 1024) {
             maxFileDescriptors = 1024;
         }
@@ -422,11 +421,7 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
             "\techo \"\" | tee -a /etc/sysctl.conf\n" +
             "\techo \"# Allow use of 64000 ports from 1100 to 65100\" | tee -a /etc/sysctl.conf\n" +
             "\techo \"net.ipv4.ip_local_port_range = 1100 65100\" | tee -a /etc/sysctl.conf\n" +
-            "\techo \"\" | tee -a /etc/sysctl.conf\n" +
-            "\ttotal_mem_kb=`free -t | grep Mem | awk '{print $2}'`\n" +
-            "\ttcp_mem_in_pages=$(( total_mem_kb * %2$s / 100 / 4))\n" +
-            "\techo \"# Setup bigger tcp memory\" | tee -a /etc/sysctl.conf\n" +
-            "\techo \"net.ipv4.tcp_mem = 383865 tcp_mem_in_pages tcp_mem_in_pages\" | tee -a /etc/sysctl.conf\n" +
+            "%2$s" +
             "\techo \"# Setup greater open files\" | tee -a /etc/sysctl.conf\n" +
             "\techo \"fs.file-max = %1$s\" | tee -a /etc/sysctl.conf\n\n" +
             "\tsysctl -p\n" +
@@ -435,7 +430,23 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
             "configure_system_limits\n" +
             "service tomcat restart\n";
 
-        return String.format(scriptTemplate, maxFileDescriptors, tcpAsPercentOfTotalMemory);
+        return String.format(scriptTemplate, maxFileDescriptors, memoryTuningScript(tcpMemoryAsPercentOfTotal));
+    }
+
+
+    private String memoryTuningScript(int tcpMemoryAsPercentOfTotal) {
+        if (tcpMemoryAsPercentOfTotal == 0) {
+            return "";
+        }
+
+        String scriptTemplate =
+            "\techo \"\" | tee -a /etc/sysctl.conf\n" +
+            "\ttotal_mem_kb=`free -t | grep Mem | awk '{print $2}'`\n" +
+            "\ttcp_mem_in_pages=$(( total_mem_kb * %s / 100 / 4))\n" +
+            "\techo \"# Setup bigger tcp memory\" | tee -a /etc/sysctl.conf\n" +
+            "\techo \"net.ipv4.tcp_mem = $tcp_mem_in_pages $tcp_mem_in_pages $tcp_mem_in_pages\" | tee -a /etc/sysctl.conf\n";
+
+        return String.format(scriptTemplate, tcpMemoryAsPercentOfTotal);
     }
 
     private CreateTcpServerRequest buildCreateTcpServerRequest(TcpEchoBenchmark benchmark) {

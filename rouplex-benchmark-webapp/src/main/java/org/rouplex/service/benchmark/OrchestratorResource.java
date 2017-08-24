@@ -6,9 +6,13 @@ import io.swagger.annotations.ApiResponse;
 import io.swagger.annotations.ApiResponses;
 import org.glassfish.jersey.server.ResourceConfig;
 import org.rouplex.platform.jaxrs.security.RouplexSecurityContext;
+import org.rouplex.service.benchmark.auth.AuthException;
 import org.rouplex.service.benchmark.auth.AuthServiceProvider;
 import org.rouplex.service.benchmark.auth.UserInfo;
-import org.rouplex.service.benchmark.orchestrator.*;
+import org.rouplex.service.benchmark.orchestrator.CreateTcpEchoBenchmarkRequest;
+import org.rouplex.service.benchmark.orchestrator.OrchestratorService;
+import org.rouplex.service.benchmark.orchestrator.OrchestratorServiceProvider;
+import org.rouplex.service.benchmark.orchestrator.TcpEchoBenchmark;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -69,7 +73,7 @@ public class OrchestratorResource extends ResourceConfig implements Orchestrator
     private UserInfo getUserInfo() throws Exception {
         UserInfo userInfo = AuthServiceProvider.get().getUserInfo(httpServletRequest.getHeader("Rouplex-SessionId"));
         if (userInfo == null) {
-            throw new UnauthenticatedException();
+            throw new AuthException("No userInfo", AuthException.Reason.BadCredentials);
         }
 
         return userInfo;

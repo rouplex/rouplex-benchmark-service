@@ -13,11 +13,14 @@ import org.rouplex.platform.tcp.RouplexTcpServer;
 import org.rouplex.service.benchmark.orchestrator.Provider;
 
 import javax.net.ssl.SSLContext;
+import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
 import java.io.IOException;
+import java.io.PrintStream;
 import java.net.InetSocketAddress;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -62,6 +65,14 @@ public class WorkerServiceProvider implements WorkerService, Closeable {
     Map<String, Object> jobs = new HashMap<String, Object>(); // add implementation later
     Map<String, RouplexTcpServer> tcpServers = new HashMap<String, RouplexTcpServer>();
 
+    void logExceptionTraceTemp(Exception e) {
+        ByteArrayOutputStream os = new ByteArrayOutputStream();
+        PrintStream ps = new PrintStream(os);
+        e.printStackTrace(ps);
+        ps.flush();
+        logger.warning(new String(os.toByteArray(), StandardCharsets.UTF_8));
+    }
+
     final RouplexTcpClientListener rouplexTcpClientListener = new RouplexTcpClientListener() {
         @Override
         public void onConnected(RouplexTcpClient rouplexTcpClient) {
@@ -73,6 +84,7 @@ public class WorkerServiceProvider implements WorkerService, Closeable {
                             WorkerServiceProvider.this, rouplexTcpClient);
                 }
             } catch (Exception e) {
+                //logExceptionTraceTemp(e);
                 benchmarkerMetrics.meter(MetricRegistry.name(
                         "BenchmarkInternalError.onConnected")).mark();
                 benchmarkerMetrics.meter(MetricRegistry.name(
@@ -93,6 +105,7 @@ public class WorkerServiceProvider implements WorkerService, Closeable {
                 logger.warning(String.format("Failed connecting EchoRequester. Cause: %s: %s",
                         reason.getClass().getSimpleName(), reason.getMessage()));
             } catch (Exception e) {
+                //logExceptionTraceTemp(e);
                 benchmarkerMetrics.meter(MetricRegistry.name(
                         "BenchmarkInternalError.onConnectionFailed")).mark();
                 benchmarkerMetrics.meter(MetricRegistry.name(
@@ -117,6 +130,7 @@ public class WorkerServiceProvider implements WorkerService, Closeable {
                 logger.info(String.format("Disconnected %s. Drained: %s",
                         rouplexTcpClient.getAttachment().getClass().getSimpleName(), drainedChannels));
             } catch (Exception e) {
+                //logExceptionTraceTemp(e);
                 benchmarkerMetrics.meter(MetricRegistry.name(
                         "BenchmarkInternalError.onDisconnected")).mark();
                 benchmarkerMetrics.meter(MetricRegistry.name(

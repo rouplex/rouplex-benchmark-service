@@ -81,7 +81,9 @@ public class EchoRequester {
             benchmarkServiceProvider.benchmarkerMetrics.meter(MetricRegistry.name("connection.start.failed")).mark();
             benchmarkServiceProvider.benchmarkerMetrics.meter(
                     MetricRegistry.name("connection.start.failed.EEE", e.getMessage())).mark();
-            logger.info("Failed creating EchoRequester");
+            logger.info(String.format(
+                "Failed creating EchoRequester. Cause: %s %s", e.getClass().getSimpleName(), e.getMessage()));
+
             throw new RuntimeException(e);
         }
 
@@ -216,9 +218,11 @@ public class EchoRequester {
     }
 
     private static void serializeClientId(int clientId, byte[] buffer) {
-        for (int i = 3; i >= 0; i--) {
-            buffer[i] = (byte) (clientId & 0xFF);
-            clientId >>>= 8;
+        if (buffer.length > 3) {
+            for (int i = 3; i >= 0; i--) {
+                buffer[i] = (byte) (clientId & 0xFF);
+                clientId >>>= 8;
+            }
         }
     }
 }

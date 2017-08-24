@@ -165,14 +165,14 @@
             <version>${jdk}.2</version>
         </dependency>
 
-        <dependency>
-            <groupId>scalablessl</groupId>
-            <artifactId>scalablessl</artifactId>
-            <version>1.0</version>
-            <!--<scope>system</scope>-->
-            <!--<systemPath>/Users/andi/Downloads/ScalableSSL/ScalableSSL.jar</systemPath>-->
-            <!--mvn install:install-file -Dfile=/Users/andi/Downloads/ScalableSSL/ScalableSSL.jar -DgroupId=scalablessl -DartifactId=scalablessl -Dversion=1.0 -Dpackaging=jar-->
-        </dependency>
+        <!--<dependency>-->
+            <!--<groupId>scalablessl</groupId>-->
+            <!--<artifactId>scalablessl</artifactId>-->
+            <!--<version>1.0</version>-->
+            <!--&lt;!&ndash;<scope>system</scope>&ndash;&gt;-->
+            <!--&lt;!&ndash;<systemPath>/Users/andi/Downloads/ScalableSSL/ScalableSSL.jar</systemPath>&ndash;&gt;-->
+            <!--&lt;!&ndash;mvn install:install-file -Dfile=/Users/andi/Downloads/ScalableSSL/ScalableSSL.jar -DgroupId=scalablessl -DartifactId=scalablessl -Dversion=1.0 -Dpackaging=jar&ndash;&gt;-->
+        <!--</dependency>-->
 
         <!-- It should normally be inside debug profile, but the maven-war-plugin does not copy it in /lib folder -->
         <dependency>
