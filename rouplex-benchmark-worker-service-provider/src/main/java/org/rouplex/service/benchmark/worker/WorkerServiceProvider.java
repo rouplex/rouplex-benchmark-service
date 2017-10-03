@@ -152,7 +152,7 @@ public class WorkerServiceProvider implements WorkerService, Closeable {
         }
 
         try {
-            sharedTcpBinders.put(Provider.SCALABLE_SSL, createRouplexTcpBinder(Provider.SCALABLE_SSL));
+            sharedTcpBinders.put(Provider.THIRD_PARTY_SSL, createRouplexTcpBinder(Provider.THIRD_PARTY_SSL));
         } catch (Exception e) {
             // we tried
         }
@@ -163,6 +163,8 @@ public class WorkerServiceProvider implements WorkerService, Closeable {
                 .inDomain(configuration.get(ConfigurationKey.JmxDomainName))
                 .build()
         ).start();
+
+        logger.info("Created WorkerServiceProvider");
     }
 
     @Override
@@ -184,8 +186,8 @@ public class WorkerServiceProvider implements WorkerService, Closeable {
                     case ROUPLEX_NIOSSL:
                         serverSocketChannel = org.rouplex.nio.channels.SSLServerSocketChannel.open(SSLContext.getDefault());
                         break;
-                    case SCALABLE_SSL:
-                        // serverSocketChannel = scalablessl.SSLServerSocketChannel.open(SSLContext.getDefault());
+                    case THIRD_PARTY_SSL:
+                        // serverSocketChannel = thirdPartySsl.SSLServerSocketChannel.open(SSLContext.getDefault());
                         // break;
                     case CLASSIC_NIO:
                     default:
@@ -331,8 +333,8 @@ public class WorkerServiceProvider implements WorkerService, Closeable {
                             return java.nio.channels.Selector.open();
                         case ROUPLEX_NIOSSL:
                             return org.rouplex.nio.channels.SSLSelector.open();
-                        case SCALABLE_SSL:
-                            // return scalablessl.SSLSelector.open(SSLContext.getDefault());
+                        case THIRD_PARTY_SSL:
+                            // return thirdPartySsl.SSLSelector.open(SSLContext.getDefault());
                         default:
                             throw new Exception("Provider not found");
                     }

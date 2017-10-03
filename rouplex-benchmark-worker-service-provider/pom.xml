@@ -14,76 +14,6 @@
     <version>1.0.0-SNAPSHOT</version>
     <packaging>jar</packaging>
 
-    <properties>
-        <aspectj.version>1.8.9</aspectj.version>
-    </properties>
-
-    <profiles>
-        <profile>
-            <id>debug</id>
-            <build>
-                <plugins>
-                    <!-- ASPECTJ for auto logging-->
-                    <plugin>
-                        <groupId>org.codehaus.mojo</groupId>
-                        <artifactId>aspectj-maven-plugin</artifactId>
-                        <version>1.10</version>
-
-                        <configuration>
-                            <!--<bootclasspath>${aspectj.bootclasspath}</bootclasspath>-->
-                            <!--<source>${jdk.version}</source>-->
-                            <!--<target>${jdk.version}</target>-->
-                            <!--<complianceLevel>${jdk.version}</complianceLevel>-->
-                            <showWeaveInfo>true</showWeaveInfo>
-
-                            <!-- Aspect libraries containing aspects already compiled via aspectj (aspectj-maven-plugin) -->
-                            <aspectLibraries>
-                                <aspectLibrary>
-                                    <groupId>org.rouplex</groupId>
-                                    <artifactId>rouplex-niossl-spi-instrumentor</artifactId>
-                                </aspectLibrary>
-                                <aspectLibrary>
-                                    <groupId>org.rouplex</groupId>
-                                    <artifactId>rouplex-platform-tcp-instrumentor</artifactId>
-                                </aspectLibrary>
-                            </aspectLibraries>
-
-                            <!-- Target libraries containing the instrumented classes already compiled via javac -->
-                            <weaveDependencies>
-                                <weaveDependency>
-                                    <groupId>org.rouplex</groupId>
-                                    <artifactId>rouplex-niossl-spi</artifactId>
-                                </weaveDependency>
-                                <weaveDependency>
-                                    <groupId>org.rouplex</groupId>
-                                    <artifactId>rouplex-platform-tcp</artifactId>
-                                </weaveDependency>
-                            </weaveDependencies>
-                        </configuration>
-
-                        <executions>
-                            <execution>
-                                <goals>
-                                    <goal>compile</goal>
-                                    <goal>test-compile</goal>
-                                </goals>
-                            </execution>
-                        </executions>
-
-                        <dependencies>
-                            <dependency>
-                                <groupId>org.aspectj</groupId>
-                                <artifactId>aspectjtools</artifactId>
-                                <version>${aspectj.version}</version>
-                            </dependency>
-                        </dependencies>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-    </profiles>
-
-
     <build>
         <plugins>
             <plugin>
@@ -121,22 +51,6 @@
     </build>
 
     <dependencies>
-         <!--&lt;!&ndash;Use rouplex-niossl-instrumentor to get rouplex-niossl related metrics&ndash;&gt;-->
-         <!--&lt;!&ndash;It should normally be inside debug profile, but the maven-war-plugin does not copy it in /lib folder&ndash;&gt;-->
-        <!--<dependency>-->
-            <!--<groupId>org.rouplex</groupId>-->
-            <!--<artifactId>rouplex-niossl-instrumentor</artifactId>-->
-            <!--<version>1.8.0-SNAPSHOT</version>-->
-        <!--</dependency>-->
-
-        <!--&lt;!&ndash; Use rouplex-platform-tcp-instrumentor to get rouplex-platform-tcp related metrics &ndash;&gt;-->
-        <!--&lt;!&ndash; It should normally be inside debug profile, but the maven-war-plugin does not copy it in /lib folder &ndash;&gt;-->
-        <!--<dependency>-->
-            <!--<groupId>org.rouplex</groupId>-->
-            <!--<artifactId>rouplex-platform-tcp-instrumentor</artifactId>-->
-            <!--<version>1.0-SNAPSHOT</version>-->
-        <!--</dependency>-->
-
         <!-- Service provider always depends on the interface it is implementing -->
         <dependency>
             <groupId>org.rouplex</groupId>
@@ -155,37 +69,14 @@
         <dependency>
             <groupId>org.rouplex</groupId>
             <artifactId>rouplex-platform-tcp</artifactId>
-            <version>1.0.2</version>
+            <version>1.0.3</version>
         </dependency>
 
         <!-- Use rouplex-niossl (and rouplex-niossl-spi for the implementation) -->
         <dependency>
             <groupId>org.rouplex</groupId>
             <artifactId>rouplex-niossl</artifactId>
-            <version>${jdk}.2</version>
-        </dependency>
-
-        <!--<dependency>-->
-            <!--<groupId>scalablessl</groupId>-->
-            <!--<artifactId>scalablessl</artifactId>-->
-            <!--<version>1.0</version>-->
-            <!--&lt;!&ndash;<scope>system</scope>&ndash;&gt;-->
-            <!--&lt;!&ndash;<systemPath>/Users/andi/Downloads/ScalableSSL/ScalableSSL.jar</systemPath>&ndash;&gt;-->
-            <!--&lt;!&ndash;mvn install:install-file -Dfile=/Users/andi/Downloads/ScalableSSL/ScalableSSL.jar -DgroupId=scalablessl -DartifactId=scalablessl -Dversion=1.0 -Dpackaging=jar&ndash;&gt;-->
-        <!--</dependency>-->
-
-        <!-- It should normally be inside debug profile, but the maven-war-plugin does not copy it in /lib folder -->
-        <dependency>
-            <groupId>org.aspectj</groupId>
-            <artifactId>aspectjrt</artifactId>
-            <version>${aspectj.version}</version>
-        </dependency>
-
-        <!-- It should normally be inside debug profile, but the maven-war-plugin does not copy it in /lib folder -->
-        <dependency>
-            <groupId>org.aspectj</groupId>
-            <artifactId>aspectjtools</artifactId>
-            <version>${aspectj.version}</version>
+            <version>${jdk}.3</version>
         </dependency>
 
         <!-- Use Yammer for metrics injection and exposing via JMX -->
@@ -215,5 +106,13 @@
             <version>4.12</version>
             <scope>test</scope>
         </dependency>
+
+        <dependency>
+            <groupId>org.hdrhistogram</groupId>
+            <artifactId>HdrHistogram</artifactId>
+            <version>2.1.10</version>
+            <scope>test</scope>
+        </dependency>
+
     </dependencies>
 </project>

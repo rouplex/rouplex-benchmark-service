@@ -63,7 +63,7 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
                     ConfigurationKey.AuthorizedPrincipals, "andimullaraj@gmail.com,jschulz907@gmail.com");
 
                 configurationManager.putConfigurationEntry(
-                    ConfigurationKey.WorkerImageId, "ami-61b95019");
+                    ConfigurationKey.WorkerImageId, "ami-b24eb5ca");
 
                 configurationManager.putConfigurationEntry(
                     ConfigurationKey.WorkerInstanceProfileName, "RouplexBenchmarkWorkerRole");
@@ -115,7 +115,7 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
 
     private final Map<String, TcpEchoBenchmark> benchmarks = new HashMap<>();
     private final ExecutorService executorService = Executors.newCachedThreadPool();
-    private final MetricsPoller metricsPoller;
+    private final MetricsCollector metricsCollector;
 
     OrchestratorServiceProvider(Configuration configuration) throws Exception {
         this.configuration = configuration;
@@ -123,7 +123,8 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
             configuration.get(ConfigurationKey.AuthorizedPrincipals).split(",")));
 
         jaxrsClient = createJaxRsClient();
-        metricsPoller = new MetricsPoller(configuration, executorService);
+        metricsCollector = new MetricsCollector(configuration, executorService);
+        logger.info("Created OrchestratorServiceProvider");
     }
 
     @Override
@@ -246,8 +247,9 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
             CreateEc2ClusterRequest createEc2ClusterRequest;
             String serverClusterId = null;
 
-            // create server, if not already available
+            // create host for server, if not already available
             if (benchmark.getServerIpAddress() == null) {
+                logger.info(String.format("Creating server cluster (1 host) for TcpEchoBenchmark [%s]", benchmark.getId()));
                 createEc2ClusterRequest = new CreateEc2ClusterRequest();
                 createEc2ClusterRequest.setRegion(benchmark.getServerGeoLocation());
                 createEc2ClusterRequest.setImageId(benchmark.getImageId());
@@ -271,16 +273,22 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
                     .createEc2Cluster(benchmark.getId(), createEc2ClusterRequest).getClusterId();
             }
 
-            // create clients
+            // create hosts for clients
+            int clientHostCount = (benchmark.getClientCount() - 1) / benchmark.getClientsPerHost() + 1;
+            logger.info(String.format(
+                "Creating clients cluster (%s hosts) for TcpEchoBenchmark [%s]", clientHostCount, benchmark.getId()));
+
             createEc2ClusterRequest = new CreateEc2ClusterRequest();
             createEc2ClusterRequest.setRegion(benchmark.getClientsGeoLocation());
             createEc2ClusterRequest.setImageId(benchmark.getImageId());
             createEc2ClusterRequest.setHostType(benchmark.getClientsHostType());
-            createEc2ClusterRequest.setHostCount((benchmark.getClientCount() - 1) / benchmark.getClientsPerHost() + 1);
+
+            createEc2ClusterRequest.setHostCount(clientHostCount);
             createEc2ClusterRequest.setIamRole(configuration.get(ConfigurationKey.WorkerInstanceProfileName));
             createEc2ClusterRequest.setUserData(Base64.getEncoder().encodeToString(buildSystemTuningScript(
                 benchmark.getTcpClientsExpectation().getMaxSimultaneousConnections() * 2 + 1024,
                 benchmark.getTcpMemoryAsPercentOfTotal()).getBytes(StandardCharsets.UTF_8)));
+
             createEc2ClusterRequest.setSubnetId(configuration.get(ConfigurationKey.WorkerSubnetId));
             createEc2ClusterRequest.setSecurityGroupIds(Arrays.asList(
                 configuration.get(ConfigurationKey.WorkerSecurityGroupIds).split(",")));
@@ -288,18 +296,25 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
                 put("Name", "bm-client-" + benchmark.getId());
             }});
 
+            createEc2ClusterRequest.setKeyName(benchmark.getKeyName());
             String clientsClusterId = deploymentService
                 .createEc2Cluster(benchmark.getId(), createEc2ClusterRequest).getClusterId();
 
             long expirationTimestamp = System.currentTimeMillis() + 10 * 60_000;
             if (serverClusterId != null) { // we own and manage the server
                 // ensure server is ready
+                logger.info(String.format(
+                    "Ensuring server cluster (1 host) for TcpEchoBenchmark [%s] is deployed", benchmark.getId()));
+
                 Cluster<? extends Host> serverCluster = ensureDeployed(
                     benchmark.getId(), serverClusterId, expirationTimestamp);
                 benchmark.setServerHost(serverCluster.getHosts().values().iterator().next());
             }
 
             // ensure client cluster is ready
+            logger.info(String.format("Ensuring clients cluster (%s hosts) for TcpEchoBenchmark [%s] is deployed",
+                clientHostCount, benchmark.getId()));
+
             Cluster<? extends Host> clientsCluster = ensureDeployed(
                 benchmark.getId(), clientsClusterId, expirationTimestamp);
             benchmark.setClientHosts(clientsCluster.getHosts().values());
@@ -308,15 +323,18 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
             String serverIpAddress;
             int serverPort;
 
-            // start server remotely
+            // start tcp server remotely
             if (serverClusterId != null) { // we own and manage the server
+                logger.info(String.format(
+                    "Creating tcp server for TcpEchoBenchmark [%s]", benchmark.getId()));
+
                 CreateTcpServerResponse createTcpServerResponse = jaxrsClient.target(String.format(
                     configuration.get(ConfigurationKey.WorkerServiceHttpDescriptor),
                     benchmark.getServerHost().getPublicIpAddress()))
                     .path("/tcp/servers")
                     .request(MediaType.APPLICATION_JSON)
-                    .post(Entity.entity(buildCreateTcpServerRequest(benchmark),
-                        MediaType.APPLICATION_JSON), CreateTcpServerResponse.class);
+                    .post(Entity.entity(buildCreateTcpServerRequest(benchmark), MediaType.APPLICATION_JSON),
+                        CreateTcpServerResponse.class);
 
                 serverIpAddress = createTcpServerResponse.getHostaddress();
                 serverPort = createTcpServerResponse.getPort();
@@ -325,19 +343,21 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
                 serverPort = benchmark.getPort();
             }
 
-            // start clients remotely
-            benchmark.getClientHosts().parallelStream().forEach(h ->
+            // start tcp clients remotely
+            benchmark.getClientHosts().parallelStream().forEach(h -> {
+                logger.info(String.format("Creating tcp clients batch at ip [%s] for TcpEchoBenchmark [%s]",
+                    h.getPublicIpAddress(), benchmark.getId()));
+
                 jaxrsClient.target(String.format(
                     configuration.get(ConfigurationKey.WorkerServiceHttpDescriptor), h.getPublicIpAddress()))
                     .path("/tcp/client-batches")
                     .request(MediaType.APPLICATION_JSON)
-                    .post(Entity.entity(buildCreateTcpClientBatchRequest
-                        (benchmark, serverIpAddress, serverPort),
-                        MediaType.APPLICATION_JSON))
-            );
+                    .post(Entity.entity(buildCreateTcpClientBatchRequest(benchmark, serverIpAddress, serverPort),
+                        MediaType.APPLICATION_JSON));
+            });
 
             // register benchmark to be monitored (read metrics and push them to elastic search)
-            metricsPoller.addBenchmarkToMonitor(benchmark);
+            metricsCollector.addBenchmarkToMonitor(benchmark);
 
             // sanction the running state
             benchmark.setStartedTimestamp(System.currentTimeMillis());

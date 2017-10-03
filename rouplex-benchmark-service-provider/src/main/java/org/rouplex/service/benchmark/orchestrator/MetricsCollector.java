@@ -19,8 +19,8 @@ import java.util.logging.Logger;
 /**
  * @author Andi Mullaraj (andimullaraj at gmail.com)
  */
-public class MetricsPoller implements Closeable {
-    private static final Logger logger = Logger.getLogger(MetricsPoller.class.getSimpleName());
+public class MetricsCollector implements Closeable {
+    private static final Logger logger = Logger.getLogger(MetricsCollector.class.getSimpleName());
 
     private static final String[] providers = new String[]{
         Provider.CLASSIC_NIO.toString() + ".P",
@@ -56,12 +56,12 @@ public class MetricsPoller implements Closeable {
     private final ExecutorService executorService;
     private final Map<ObjectName, String> metricNames = new HashMap<>();
     private final RestClient esRestClient;
-    private final ConcurrentMap<String, HostMetricsPoller> hostMetricsPollers = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, JmxToEsHostMetricsCollector> hostMetricsCollectors = new ConcurrentHashMap<>();
 
     @GuardedBy("lock")
     private boolean closed;
 
-    public MetricsPoller(Configuration configuration, ExecutorService executorService) {
+    public MetricsCollector(Configuration configuration, ExecutorService executorService) {
         this.configuration = configuration;
         this.executorService = executorService;
 
@@ -85,7 +85,7 @@ public class MetricsPoller implements Closeable {
             configuration.get(OrchestratorServiceProvider.ConfigurationKey.ElasticSearchProtocol))
         ).build();
 
-        startPollingMetrics();
+        startCollectingMetrics();
     }
 
     private void addMetricName(String metricName) {
@@ -98,24 +98,23 @@ public class MetricsPoller implements Closeable {
         }
     }
 
-    private void startPollingMetrics() {
+    private void startCollectingMetrics() {
         executorService.submit((Runnable) () -> {
             while (true) {
                 // we note timeStart since the loop may take time to execute
                 long timeStart = System.currentTimeMillis();
-                logger.info("Starting metrics poll for all benchmarks");
+                logger.info("Collecting metrics for all benchmarks");
 
                 try {
-                    for (Map.Entry<String, HostMetricsPoller> entry : hostMetricsPollers.entrySet()) {
-                        entry.getValue().monitor();
+                    for (Map.Entry<String, JmxToEsHostMetricsCollector> entry : hostMetricsCollectors.entrySet()) {
+                        entry.getValue().collectJmxHostMetricsIntoEs();
                     }
                 } catch (RuntimeException re) {
                     // ConcurrentModification ... will be retried in one minute anyway
-                    logger.info(String.format("Failed monitoring metrics (will be retried in one minute). Cause: %s %s",
+                    logger.info(String.format("Failed collecting metrics (will be retried in one minute). Cause: %s %s",
                         re.getClass().getSimpleName(), re.getMessage()));
                 }
 
-                // update leases once a minute (or less often occasionally)
                 long waitMillis = timeStart + 60_000 - System.currentTimeMillis();
                 synchronized (lock) {
                     closed |= executorService.isShutdown();
@@ -135,11 +134,11 @@ public class MetricsPoller implements Closeable {
             }
 
             // No risk of ConcurrentModified since no changes are allowed in closed state (in which we are)
-            for (Map.Entry<String, HostMetricsPoller> entry : hostMetricsPollers.entrySet()) {
+            for (Map.Entry<String, JmxToEsHostMetricsCollector> entry : hostMetricsCollectors.entrySet()) {
                 try {
                     entry.getValue().close();
                 } catch (Exception e) {
-                    logger.warning(String.format("Failed polling metrics from host [%s]. Cause: %s %s",
+                    logger.warning(String.format("Failed closing connection with host [%s]. Cause: %s %s",
                         entry.getKey(), e.getClass().getSimpleName(), e.getMessage()));
                 }
             }
@@ -153,26 +152,23 @@ public class MetricsPoller implements Closeable {
             }
 
             // create jconsole link
-            StringBuilder jconsoleJmxLink = new StringBuilder();
-
-            String hostJmxUrl = addHostToMonitor(tcpEchoBenchmark.getId(), tcpEchoBenchmark.getServerHost());
-            jconsoleJmxLink.append(" ").append(hostJmxUrl);
+            StringBuilder jconsoleJmxLink = new StringBuilder("jconsole ")
+                .append(addHostToMonitor(tcpEchoBenchmark.getId(), tcpEchoBenchmark.getServerHost()));
 
             for (Host host : tcpEchoBenchmark.getClientHosts()) {
-                hostJmxUrl = addHostToMonitor(tcpEchoBenchmark.getId(), host);
-                jconsoleJmxLink.append(" ").append(hostJmxUrl);
+                jconsoleJmxLink.append(" ").append(addHostToMonitor(tcpEchoBenchmark.getId(), host));
             }
 
-            tcpEchoBenchmark.setJconsoleJmxLink("jconsole" + jconsoleJmxLink.toString());
+            tcpEchoBenchmark.setJconsoleJmxLink(jconsoleJmxLink.toString());
         }
     }
 
     private String addHostToMonitor(String benchmarkId, Host host) throws Exception {
-        HostMetricsPoller hostMetricsPoller = new HostMetricsPoller(
+        JmxToEsHostMetricsCollector jmxToEsHostMetricsCollector = new JmxToEsHostMetricsCollector(
             benchmarkId, host, metricNames, esRestClient, configuration);
 
-        hostMetricsPollers.put(host.getId(), hostMetricsPoller);
-        return hostMetricsPoller.getHostJmxUrl();
+        hostMetricsCollectors.put(host.getId(), jmxToEsHostMetricsCollector);
+        return jmxToEsHostMetricsCollector.getHostJmxUrl();
     }
 
     @Override

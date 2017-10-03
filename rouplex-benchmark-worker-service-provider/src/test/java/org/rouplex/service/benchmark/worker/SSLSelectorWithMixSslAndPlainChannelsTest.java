@@ -28,9 +28,7 @@ public class SSLSelectorWithMixSslAndPlainChannelsTest {
     @Parameterized.Parameters
     public static Collection<Object[]> data() throws IOException {
         List<Object[]> data = new ArrayList<Object[]>();
-//        Provider[] providers = {Provider.CLASSIC_NIO, Provider.ROUPLEX_NIOSSL, Provider.SCALABLE_SSL};
-        Provider[] providers = {Provider.CLASSIC_NIO, Provider.ROUPLEX_NIOSSL};
-//        Provider[] providers = {Provider.SCALABLE_SSL};
+        Provider[] providers = {Provider.CLASSIC_NIO, Provider.ROUPLEX_NIOSSL /*, Provider.THIRD_PARTY_SS*/};
         boolean[] secures = {false, true};
         boolean[] aggregates = {true};
 

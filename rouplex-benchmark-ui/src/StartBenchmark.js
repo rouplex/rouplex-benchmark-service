@@ -128,6 +128,7 @@ export default class StartBenchmark extends React.Component {
     var transferParams = this.getTransferParams();
 
     var keyNameQuoted = this.quote(this.sourceParams.keyName);
+    var imageIdQuoted = this.quote(this.sourceParams.imageId);
     var socketSendBufferSize = this.parseIntValue("Socket Send Buffer Size", this.sourceParams.socketSendBufferSize, 0);
     var socketReceiveBufferSize = this.parseIntValue("Socket Receive Buffer Size", this.sourceParams.socketReceiveBufferSize, 0);
     var backlog = this.parseIntValue("Backlog", this.sourceParams.backlog, 0);
@@ -163,7 +164,7 @@ export default class StartBenchmark extends React.Component {
       '  "serverGeoLocation" : "' + this.sourceParams.serverGeoLocation + '",\n' +
       '  "clientsHostType" : "' + this.sourceParams.clientsHostType + '",\n' +
       '  "clientsGeoLocation" : "' + this.sourceParams.clientsGeoLocation + '",\n' +
-      '  "imageId" : null,\n' +
+      '  "imageId" : ' + imageIdQuoted + ',\n' +
       '  "keyName" : ' + keyNameQuoted + ',\n' +
       '  "tcpMemoryAsPercentOfTotal" : ' + tcpMemoryAsPercentOfTotal + ',\n' +
       '  "provider" : "' + this.sourceParams.provider + '",\n' +
@@ -413,6 +414,11 @@ export default class StartBenchmark extends React.Component {
               <ValueSelector
                 label="Aws Key Name" colSpans={[7,5]} placeholder="Optional, for ssh host access"
                 onChange={value => this.sourceParams.keyName = value}
+              />
+
+              <ValueSelector
+                label="Image Id" colSpans={[7,5]} placeholder="Optional, defaults to latest"
+                onChange={value => this.sourceParams.imageId = value}
               />
 
               <ValueSelector

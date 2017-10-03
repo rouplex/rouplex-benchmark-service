@@ -1,5 +1,6 @@
 package org.rouplex.service.benchmark.worker;
 
+import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.Timer;
 import org.rouplex.platform.io.Receiver;
 import org.rouplex.platform.io.Sender;
@@ -15,6 +16,8 @@ import java.util.logging.Logger;
  */
 public class EchoResponder {
     private static final Logger logger = Logger.getLogger(EchoResponder.class.getSimpleName());
+    final WorkerServiceProvider benchmarkServiceProvider;
+
     final Sender<ByteBuffer> sender;
     final Throttle receiveThrottle;
 
@@ -27,6 +30,7 @@ public class EchoResponder {
     EchoResponder(CreateTcpServerRequest createTcpServerRequest, WorkerServiceProvider benchmarkServiceProvider,
                   RouplexTcpClient rouplexTcpClient) throws IOException {
 
+        this.benchmarkServiceProvider = benchmarkServiceProvider;
         rouplexTcpClient.setAttachment(this);
 
         echoReporter = new EchoReporter(createTcpServerRequest,
@@ -75,30 +79,38 @@ public class EchoResponder {
             int position = sendBuffer.position();
             sender.send(sendBuffer); // echo as many as possible
 
+            if (sendBuffer.capacity() == 0) {
+                echoReporter.sentEos.mark();
+            } else {
+                int sentSize = sendBuffer.position() - position;
+                echoReporter.sentBytes.mark(sentSize);
+                echoReporter.sentSizes.update(sentSize);
+            }
+
             if (sendBuffer.hasRemaining()) {
                 pauseTimer = echoReporter.sendPauseTime.time();
-            } else {
-                if (sendBuffer.capacity() == 0) {
-                    echoReporter.sentEos.mark();
-                } else {
-                    int sentSize = sendBuffer.position() - position;
-                    echoReporter.sentBytes.mark(sentSize);
-                    echoReporter.sentSizes.update(sentSize);
-                }
             }
 
             return !sendBuffer.hasRemaining();
-        } catch (IOException ioe) {
+        } catch (Throwable ioe) {
             echoReporter.sendFailures.mark();
+            benchmarkServiceProvider.benchmarkerMetrics.meter(MetricRegistry.name(echoReporter.getAggregatedId(),
+                "sendFailures", "EEE", ioe.getClass().getSimpleName(), ioe.getMessage())).mark();
+
+            logger.warning(String.format("Failed sending. Cause: %s: %s",
+                ioe.getClass().getSimpleName(), ioe.getMessage()));
+
             return false;
         }
     }
 
     private static int deserializeClientId(byte[] buffer) {
         int clientId = 0;
-        for (int i = 0; i < 4; i++) {
-            clientId <<= 8;
-            clientId |= buffer[i] & 0xFF;
+        if (buffer.length > 3) {
+            for (int i = 0; i < 4; i++) {
+                clientId <<= 8;
+                clientId |= buffer[i] & 0xFF;
+            }
         }
 
         return clientId;

@@ -54,6 +54,8 @@ setup_tomcat_run_environment() {
 
     cp rouplex-benchmark-service/install/setenv-template.sh "$TOMCAT_FOLDER"/bin/setenv.sh
     chmod 700 "$TOMCAT_FOLDER"/bin/setenv.sh
+
+    cp rouplex-benchmark-service/install/logging-properties "$TOMCAT_FOLDER"/conf/logging-properties
 }
 
 setup_tomcat_initd() {

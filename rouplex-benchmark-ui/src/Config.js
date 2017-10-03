@@ -37,7 +37,9 @@ config.ec2InstanceTypes = [
   {key: "M42xlarge", value: "EC2 M4 2XLarge", cost: 0.4000},
   {key: "M44xlarge", value: "EC2 M4 4XLarge", cost: 0.8000},
   {key: "M410xlarge", value: "EC2 M4 10XLarge", cost: 2.0000},
-  {key: "M416xlarge", value: "EC2 M4 16XLarge", cost: 3.2000}
+  {key: "M416xlarge", value: "EC2 M4 16XLarge", cost: 3.2000},
+
+  {key: "C38xlarge", value: "EC2 C3 8XLarge", cost: 1.680}
 ];
 
 config.ec2Regions = [
@@ -49,7 +51,7 @@ config.nioProviders = [
   {key: "ROUPLEX_NIOSSL", value: "Rouplex NIO (With SSL support)"}
 
   // todo: include the following provider later, for comparison with ROUPLEX_NIOSSL
-  // {key: "SCALABLE_SSL", value: "Scalable NIO (With SSL support)"}
+  // {key: "THIRD_PARTY_SSL", value: "Third Party NIO (With SSL support)"}
 ];
 
 // experimental from here on

@@ -55,8 +55,8 @@ public class EchoRequester {
                     case ROUPLEX_NIOSSL:
                         socketChannel = org.rouplex.nio.channels.SSLSocketChannel.open(RouplexTcpClient.buildRelaxedSSLContext());
                         break;
-                    case SCALABLE_SSL:
-                        // socketChannel = scalablessl.SSLSocketChannel.open(RouplexTcpClient.buildRelaxedSSLContext());
+                    case THIRD_PARTY_SSL:
+                        // socketChannel = thirdPartySsl.SSLSocketChannel.open(RouplexTcpClient.buildRelaxedSSLContext());
                         // break;
                     case CLASSIC_NIO:
                     default:
@@ -81,8 +81,9 @@ public class EchoRequester {
             benchmarkServiceProvider.benchmarkerMetrics.meter(MetricRegistry.name("connection.start.failed")).mark();
             benchmarkServiceProvider.benchmarkerMetrics.meter(
                     MetricRegistry.name("connection.start.failed.EEE", e.getMessage())).mark();
-            logger.info(String.format(
-                "Failed creating EchoRequester. Cause: %s %s", e.getClass().getSimpleName(), e.getMessage()));
+
+            logger.warning(String.format("Failed creating EchoRequester. Cause: %s %s",
+                e.getClass().getSimpleName(), e.getMessage()));
 
             throw new RuntimeException(e);
         }
@@ -96,7 +97,7 @@ public class EchoRequester {
 
         long connectionNano = System.nanoTime() - timeCreatedNano;
         // poor man's implementation for bucketizing: just divide in buckets of power of 10 in millis (from nanos)
-        echoReporter.connectionTimes.get(Math.max(("" + connectionNano).length() - 6, 0)).mark();
+        echoReporter.connectionTimes.get(Math.max(("" + connectionNano).length() - 6, 1)).mark();
         echoReporter.connectionTime.update(connectionNano, TimeUnit.NANOSECONDS);
         echoReporter.connectionEstablished.mark();
         echoReporter.liveConnections.mark();
@@ -180,38 +181,40 @@ public class EchoRequester {
 
     private boolean send() {
         try {
-            while (true) {
-                synchronized (sendBuffers) {
-                    if (sendBuffers.isEmpty()) {
-                        break;
-                    }
+            synchronized (sendBuffers) {
+                while (!sendBuffers.isEmpty()) {
                     ByteBuffer sendBuffer = sendBuffers.get(0);
 
                     int position = sendBuffer.position();
                     sender.send(sendBuffer);
-                    int payloadSize = sendBuffer.position() - position;
 
-                    currentSendBufferSize -= payloadSize;
+                    if (sendBuffer.capacity() == 0) {
+                        echoReporter.sentEos.mark();
+                    } else {
+                        int sentSize = sendBuffer.position() - position;
+                        currentSendBufferSize -= sentSize;
+
+                        echoReporter.sentSizes.update(sentSize);
+                        echoReporter.sentBytes.mark(sentSize);
+                    }
+
                     if (sendBuffer.hasRemaining()) {
                         pauseTimer = echoReporter.sendPauseTime.time();
                         break;
                     } else {
-                        if (sendBuffer.capacity() == 0) {
-                            echoReporter.sentEos.mark();
-                        } else {
-                            echoReporter.sentSizes.update(payloadSize);
-                            echoReporter.sentBytes.mark(payloadSize);
-                        }
                         sendBuffers.remove(0);
                     }
                 }
             }
 
             return true;
-        } catch (Exception e) {
+        } catch (Throwable ioe) {
             echoReporter.sendFailures.mark();
             benchmarkServiceProvider.benchmarkerMetrics.meter(MetricRegistry.name(echoReporter.getAggregatedId(),
-                    "sendFailures", "EEE", e.getClass().getSimpleName(), e.getMessage())).mark();
+                    "sendFailures", "EEE", ioe.getClass().getSimpleName(), ioe.getMessage())).mark();
+
+            logger.warning(String.format("Failed sending. Cause: %s: %s",
+                ioe.getClass().getSimpleName(), ioe.getMessage()));
 
             return false;
         }

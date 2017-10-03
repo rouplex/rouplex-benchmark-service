@@ -25,8 +25,8 @@ import java.util.logging.Logger;
 /**
  * @author Andi Mullaraj (andimullaraj at gmail.com)
  */
-public class HostMetricsPoller implements Closeable {
-    private static final Logger logger = Logger.getLogger(HostMetricsPoller.class.getSimpleName());
+public class JmxToEsHostMetricsCollector implements Closeable {
+    private static final Logger logger = Logger.getLogger(JmxToEsHostMetricsCollector.class.getSimpleName());
     private static final Gson gson = new Gson();
 
     private final String benchmarkId;
@@ -36,8 +36,9 @@ public class HostMetricsPoller implements Closeable {
     private final String hostJmxUrl;
     private final JMXConnector jmxConnector;
 
-    HostMetricsPoller(String benchmarkId, Host host, Map<ObjectName, String> metricNames,
-                      RestClient esRestClient, Configuration configuration) throws Exception {
+    JmxToEsHostMetricsCollector(String benchmarkId, Host host, Map<ObjectName, String> metricNames,
+        RestClient esRestClient, Configuration configuration) throws Exception {
+
         this.benchmarkId = benchmarkId;
         this.host = host;
         this.metricNames = metricNames;
@@ -55,8 +56,8 @@ public class HostMetricsPoller implements Closeable {
         return hostJmxUrl;
     }
 
-    void monitor() {
-        logger.info(String.format("Polling metrics from host [%s]", host.getId()));
+    void collectJmxHostMetricsIntoEs() {
+        logger.info(String.format("Collecting metrics from host [%s]", host.getId()));
         MBeanServerConnection jmxConnection;
 
         try {

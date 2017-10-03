@@ -70,7 +70,7 @@
             <version>1.7.1</version>
         </dependency>
 
-        <!--Will be used for adding metrics to es-->
+        <!--Used for adding metrics to es-->
         <dependency>
             <groupId>org.elasticsearch.client</groupId>
             <artifactId>rest</artifactId>
