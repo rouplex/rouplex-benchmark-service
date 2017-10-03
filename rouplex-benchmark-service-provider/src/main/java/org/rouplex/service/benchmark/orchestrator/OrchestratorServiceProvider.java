@@ -63,7 +63,7 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
                     ConfigurationKey.AuthorizedPrincipals, "andimullaraj@gmail.com,jschulz907@gmail.com");
 
                 configurationManager.putConfigurationEntry(
-                    ConfigurationKey.WorkerImageId, "ami-b24eb5ca");
+                    ConfigurationKey.WorkerImageId, "ami-f2a55f8a");
 
                 configurationManager.putConfigurationEntry(
                     ConfigurationKey.WorkerInstanceProfileName, "RouplexBenchmarkWorkerRole");
