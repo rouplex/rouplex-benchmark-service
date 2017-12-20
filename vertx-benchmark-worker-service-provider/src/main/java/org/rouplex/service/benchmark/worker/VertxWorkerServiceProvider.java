@@ -2,25 +2,23 @@ package org.rouplex.service.benchmark.worker;
 
 import com.codahale.metrics.*;
 import com.codahale.metrics.Timer;
-import org.rouplex.commons.Supplier;
+import io.vertx.core.AsyncResult;
+import io.vertx.core.Handler;
+import io.vertx.core.Vertx;
+import io.vertx.core.VertxOptions;
+import io.vertx.core.net.*;
 import org.rouplex.commons.configuration.Configuration;
 import org.rouplex.commons.configuration.ConfigurationManager;
 import org.rouplex.commons.utils.ValidationUtils;
 import org.rouplex.platform.tcp.RouplexTcpBinder;
 import org.rouplex.platform.tcp.RouplexTcpClient;
-import org.rouplex.platform.tcp.RouplexTcpClientListener;
 import org.rouplex.platform.tcp.RouplexTcpServer;
-import org.rouplex.service.benchmark.orchestrator.Provider;
 
 import javax.net.ssl.SSLContext;
-import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
 import java.io.IOException;
-import java.io.PrintStream;
 import java.net.InetSocketAddress;
-import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -31,49 +29,49 @@ import java.util.logging.Logger;
 /**
  * @author Andi Mullaraj (andimullaraj at gmail.com)
  */
-public class WorkerServiceProvider implements WorkerService, Closeable {
+public class VertxWorkerServiceProvider implements WorkerService, Closeable {
     public enum ConfigurationKey {
         JmxDomainName
     }
 
-    private static final Logger logger = Logger.getLogger(WorkerServiceProvider.class.getSimpleName());
+    private static final Logger logger = Logger.getLogger(VertxWorkerServiceProvider.class.getSimpleName());
 
-    private static WorkerServiceProvider workerService;
-    public static WorkerServiceProvider get() throws Exception {
-        synchronized (WorkerServiceProvider.class) {
+    private static VertxWorkerServiceProvider workerService;
+    public static VertxWorkerServiceProvider get() throws Exception {
+        synchronized (VertxWorkerServiceProvider.class) {
             if (workerService == null) {
                 ConfigurationManager configurationManager = new ConfigurationManager();
 
                 configurationManager.putConfigurationEntry(
                     ConfigurationKey.JmxDomainName, "rouplex-benchmark");
 
-                workerService = new WorkerServiceProvider(configurationManager.getConfiguration());
+                workerService = new VertxWorkerServiceProvider(configurationManager.getConfiguration());
             }
 
             return workerService;
         }
     }
 
-    final Map<Provider, RouplexTcpBinder> sharedTcpBinders = new HashMap<Provider, RouplexTcpBinder>();
-    final ScheduledExecutorService scheduledExecutor = Executors.newSingleThreadScheduledExecutor();
+    final ScheduledExecutorService scheduledExecutor = Executors.newScheduledThreadPool(Runtime.getRuntime().availableProcessors());
     final MetricRegistry benchmarkerMetrics = new MetricRegistry();
     final MetricsUtil metricsUtil = new MetricsUtil(TimeUnit.SECONDS);
     final AtomicInteger incrementalId = new AtomicInteger();
     final Random random = new Random();
     Set<Closeable> closeables = new HashSet<Closeable>();
 
-    Map<String, Object> jobs = new HashMap<String, Object>(); // add implementation later
-    Map<String, RouplexTcpServer> tcpServers = new HashMap<String, RouplexTcpServer>();
+    final Vertx sharedVertx;
+    Map<String, NetServer> netServers = new HashMap<String, NetServer>();
 
-    void logExceptionTraceTemp(Exception e) {
-        ByteArrayOutputStream os = new ByteArrayOutputStream();
-        PrintStream ps = new PrintStream(os);
-        e.printStackTrace(ps);
-        ps.flush();
-        logger.warning(new String(os.toByteArray(), StandardCharsets.UTF_8));
-    }
 
-    final RouplexTcpClientListener rouplexTcpClientListener = new RouplexTcpClientListener() {
+    final Handler<AsyncResult<NetClient>> netClientListener = new Handler<AsyncResult<NetClient>>() {
+
+        @Override
+        public void handle(AsyncResult<NetClient> event) {
+            if (event.succeeded()) {
+
+            }
+        }
+
         @Override
         public void onConnected(RouplexTcpClient rouplexTcpClient) {
             try {
@@ -81,7 +79,7 @@ public class WorkerServiceProvider implements WorkerService, Closeable {
                     ((EchoRequester) rouplexTcpClient.getAttachment()).startSendingThenClose(rouplexTcpClient);
                 } else {
                     new EchoResponder((CreateTcpServerRequest) rouplexTcpClient.getRouplexTcpServer().getAttachment(),
-                            WorkerServiceProvider.this, rouplexTcpClient);
+                            VertxWorkerServiceProvider.this, rouplexTcpClient);
                 }
             } catch (Exception e) {
                 //logExceptionTraceTemp(e);
@@ -142,20 +140,8 @@ public class WorkerServiceProvider implements WorkerService, Closeable {
         }
     };
 
-    WorkerServiceProvider(Configuration configuration) throws Exception {
-        sharedTcpBinders.put(Provider.CLASSIC_NIO, createRouplexTcpBinder(Provider.CLASSIC_NIO));
-
-        try {
-            sharedTcpBinders.put(Provider.ROUPLEX_NIOSSL, createRouplexTcpBinder(Provider.ROUPLEX_NIOSSL));
-        } catch (Exception e) {
-            // we tried
-        }
-
-        try {
-            sharedTcpBinders.put(Provider.THIRD_PARTY_SSL, createRouplexTcpBinder(Provider.THIRD_PARTY_SSL));
-        } catch (Exception e) {
-            // we tried
-        }
+    VertxWorkerServiceProvider(Configuration configuration) throws Exception {
+        sharedVertx = Vertx.vertx(new VertxOptions().setClustered(false));
 
         addCloseable(JmxReporter.forRegistry(benchmarkerMetrics)
                 .convertRatesTo(TimeUnit.SECONDS)
@@ -164,7 +150,7 @@ public class WorkerServiceProvider implements WorkerService, Closeable {
                 .build()
         ).start();
 
-        logger.info("Created WorkerServiceProvider");
+        logger.info("Created VertxWorkerServiceProvider");
     }
 
     @Override
@@ -176,50 +162,29 @@ public class WorkerServiceProvider implements WorkerService, Closeable {
             logger.info(String.format("Creating %sEchoServer using provider %s at %s:%s",
                 secure, request.getProvider(), request.getHostname(), request.getPort()));
 
-            RouplexTcpBinder tcpBinder = request.isUseSharedBinder()
-                    ? sharedTcpBinders.get(request.getProvider()) : createRouplexTcpBinder(request.getProvider());
+            Vertx vertx = request.isUseSharedBinder()
+                    ? sharedVertx : Vertx.vertx(new VertxOptions().setClustered(false));
 
-            ServerSocketChannel serverSocketChannel;
+            NetServerOptions options = new NetServerOptions()
+                .setSendBufferSize(request.getSocketSendBufferSize())
+                .setReceiveBufferSize(request.getSocketReceiveBufferSize())
+                .setAcceptBacklog(request.getBacklog())
+                .setSsl(request.isSsl());
 
-            if (request.isSsl()) {
-                switch (request.getProvider()) {
-                    case ROUPLEX_NIOSSL:
-                        serverSocketChannel = org.rouplex.nio.channels.SSLServerSocketChannel.open(SSLContext.getDefault());
-                        break;
-                    case THIRD_PARTY_SSL:
-                        // serverSocketChannel = thirdPartySsl.SSLServerSocketChannel.open(SSLContext.getDefault());
-                        // break;
-                    case CLASSIC_NIO:
-                    default:
-                        throw new Exception("This provider cannot provide ssl communication");
-                }
-            } else {
-                serverSocketChannel = ServerSocketChannel.open();
-            }
+            NetServer netServer = vertx.createNetServer(options).listen(request.getPort(), request.getHostname());
 
-            RouplexTcpServer rouplexTcpServer = RouplexTcpServer.newBuilder()
-                    .withRouplexTcpBinder(tcpBinder)
-                    .withServerSocketChannel(serverSocketChannel)
-                    .withLocalAddress(request.getHostname(), request.getPort())
-                    .withSecure(request.isSsl(), null) // value ignored in current context since channel is provided
-                    .withBacklog(request.getBacklog())
-                    .withSendBufferSize(request.getSocketSendBufferSize())
-                    .withReceiveBufferSize(request.getSocketReceiveBufferSize())
-                    .withAttachment(request)
-                    .build();
+//            InetSocketAddress isa = (InetSocketAddress) request.getLocalAddress();
+//            logger.info(String.format("Created %sEchoServer using provider %s at %s:%s",
+//                secure, request.getProvider(), isa.getAddress().getHostAddress().replace('.', '-'), isa.getPort()));
 
-            InetSocketAddress isa = (InetSocketAddress) rouplexTcpServer.getLocalAddress();
-            logger.info(String.format("Created %sEchoServer using provider %s at %s:%s",
-                secure, request.getProvider(), isa.getAddress().getHostAddress().replace('.', '-'), isa.getPort()));
-
-            String serverId = String.format("%s:%s", isa.getHostName().replace('.', '-'), isa.getPort());
-            tcpServers.put(serverId, rouplexTcpServer);
+            String serverId = String.format("%s:%s", request.getHostname().replace('.', '-'), netServer.actualPort());
+            netServers.put(serverId, netServer);
 
             CreateTcpServerResponse response = new CreateTcpServerResponse();
             response.setServerId(serverId);
-            response.setHostaddress(isa.getAddress().getHostAddress());
-            response.setHostname(isa.getHostName());
-            response.setPort(isa.getPort());
+            response.setHostaddress(request.getHostname()); // AAA
+            response.setHostname(request.getHostname());
+            response.setPort(netServer.actualPort());
             return response;
         } catch (Exception e) {
             logger.warning(String.format("Failed creating %sEchoServer using provider %s at %s:%s. Cause: %s: %s",
@@ -230,13 +195,13 @@ public class WorkerServiceProvider implements WorkerService, Closeable {
 
     @Override
     public void destroyTcpServer(String serverId) throws Exception {
-        RouplexTcpServer tcpServer = tcpServers.remove(serverId);
+        NetServer netServer = netServers.remove(serverId);
 
-        if (tcpServer == null) {
+        if (netServer == null) {
             throw new IOException("Could not find server [%s] " + serverId);
         }
 
-        tcpServer.close();
+        netServer.close();
     }
 
     @Override
@@ -272,8 +237,8 @@ public class WorkerServiceProvider implements WorkerService, Closeable {
         logger.info(String.format("Creating %s %sEchoClients using provider %s for server at %s:%s",
                 request.getClientCount(), secure, request.getProvider(), request.getHostname(), request.getPort()));
 
-        final RouplexTcpBinder tcpBinder = request.isUseSharedBinder()
-                ? sharedTcpBinders.get(request.getProvider()) : createRouplexTcpBinder(request.getProvider());
+        final Vertx vertx = request.isUseSharedBinder()
+            ? sharedVertx : Vertx.vertx(new VertxOptions().setClustered(false));
 
         for (int cc = 0; cc < request.getClientCount(); cc++) {
             long startClientMillis = request.getMinDelayMillisBeforeCreatingClient() + random.nextInt(
@@ -283,7 +248,7 @@ public class WorkerServiceProvider implements WorkerService, Closeable {
             scheduledExecutor.schedule(new Runnable() {
                 @Override
                 public void run() {
-                    new EchoRequester(WorkerServiceProvider.this, request, tcpBinder);
+                    new EchoRequester(VertxWorkerServiceProvider.this, request, vertx);
                 }
             }, startClientMillis, TimeUnit.MILLISECONDS);
         }
@@ -323,34 +288,6 @@ public class WorkerServiceProvider implements WorkerService, Closeable {
         return response;
     }
 
-    private RouplexTcpBinder createRouplexTcpBinder(final Provider provider) throws Exception {
-        RouplexTcpBinder rouplexTcpBinder = new RouplexTcpBinder(new Supplier<Selector>() {
-            @Override
-            public Selector get() {
-                try {
-                    switch (provider) {
-                        case CLASSIC_NIO:
-                            return java.nio.channels.Selector.open();
-                        case ROUPLEX_NIOSSL:
-                            return org.rouplex.nio.channels.SSLSelector.open();
-                        case THIRD_PARTY_SSL:
-                            // return thirdPartySsl.SSLSelector.open(SSLContext.getDefault());
-                        default:
-                            throw new Exception("Provider not found");
-                    }
-                } catch (Exception e) {
-                    String errorMessage = String.format("Provider [%s] could not create selector. Cause: %s %s",
-                            provider, e.getClass().getSimpleName(), e.getMessage());
-
-                    logger.warning(errorMessage);
-                    throw new RuntimeException(errorMessage, e);
-                }
-            }
-        });
-
-        rouplexTcpBinder.setRouplexTcpClientListener(rouplexTcpClientListener);
-        return addCloseable(rouplexTcpBinder);
-    }
 
     protected <T extends Closeable> T addCloseable(T t) {
         synchronized (scheduledExecutor) {

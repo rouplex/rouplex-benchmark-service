@@ -11,6 +11,7 @@ public class CreateTcpEchoBenchmarkRequest {
     private GeoLocation serverGeoLocation; // optional
     private HostType clientsHostType; // optional
     private GeoLocation clientsGeoLocation; // optional
+    private Boolean samePlacementGroup;
     private String imageId; // optional
     private String keyName; // optional
     private String echoRatio; // not implemented yet
@@ -68,6 +69,14 @@ public class CreateTcpEchoBenchmarkRequest {
 
     public void setClientsGeoLocation(GeoLocation clientsGeoLocation) {
         this.clientsGeoLocation = clientsGeoLocation;
+    }
+
+    public Boolean getSamePlacementGroup() {
+        return samePlacementGroup;
+    }
+
+    public void setSamePlacementGroup(Boolean samePlacementGroup) {
+        this.samePlacementGroup = samePlacementGroup;
     }
 
     public String getImageId() {

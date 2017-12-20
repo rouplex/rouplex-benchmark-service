@@ -10,7 +10,7 @@ import org.rouplex.service.benchmark.orchestrator.Provider;
 import org.rouplex.service.benchmark.worker.CreateTcpServerRequest;
 import org.rouplex.service.benchmark.worker.CreateTcpServerResponse;
 import org.rouplex.service.benchmark.worker.WorkerService;
-import org.rouplex.service.benchmark.worker.RouplexWorkerServiceProvider;
+import org.rouplex.service.benchmark.worker.VertxWorkerServiceProvider;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -46,7 +46,7 @@ public class ChannelShutdownParityTest {
 
     @Before
     public void startServer() throws Exception {
-        WorkerService bmService = RouplexWorkerServiceProvider.get();
+        WorkerService bmService = VertxWorkerServiceProvider.get();
 
         CreateTcpServerRequest createTcpServerRequest = new CreateTcpServerRequest();
         createTcpServerRequest.setProvider(Provider.ROUPLEX_NIOSSL);

@@ -2,8 +2,8 @@ package org.rouplex.service;
 
 import org.rouplex.platform.jersey.RouplexJerseyApplication;
 import org.rouplex.service.benchmark.WorkerResource;
+import org.rouplex.service.benchmark.worker.RouplexWorkerServiceProvider;
 import org.rouplex.service.benchmark.worker.WorkerService;
-import org.rouplex.service.benchmark.worker.WorkerServiceProvider;
 import org.rouplex.service.deployment.management.agent.DeploymentAgent;
 
 import javax.servlet.ServletContext;
@@ -38,7 +38,7 @@ public class BenchmarkWorkerServiceApplication extends RouplexJerseyApplication 
 
         try {
             // instantiate early
-            WorkerServiceProvider.get();
+            RouplexWorkerServiceProvider.get();
             deploymentAgent = DeploymentAgent.get();
         } catch (Exception e) {
             String errorMessage = String.format("Could not instantiate services. Cause: %s: %s",

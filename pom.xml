@@ -87,6 +87,7 @@
         <module>rouplex-benchmark-worker-service-api</module>
         <module>rouplex-benchmark-service-provider</module>
         <module>rouplex-benchmark-worker-service-provider</module>
+        <!--<module>vertx-benchmark-worker-service-provider</module>-->
         <module>rouplex-benchmark-webapp</module>
         <module>rouplex-benchmark-worker-webapp</module>
         <module>rouplex-benchmark-ui</module>

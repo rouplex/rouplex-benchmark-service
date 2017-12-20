@@ -26,14 +26,14 @@
         <dependency>
             <groupId>org.rouplex</groupId>
             <artifactId>rouplex-commons</artifactId>
-            <version>1.0.2</version>
+            <version>1.0.3</version>
         </dependency>
 
         <!--Temporary Shortcut: We instantiate a deployment service provider, but normally should be its own service-->
         <dependency>
             <groupId>org.rouplex</groupId>
             <artifactId>rouplex-deployment-service-provider</artifactId>
-            <version>1.0.0</version>
+            <version>1.0.1</version>
         </dependency>
 
         <!--Used to call out to benchmark workers-->

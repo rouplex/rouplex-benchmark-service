@@ -71,14 +71,14 @@
         <dependency>
             <groupId>org.rouplex</groupId>
             <artifactId>rouplex-deployment-service-provider-jersey</artifactId>
-            <version>1.0.0</version>
+            <version>1.0.1</version>
         </dependency>
 
         <!-- Get servlet, swagger dependencies transitively -->
         <dependency>
             <groupId>org.rouplex</groupId>
             <artifactId>rouplex-platform-jersey</artifactId>
-            <version>1.0.2</version>
+            <version>1.0.3</version>
         </dependency>
 
         <!--html/css/js sources to be served to browser-->

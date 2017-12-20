@@ -35,6 +35,7 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
     public enum ConfigurationKey {
         AuthorizedPrincipals,
         WorkerImageId,
+        WorkerPlacementGroupId,
         WorkerInstanceProfileName,
         WorkerSubnetId,
         WorkerSecurityGroupIds,
@@ -63,7 +64,10 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
                     ConfigurationKey.AuthorizedPrincipals, "andimullaraj@gmail.com,jschulz907@gmail.com");
 
                 configurationManager.putConfigurationEntry(
-                    ConfigurationKey.WorkerImageId, "ami-f2a55f8a");
+                    ConfigurationKey.WorkerImageId, "ami-3470d24c");
+
+                configurationManager.putConfigurationEntry(
+                    ConfigurationKey.WorkerPlacementGroupId, "placement-group-1");
 
                 configurationManager.putConfigurationEntry(
                     ConfigurationKey.WorkerInstanceProfileName, "RouplexBenchmarkWorkerRole");
@@ -160,7 +164,7 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
         }
 
         if (request.getServerIpAddress() != null && !request.getServerIpAddress().isEmpty()) {
-            ValidationUtilsExtension.checkIpAddress(request.getServerIpAddress(), "serverIpAddress");
+            ValidationUtils.checkIpAddress(request.getServerIpAddress(), "serverIpAddress");
             ValidationUtils.checkPositiveArg(request.getPort(), "port");
         }
     }
@@ -185,6 +189,7 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
         benchmark.setClientsGeoLocation(request.getClientsGeoLocation());
 
         benchmark.setImageId(request.getImageId());
+        benchmark.setSamePlacementGroup(request.getSamePlacementGroup());
         benchmark.setKeyName(request.getKeyName());
         benchmark.setEchoRatio(request.getEchoRatio());
         benchmark.setTcpMemoryAsPercentOfTotal(request.getTcpMemoryAsPercentOfTotal());
@@ -269,8 +274,7 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
                 }});
 
                 createEc2ClusterRequest.setKeyName(benchmark.getKeyName());
-                serverClusterId = deploymentService
-                    .createEc2Cluster(benchmark.getId(), createEc2ClusterRequest).getClusterId();
+                serverClusterId = createWithPlacementGroup(benchmark, createEc2ClusterRequest);
             }
 
             // create hosts for clients
@@ -297,8 +301,7 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
             }});
 
             createEc2ClusterRequest.setKeyName(benchmark.getKeyName());
-            String clientsClusterId = deploymentService
-                .createEc2Cluster(benchmark.getId(), createEc2ClusterRequest).getClusterId();
+            String clientsClusterId = createWithPlacementGroup(benchmark, createEc2ClusterRequest);
 
             long expirationTimestamp = System.currentTimeMillis() + 10 * 60_000;
             if (serverClusterId != null) { // we own and manage the server
@@ -366,6 +369,25 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
             benchmark.setExecutionStatus(ExecutionStatus.FAILED);
             benchmark.setException(String.format("%s: %s", e.getClass().getSimpleName(), e.getMessage()));
         }
+    }
+
+    private String createWithPlacementGroup(TcpEchoBenchmark benchmark, CreateEc2ClusterRequest createEc2ClusterRequest) throws Exception {
+        if (benchmark.getSamePlacementGroup() == null) {
+            createEc2ClusterRequest.setPlacementGroup(configuration.get(ConfigurationKey.WorkerPlacementGroupId));
+
+            try {
+                return deploymentService
+                    .createEc2Cluster(benchmark.getId(), createEc2ClusterRequest).getClusterId();
+            } catch (Exception ioe) {
+                createEc2ClusterRequest.setPlacementGroup(null);
+            }
+        } else {
+            createEc2ClusterRequest.setPlacementGroup(benchmark.getSamePlacementGroup()
+                ? configuration.get(ConfigurationKey.WorkerPlacementGroupId) : null);
+        }
+
+        return deploymentService
+                .createEc2Cluster(benchmark.getId(), createEc2ClusterRequest).getClusterId();
     }
 
     private Cluster<? extends Host> ensureDeployed(String deploymentId, String clusterId, long expirationTimestamp) throws Exception {

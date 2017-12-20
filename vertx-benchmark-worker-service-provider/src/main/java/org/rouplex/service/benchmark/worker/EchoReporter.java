@@ -4,7 +4,7 @@ import com.codahale.metrics.Histogram;
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.Timer;
-import org.rouplex.platform.tcp.RouplexTcpClient;
+import io.vertx.core.net.NetSocket;
 import org.rouplex.service.benchmark.orchestrator.MetricsAggregation;
 
 import java.io.IOException;
@@ -13,7 +13,7 @@ import java.net.InetSocketAddress;
 /**
  * @author Andi Mullaraj (andimullaraj at gmail.com)
  */
-class EchoReporter {
+public class EchoReporter {
     public static final String format = "%s.%s.%s.%s:%s::%s:%s";
     // [Provider].[S,P].[EchoRequester,EchoResponder].[Server]:[Port]::[Client]:[Port]
 
@@ -37,18 +37,14 @@ class EchoReporter {
 
     private final String aggregatedId;
 
-    final MetricRegistry metricRegistry;
+    public EchoReporter(CreateTcpEndPointRequest createTcpEndPointRequest, MetricRegistry benchmarkerMetrics,
+                        Class<?> clazz, NetSocket netSocket) throws IOException {
 
-    public EchoReporter(CreateTcpEndPointRequest createTcpEndPointRequest, MetricRegistry metricRegistry,
-                        Class<?> clazz, RouplexTcpClient tcpClient) throws IOException {
-
-        this.metricRegistry = metricRegistry;
-
-        InetSocketAddress localIsa = (InetSocketAddress) tcpClient.getLocalAddress();
+        InetSocketAddress localIsa = (InetSocketAddress) netSocket.localAddress();
         String clientAddress = localIsa.getAddress().getHostAddress().replace('.', '-');
         String clientPort = "" + localIsa.getPort();
 
-        InetSocketAddress remoteIsa = (InetSocketAddress) tcpClient.getRemoteAddress();
+        InetSocketAddress remoteIsa = (InetSocketAddress) netSocket.remoteAddress();
         String serverAddress = remoteIsa.getAddress().getHostAddress().replace('.', '-');
         String serverPort = "" + remoteIsa.getPort();
 
@@ -65,25 +61,25 @@ class EchoReporter {
             ma.isAggregateClientPorts() ? "A" : clientPort
         );
 
-        if (metricRegistry != null) {
-            connectionEstablished = metricRegistry.meter(MetricRegistry.name(aggregatedId, "connection.established"));
-            liveConnections = metricRegistry.meter(MetricRegistry.name(aggregatedId, "connection.live"));
+        if (benchmarkerMetrics != null) {
+            connectionEstablished = benchmarkerMetrics.meter(MetricRegistry.name(aggregatedId, "connection.established"));
+            liveConnections = benchmarkerMetrics.meter(MetricRegistry.name(aggregatedId, "connection.live"));
 
-            connectionTime = metricRegistry.timer(MetricRegistry.name(aggregatedId, "connectionTime"));
-            disconnectedOk = metricRegistry.meter(MetricRegistry.name(aggregatedId, "disconnectedOk"));
-            disconnectedKo = metricRegistry.meter(MetricRegistry.name(aggregatedId, "disconnectedKo"));
+            connectionTime = benchmarkerMetrics.timer(MetricRegistry.name(aggregatedId, "connectionTime"));
+            disconnectedOk = benchmarkerMetrics.meter(MetricRegistry.name(aggregatedId, "disconnectedOk"));
+            disconnectedKo = benchmarkerMetrics.meter(MetricRegistry.name(aggregatedId, "disconnectedKo"));
 
-            sentBytes = metricRegistry.meter(MetricRegistry.name(aggregatedId, "sentBytes"));
-            sentEos = metricRegistry.meter(MetricRegistry.name(aggregatedId, "sentEos"));
-            sendFailures = metricRegistry.meter(MetricRegistry.name(aggregatedId, "sendFailures"));
-            sentSizes = metricRegistry.histogram(MetricRegistry.name(aggregatedId, "sentSizes"));
-            sendBufferFilled = metricRegistry.histogram(MetricRegistry.name(aggregatedId, "sendBufferFilled"));
-            discardedSendBytes = metricRegistry.meter(MetricRegistry.name(aggregatedId, "discardedSendBytes"));
+            sentBytes = benchmarkerMetrics.meter(MetricRegistry.name(aggregatedId, "sentBytes"));
+            sentEos = benchmarkerMetrics.meter(MetricRegistry.name(aggregatedId, "sentEos"));
+            sendFailures = benchmarkerMetrics.meter(MetricRegistry.name(aggregatedId, "sendFailures"));
+            sentSizes = benchmarkerMetrics.histogram(MetricRegistry.name(aggregatedId, "sentSizes"));
+            sendBufferFilled = benchmarkerMetrics.histogram(MetricRegistry.name(aggregatedId, "sendBufferFilled"));
+            discardedSendBytes = benchmarkerMetrics.meter(MetricRegistry.name(aggregatedId, "discardedSendBytes"));
 
-            receivedBytes = metricRegistry.meter(MetricRegistry.name(aggregatedId, "receivedBytes"));
-            receivedEos = metricRegistry.meter(MetricRegistry.name(aggregatedId, "receivedEos"));
-            receivedDisconnect = metricRegistry.meter(MetricRegistry.name(aggregatedId, "receivedDisconnect"));
-            receivedSizes = metricRegistry.histogram(MetricRegistry.name(aggregatedId, "receivedSizes"));
+            receivedBytes = benchmarkerMetrics.meter(MetricRegistry.name(aggregatedId, "receivedBytes"));
+            receivedEos = benchmarkerMetrics.meter(MetricRegistry.name(aggregatedId, "receivedEos"));
+            receivedDisconnect = benchmarkerMetrics.meter(MetricRegistry.name(aggregatedId, "receivedDisconnect"));
+            receivedSizes = benchmarkerMetrics.histogram(MetricRegistry.name(aggregatedId, "receivedSizes"));
         } else {
             connectionEstablished = liveConnections = disconnectedOk = disconnectedKo = sentBytes = sentEos =
                 sendFailures = discardedSendBytes = receivedBytes = receivedEos = receivedDisconnect = null;

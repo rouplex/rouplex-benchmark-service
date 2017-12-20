@@ -54,6 +54,12 @@ config.nioProviders = [
   // {key: "THIRD_PARTY_SSL", value: "Third Party NIO (With SSL support)"}
 ];
 
+config.ec2PlacementGroups = [
+  {key: "", value: "Default (try max throughput)"},
+  {key: true, value: "Proximity (max throughput)"},
+  {key: false, value: "Internet (capped at 5Gib/s each direction)"}
+];
+
 // experimental from here on
 config.paths = [
   {path: "/benchmark/start", label: "Start Benchmark"},

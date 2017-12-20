@@ -11,7 +11,6 @@ public class CreateTcpEndPointRequest {
     private String hostname;
     private int port;
     private boolean ssl;
-    private boolean useSharedBinder = true;
     private int socketSendBufferSize;
     private int socketReceiveBufferSize;
 
@@ -47,14 +46,6 @@ public class CreateTcpEndPointRequest {
 
     public void setSsl(boolean ssl) {
         this.ssl = ssl;
-    }
-
-    public boolean isUseSharedBinder() {
-        return useSharedBinder;
-    }
-
-    public void setUseSharedBinder(boolean useSharedBinder) {
-        this.useSharedBinder = useSharedBinder;
     }
 
     public int getSocketSendBufferSize() {

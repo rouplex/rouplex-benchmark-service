@@ -15,6 +15,7 @@ public class TcpEchoBenchmark {
     private GeoLocation serverGeoLocation;
     private HostType clientsHostType;
     private GeoLocation clientsGeoLocation;
+    private Boolean samePlacementGroup;
     private String imageId;
     private String keyName; // optional
     private String echoRatio; // not implemented yet
@@ -101,6 +102,14 @@ public class TcpEchoBenchmark {
 
     public void setClientsHostType(HostType clientsHostType) {
         this.clientsHostType = clientsHostType;
+    }
+
+    public Boolean getSamePlacementGroup() {
+        return samePlacementGroup;
+    }
+
+    public void setSamePlacementGroup(Boolean samePlacementGroup) {
+        this.samePlacementGroup = samePlacementGroup;
     }
 
     public int getClientsPerHost() {

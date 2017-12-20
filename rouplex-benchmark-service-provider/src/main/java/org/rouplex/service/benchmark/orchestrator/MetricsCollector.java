@@ -72,11 +72,11 @@ public class MetricsCollector implements Closeable {
                 }
             }
 
-            for (int bucket = 1; bucket < 7; bucket++) {
-                addMetricName(String.format(
-                    "%s.EchoRequester.A:A::A:A.connectionTime.millisBucket.%s",
-                    provider, "100000".substring(0, bucket)));
-            }
+//            for (int bucket = 1; bucket < 7; bucket++) {
+//                addMetricName(String.format(
+//                    "%s.EchoRequester.A:A::A:A.connectionTime.millisBucket.%s",
+//                    provider, "100000".substring(0, bucket)));
+//            }
         }
 
         esRestClient = RestClient.builder(new HttpHost(

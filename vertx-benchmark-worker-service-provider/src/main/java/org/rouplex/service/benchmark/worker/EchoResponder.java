@@ -15,7 +15,7 @@ import java.util.logging.Logger;
  */
 public class EchoResponder {
     private static final Logger logger = Logger.getLogger(EchoResponder.class.getSimpleName());
-    final RouplexWorkerServiceProvider benchmarkServiceProvider;
+    final VertxWorkerServiceProvider benchmarkServiceProvider;
 
     final Sender<ByteBuffer> sender;
     private final Throttle receiveThrottle;
@@ -25,7 +25,7 @@ public class EchoResponder {
     ByteBuffer sendBuffer;
     Integer clientId;
 
-    EchoResponder(CreateTcpServerRequest createTcpServerRequest, RouplexWorkerServiceProvider benchmarkServiceProvider,
+    EchoResponder(CreateTcpServerRequest createTcpServerRequest, VertxWorkerServiceProvider benchmarkServiceProvider,
                   RouplexTcpClient rouplexTcpClient) throws IOException {
 
         this.benchmarkServiceProvider = benchmarkServiceProvider;

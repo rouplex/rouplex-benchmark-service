@@ -18,7 +18,7 @@ public class WorkerResource extends ResourceConfig implements WorkerService {
             @ApiResponse(code = 200, message = "Success"),
             @ApiResponse(code = 500, message = "Error handling request")})
     public CreateTcpServerResponse createTcpServer(CreateTcpServerRequest request) throws Exception {
-        return WorkerServiceProvider.get().createTcpServer(request);
+        return RouplexWorkerServiceProvider.get().createTcpServer(request);
     }
 
     @ApiOperation(value = "Stop the RouplexTcpServer on this host bound at the specified local address:port")
@@ -27,12 +27,12 @@ public class WorkerResource extends ResourceConfig implements WorkerService {
             @ApiResponse(code = 500, message = "Error handling request")})
     @Override
     public void destroyTcpServer(String serverId) throws Exception {
-        WorkerServiceProvider.get().destroyTcpServer(serverId);
+        RouplexWorkerServiceProvider.get().destroyTcpServer(serverId);
     }
 
     @Override
     public PollTcpEndPointStateResponse pollTcpServerState(String serverId) throws Exception {
-        return WorkerServiceProvider.get().pollTcpServerState(serverId);
+        return RouplexWorkerServiceProvider.get().pollTcpServerState(serverId);
     }
 
     @ApiOperation(value = "Start a number of RouplexTcpClients on this host and connect them to a remote echo tcp server")
@@ -41,7 +41,7 @@ public class WorkerResource extends ResourceConfig implements WorkerService {
             @ApiResponse(code = 500, message = "Error handling request")})
     @Override
     public CreateTcpClientBatchResponse createTcpClientBatch(CreateTcpClientBatchRequest request) throws Exception {
-        return WorkerServiceProvider.get().createTcpClientBatch(request);
+        return RouplexWorkerServiceProvider.get().createTcpClientBatch(request);
     }
 
     @ApiOperation(value = "Get snapshot metrics of the servers and clients running on this host")
@@ -51,6 +51,6 @@ public class WorkerResource extends ResourceConfig implements WorkerService {
 
     @Override
     public GetMetricsResponse getMetricsResponse() throws Exception {
-        return WorkerServiceProvider.get().getMetricsResponse();
+        return RouplexWorkerServiceProvider.get().getMetricsResponse();
     }
 }

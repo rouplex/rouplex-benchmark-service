@@ -156,6 +156,7 @@ export default class StartBenchmark extends React.Component {
     }
 
     var serverIpAddressQuoted = this.quote(serverIpAddress);
+    var samePlacementGroup = this.sourceParams.ec2PlacementGroup === '' ? null : this.sourceParams.ec2PlacementGroup;
 
     var requestBody =
       '{\n' +
@@ -165,6 +166,7 @@ export default class StartBenchmark extends React.Component {
       '  "clientsHostType" : "' + this.sourceParams.clientsHostType + '",\n' +
       '  "clientsGeoLocation" : "' + this.sourceParams.clientsGeoLocation + '",\n' +
       '  "imageId" : ' + imageIdQuoted + ',\n' +
+      '  "samePlacementGroup" : ' + samePlacementGroup + ',\n' +
       '  "keyName" : ' + keyNameQuoted + ',\n' +
       '  "tcpMemoryAsPercentOfTotal" : ' + tcpMemoryAsPercentOfTotal + ',\n' +
       '  "provider" : "' + this.sourceParams.provider + '",\n' +
@@ -465,6 +467,11 @@ export default class StartBenchmark extends React.Component {
               <DropdownSelector
                 label="Host Type" options={config.ec2InstanceTypes}
                 onChange={value => this.sourceParams.clientsHostType = value}
+              />
+
+              <DropdownSelector
+                label="Placement" options={config.ec2PlacementGroups}
+                onChange={value => this.sourceParams.ec2PlacementGroup = value}
               />
 
               <RangeSelector
