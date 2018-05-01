@@ -9,8 +9,8 @@ import org.rouplex.platform.tcp.RouplexTcpClient;
 import org.rouplex.service.benchmark.orchestrator.Provider;
 import org.rouplex.service.benchmark.worker.CreateTcpServerRequest;
 import org.rouplex.service.benchmark.worker.CreateTcpServerResponse;
-import org.rouplex.service.benchmark.worker.WorkerService;
 import org.rouplex.service.benchmark.worker.VertxWorkerServiceProvider;
+import org.rouplex.service.benchmark.worker.WorkerService;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;

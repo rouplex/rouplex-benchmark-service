@@ -72,11 +72,7 @@ package org.rouplex.nio.channels;
  *      unwrap()        ...             Finished
  */
 
-import javax.net.ssl.*;
 import javax.net.ssl.SSLEngineResult.*;
-import java.io.*;
-import java.security.*;
-import java.nio.*;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 

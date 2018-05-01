@@ -5,12 +5,12 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
-import org.rouplex.platform.tcp.RouplexTcpClient;
+import org.rouplex.platform.tcp.TcpClient;
 import org.rouplex.service.benchmark.orchestrator.Provider;
 import org.rouplex.service.benchmark.worker.CreateTcpServerRequest;
 import org.rouplex.service.benchmark.worker.CreateTcpServerResponse;
-import org.rouplex.service.benchmark.worker.WorkerService;
 import org.rouplex.service.benchmark.worker.RouplexWorkerServiceProvider;
+import org.rouplex.service.benchmark.worker.WorkerService;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -60,7 +60,7 @@ public class ChannelShutdownParityTest {
 
     @Test
     public void verifyChannelWriteThrowsIfShutdownOutputIsInvokedConcurrently() throws Exception {
-        final SocketChannel socketChannel = secure ? SSLSocketChannel.open(RouplexTcpClient.buildRelaxedSSLContext()) : SocketChannel.open();
+        final SocketChannel socketChannel = secure ? SSLSocketChannel.open(TcpClient.buildRelaxedSSLContext()) : SocketChannel.open();
         final StringBuilder sb = new StringBuilder();
 
         final AtomicReference<Object> result = new AtomicReference<Object>();

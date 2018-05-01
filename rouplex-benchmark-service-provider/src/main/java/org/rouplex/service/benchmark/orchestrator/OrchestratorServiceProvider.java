@@ -64,7 +64,7 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
                     ConfigurationKey.AuthorizedPrincipals, "andimullaraj@gmail.com,jschulz907@gmail.com");
 
                 configurationManager.putConfigurationEntry(
-                    ConfigurationKey.WorkerImageId, "ami-3470d24c");
+                    ConfigurationKey.WorkerImageId, "ami-a1931ad9");
 
                 configurationManager.putConfigurationEntry(
                     ConfigurationKey.WorkerPlacementGroupId, "placement-group-1");

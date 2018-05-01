@@ -68,14 +68,14 @@
         <dependency>
             <groupId>org.rouplex</groupId>
             <artifactId>rouplex-commons</artifactId>
-            <version>1.0.4</version>
+            <version>1.0.5-SNAPSHOT</version>
         </dependency>
 
         <!-- Use rouplex-platform-tcp and instantiate its server and client for testing -->
         <dependency>
             <groupId>org.rouplex</groupId>
             <artifactId>rouplex-platform-tcp</artifactId>
-            <version>1.0.4</version>
+            <version>1.0.5-SNAPSHOT</version>
         </dependency>
 
         <!-- Use rouplex-niossl (and rouplex-niossl-spi for the implementation) -->

@@ -1,23 +1,18 @@
 package org.rouplex.service.benchmark.worker;
 
 import com.codahale.metrics.MetricRegistry;
-import io.vertx.core.Handler;
-import io.vertx.core.Vertx;
-import io.vertx.core.VertxOptions;
-import io.vertx.core.buffer.Buffer;
-import io.vertx.core.net.NetClientOptions;
-import io.vertx.core.net.NetSocket;
-import org.rouplex.platform.io.Receiver;
-import org.rouplex.platform.io.Sender;
-import org.rouplex.platform.io.Throttle;
-import org.rouplex.platform.tcp.RouplexTcpBinder;
-import org.rouplex.platform.tcp.RouplexTcpClient;
+import org.rouplex.platform.tcp.TcpBroker;
+import org.rouplex.platform.tcp.TcpClient;
+import org.rouplex.platform.tcp.TcpClientLifecycleListener;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
 import java.util.Random;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
@@ -25,61 +20,34 @@ import java.util.logging.Logger;
  */
 public class EchoRequester {
     private static final Logger logger = Logger.getLogger(EchoRequester.class.getSimpleName());
+    private static final AtomicInteger incrementalId = new AtomicInteger();
     private static final Random random = new Random();
 
-    final VertxWorkerServiceProvider benchmarkServiceProvider;
     final CreateTcpClientBatchRequest request;
+    final MetricRegistry metricRegistry;
+    final ScheduledExecutorService scheduledExecutor;
     final long timeCreatedNano = System.nanoTime();
     final ByteBuffer sendBuffer;
 
     long closeTimestamp;
-    Sender<ByteBuffer> sender;
-    Throttle receiveThrottle;
+    Writer writer;
     EchoReporter echoReporter;
+    int clientId;
 
-    EchoRequester(VertxWorkerServiceProvider benchmarkServiceProvider,
-                  CreateTcpClientBatchRequest createTcpClientBatchRequest, Vertx vertx) {
+    EchoRequester(CreateTcpClientBatchRequest createTcpClientBatchRequest, MetricRegistry metricRegistry,
+                  ScheduledExecutorService scheduledExecutor, TcpBroker tcpBroker) {
 
-        this.benchmarkServiceProvider = benchmarkServiceProvider;
         this.request = createTcpClientBatchRequest;
-        this.sendBuffer = ByteBuffer.allocate(createTcpClientBatchRequest.getMaxPayloadSize());
+        this.metricRegistry = metricRegistry;
+        this.scheduledExecutor = scheduledExecutor;
+        this.sendBuffer = ByteBuffer.allocate(createTcpClientBatchRequest.getMaxPayloadSize() - 1);
 
         try {
-            switch (createTcpClientBatchRequest.getProvider()) {
-                case VERTX_IO:
-                    NetClientOptions options = new NetClientOptions().setSsl(createTcpClientBatchRequest.isSsl()).setTrustAll(true);
-
-                    vertx.createNetClient(options).connect(1234, "localhost", res -> {
-                        if (res.succeeded()) {
-                            NetSocket sock = res.result();
-                            sock.handler(buff -> {
-                                System.out.println("client receiving " + buff.toString("UTF-8"));
-                            });
-
-                            // Now send some data
-                            for (int i = 0; i < 10; i++) {
-                                String str = "hello " + i + "\n";
-                                System.out.println("Net client sending: " + str);
-                                sock.write(str);
-                            }
-                        } else {
-                            System.out.println("Failed to connect " + res.cause());
-                        }
-                    });
-
-                    break;
-                default:
-                    throw new Exception("Internal error");
-            }
-
+            SocketChannel socketChannel;
             if (createTcpClientBatchRequest.isSsl()) {
                 switch (createTcpClientBatchRequest.getProvider()) {
-                    case VERTX_IO:
-                        Vertx vertx = Vertx.vertx(new VertxOptions().setClustered(false));
-                        NetClientOptions options = new NetClientOptions();
-                        .setSsl(true).setTrustAll(true);
-                        vertx.createNetClient(options
-                        socketChannel = org.rouplex.nio.channels.SSLSocketChannel.open(RouplexTcpClient.buildRelaxedSSLContext());
+                    case ROUPLEX_NIOSSL:
+                        socketChannel = org.rouplex.nio.channels.SSLSocketChannel.open(TcpClient.buildRelaxedSSLContext());
                         break;
                     case THIRD_PARTY_SSL:
                         // socketChannel = thirdPartySsl.SSLSocketChannel.open(RouplexTcpClient.buildRelaxedSSLContext());
@@ -92,22 +60,88 @@ public class EchoRequester {
                 socketChannel = SocketChannel.open();
             }
 
+            TcpClientLifecycleListener tcpClientLifecycleListener = new TcpClientLifecycleListener() {
+                @Override
+                public void onConnected(TcpClient tcpClient) {
+                    try {
+                        logger.info("Connected EchoRequester");
 
+                        echoReporter = new EchoReporter(request, metricRegistry, EchoRequester.class,
+                            tcpClient.getLocalAddress(), tcpClient.getRemoteAddress());
 
-            tcpBinder.newRouplexTcpClientBuilder()
-                    .withSocketChannel(socketChannel)
-                    .withRemoteAddress(createTcpClientBatchRequest.getHostname(), createTcpClientBatchRequest.getPort())
-                    .withSecure(createTcpClientBatchRequest.isSsl(), null) // value ignored in current context since channel is provided
-                    .withSendBufferSize(createTcpClientBatchRequest.getSocketSendBufferSize())
-                    .withReceiveBufferSize(createTcpClientBatchRequest.getSocketReceiveBufferSize())
-                    .withAttachment(this)
-                    .buildAsync();
+                        echoReporter.clientConnectionEstablished.mark();
+                        echoReporter.clientConnectionLive.mark();
 
-            benchmarkServiceProvider.benchmarkerMetrics.meter(MetricRegistry.name("connection.started")).mark();
+                        writer = new Writer(tcpClient.getWriteChannel(), sendBuffer.capacity(), echoReporter, false);
+                        new Reader(tcpClient.getReadChannel(), 10000, echoReporter, null).run();
+
+                        startSendingThenClose(tcpClient);
+                    } catch (Exception e) {
+                        //logExceptionTraceTemp(e);
+                        metricRegistry.meter(MetricRegistry.name("internalError.clientConnection")).mark();
+                        metricRegistry.meter(MetricRegistry.name("internalError.clientConnection.EEE",
+                            e.getClass().getSimpleName(), e.getMessage())).mark();
+
+                        logger.warning(String.format("Failed handling onConnected(). Cause: %s: %s",
+                            e.getClass().getSimpleName(), e.getMessage()));
+                    }
+                }
+
+                @Override
+                public void onConnectionFailed(TcpClient tcpClient, Exception reason) {
+                    echoReporter = new EchoReporter(request, metricRegistry, EchoRequester.class, null, null);
+                    echoReporter.clientConnectionFailed.mark();
+                    metricRegistry.meter(MetricRegistry.name("clientConnectionFailed.EEE",
+                        reason.getClass().getSimpleName(), reason.getMessage())).mark();
+
+                    logger.warning(String.format("Failed connecting EchoRequester. Cause: %s: %s",
+                        reason.getClass().getSimpleName(), reason.getMessage()));
+                }
+
+                @Override
+                public void onDisconnected(TcpClient tcpClient, Exception optionalReason) {
+                    if (echoReporter == null) {
+                        logger.warning("Rouplex internal error: onDisconnected was fired before onConnected");
+                        metricRegistry.meter(MetricRegistry.name("internalError.clientDisconnected.EEE",
+                            optionalReason.getClass().getSimpleName(), optionalReason.getMessage())).mark();
+                    } else {
+                        echoReporter.clientConnectionLive.mark(-1);
+                        if (optionalReason == null) {
+                            echoReporter.clientDisconnectedOk.mark();
+                        } else {
+                            echoReporter.clientDisconnectedKo.mark();
+                            metricRegistry.meter(MetricRegistry.name("clientDisconnectedKo.EEE",
+                                optionalReason.getClass().getSimpleName(), optionalReason.getMessage())).mark();
+                        }
+
+                        logger.info(String.format("Disconnected EchoRequester[%s]. OptionalReason: %s",
+                            clientId, optionalReason == null ? null : optionalReason.getMessage()));
+                    }
+                }
+            };
+
+            TcpClient tcpClient = tcpBroker.newTcpClientBuilder()
+                .withSocketChannel(socketChannel)
+                .withRemoteAddress(createTcpClientBatchRequest.getHostname(), createTcpClientBatchRequest.getPort())
+                .withSecure(createTcpClientBatchRequest.isSsl(), null) // value ignored in current context since channel is provided
+                .withAttachment(this)
+                .withTcpClientLifecycleListener(tcpClientLifecycleListener)
+                .build();
+
+            if (createTcpClientBatchRequest.getSocketSendBufferSize() > 0) {
+                tcpClient.getSocket().setSendBufferSize(createTcpClientBatchRequest.getSocketSendBufferSize());
+            }
+
+            if (createTcpClientBatchRequest.getSocketReceiveBufferSize() > 0) {
+                tcpClient.getSocket().setReceiveBufferSize(createTcpClientBatchRequest.getSocketReceiveBufferSize());
+            }
+
+            tcpClient.connect();
+
+            metricRegistry.meter(MetricRegistry.name("clientConnectionStarted")).mark();
         } catch (Exception e) {
-            benchmarkServiceProvider.benchmarkerMetrics.meter(MetricRegistry.name("connection.start.failed")).mark();
-            benchmarkServiceProvider.benchmarkerMetrics.meter(
-                    MetricRegistry.name("connection.start.failed.EEE", e.getMessage())).mark();
+            metricRegistry.meter(MetricRegistry.name("clientConnectionStarted")).mark();
+            metricRegistry.meter(MetricRegistry.name("clientConnectionStarted.EEE", e.getMessage())).mark();
 
             logger.warning(String.format("Failed creating EchoRequester. Cause: %s %s",
                 e.getClass().getSimpleName(), e.getMessage()));
@@ -118,99 +152,58 @@ public class EchoRequester {
         logger.info("Created EchoRequester");
     }
 
-    void startSendingThenClose(NetSocket netSocket) throws IOException {
-        echoReporter = new EchoReporter(
-                request, benchmarkServiceProvider.benchmarkerMetrics, EchoRequester.class, netSocket);
-
+    void startSendingThenClose(TcpClient tcpClient) {
         long connectionNano = System.nanoTime() - timeCreatedNano;
-        echoReporter.connectionTime.update(connectionNano, TimeUnit.NANOSECONDS);
-        echoReporter.connectionEstablished.mark();
-        echoReporter.liveConnections.mark();
-        int clientId = benchmarkServiceProvider.incrementalId.incrementAndGet();
-        //netSocket.setDebugId("C" + clientId );
+        // poor man's implementation for bucketizing: just divide in buckets of power of 10 in millis (from nanos)
+        echoReporter.clientConnectionTime.update(connectionNano, TimeUnit.NANOSECONDS);
+
+        clientId = incrementalId.incrementAndGet();
+        tcpClient.setDebugId("C" + clientId);
         serializeClientId(clientId, sendBuffer.array());
 
         closeTimestamp = System.currentTimeMillis() + request.getMinClientLifeMillis() +
-                random.nextInt(request.getMaxClientLifeMillis() - request.getMinClientLifeMillis());
-
-        int sendBufferSize = (request.getMaxPayloadSize() -1) * 1;
-        sender = netSocket.obtainSendChannel(new Throttle() {
-            @Override
-            public void resume() {
-                // nothing really
-            }
-        }, sendBufferSize);
-
-        netSocket.endHandler(new Handler<Void>() {
-            @Override
-            public void handle(Void event) {
-                echoReporter.receivedEos.mark();
-            }
-        });
-
-        netSocket.handler(new Handler<Buffer>() {
-            @Override
-            public void handle(Buffer event) {
-                echoReporter.receivedBytes.mark(event.length());
-                echoReporter.receivedSizes.update(event.length());
-            }
-        });
-
-        netSocket.exceptionHandler(new Handler<Throwable>() {
-            @Override
-            public void handle(Throwable event) {
-                echoReporter.receivedDisconnect.mark();
-            }
-        });
-
-        netSocket.closeHandler(new Handler<Void>() {
-            @Override
-            public void handle(Void event) {
-                // maybe receivedEos?
-            }
-        });
+            random.nextInt(request.getMaxClientLifeMillis() - request.getMinClientLifeMillis());
 
         keepSendingThenClose();
     }
 
     void keepSendingThenClose() {
-        int payloadSize = System.currentTimeMillis() >= closeTimestamp ? 0 /*EOS*/ : request.getMinPayloadSize() +
-            random.nextInt(request.getMaxPayloadSize() - request.getMinPayloadSize());
-
-        sendBuffer.position(0);
-        sendBuffer.limit(payloadSize);
-
         try {
-            sender.send(sendBuffer);
+            if (System.currentTimeMillis() >= closeTimestamp) {
+                if (logger.isLoggable(Level.INFO)) {
+                    logger.info(String.format("EchoRequester[%s] shutting down", clientId));
+                }
 
-            if (payloadSize == 0) {
-                echoReporter.sentEos.mark();
-            } else {
-                echoReporter.sentSizes.update(sendBuffer.position());
-                echoReporter.sentBytes.mark(sendBuffer.position());
-                echoReporter.discardedSendBytes.mark(sendBuffer.limit() - sendBuffer.position());
+                writer.write(null);
+                return;
             }
 
-            if (payloadSize != 0) {
-                long delay = request.getMinDelayMillisBetweenSends() +
-                    random.nextInt(request.getMaxDelayMillisBetweenSends() - request.getMinDelayMillisBetweenSends());
-
-                delay = Math.max(0, Math.min(delay, closeTimestamp - System.currentTimeMillis()));
-
-                benchmarkServiceProvider.scheduledExecutor.schedule(new Runnable() {
-                    @Override
-                    public void run() {
-                        keepSendingThenClose();
-                    }
-                }, delay, TimeUnit.MILLISECONDS);
+            sendBuffer.position(0);
+            int payloadSize = request.getMinPayloadSize() + random.nextInt(request.getMaxPayloadSize() - request.getMinPayloadSize());
+            sendBuffer.limit(payloadSize);
+            if (logger.isLoggable(Level.INFO)) {
+                logger.info(String.format("EchoRequester[%s] sending %s bytes", clientId, payloadSize));
             }
-        } catch (Exception e) {
-            echoReporter.sendFailures.mark();
-            benchmarkServiceProvider.benchmarkerMetrics.meter(MetricRegistry.name(echoReporter.getAggregatedId(),
-                "sendFailures", "EEE", e.getClass().getSimpleName(), e.getMessage())).mark();
 
-            logger.warning(String.format("Failed sending. Cause: %s: %s",
-                e.getClass().getSimpleName(), e.getMessage()));
+            writer.write(sendBuffer);
+
+            if (logger.isLoggable(Level.INFO)) {
+                logger.info(String.format("EchoRequester[%s] sent %s bytes", clientId, sendBuffer.position()));
+            }
+
+            long delay = request.getMinDelayMillisBetweenSends() +
+                random.nextInt(request.getMaxDelayMillisBetweenSends() - request.getMinDelayMillisBetweenSends());
+
+            delay = Math.max(0, Math.min(delay, closeTimestamp - System.currentTimeMillis()));
+
+            scheduledExecutor.schedule(new Runnable() {
+                @Override
+                public void run() {
+                    keepSendingThenClose();
+                }
+            }, delay, TimeUnit.MILLISECONDS);
+        } catch (IOException ioe) {
+            // all reporting has happened inside writer already
         }
     }
 

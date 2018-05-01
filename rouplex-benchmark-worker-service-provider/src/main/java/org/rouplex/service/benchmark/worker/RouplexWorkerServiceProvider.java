@@ -5,10 +5,7 @@ import com.codahale.metrics.Timer;
 import org.rouplex.commons.configuration.Configuration;
 import org.rouplex.commons.configuration.ConfigurationManager;
 import org.rouplex.commons.utils.ValidationUtils;
-import org.rouplex.platform.tcp.RouplexTcpBroker;
-import org.rouplex.platform.tcp.RouplexTcpClient;
-import org.rouplex.platform.tcp.RouplexTcpClientListener;
-import org.rouplex.platform.tcp.RouplexTcpServer;
+import org.rouplex.platform.tcp.*;
 import org.rouplex.service.benchmark.orchestrator.Provider;
 
 import javax.net.ssl.SSLContext;
@@ -59,7 +56,7 @@ public class RouplexWorkerServiceProvider implements WorkerService, Closeable {
     Set<Closeable> closeables = new HashSet<Closeable>();
 
     Map<String, Object> jobs = new HashMap<String, Object>(); // add implementation later
-    Map<String, RouplexTcpServer> tcpServers = new HashMap<String, RouplexTcpServer>();
+    Map<String, TcpServer> tcpServers = new HashMap<String, TcpServer>();
 
     void logExceptionTraceTemp(Exception e) {
         ByteArrayOutputStream os = new ByteArrayOutputStream();
@@ -96,7 +93,7 @@ public class RouplexWorkerServiceProvider implements WorkerService, Closeable {
             logger.info(String.format("Creating %sEchoServer using provider %s at %s:%s",
                 secure, request.getProvider(), request.getHostname(), request.getPort()));
 
-            RouplexTcpBroker rouplexTcpBroker = createRouplexTcpBroker(request.getProvider());
+            TcpBroker tcpBroker = createTcpBroker(request.getProvider());
             ServerSocketChannel serverSocketChannel;
 
             if (request.isSsl()) {
@@ -115,11 +112,11 @@ public class RouplexWorkerServiceProvider implements WorkerService, Closeable {
                 serverSocketChannel = ServerSocketChannel.open();
             }
 
-            RouplexTcpClientListener rouplexTcpClientListener = new RouplexTcpClientListener() {
+            TcpClientLifecycleListener rouplexTcpClientListener = new TcpClientLifecycleListener() {
                 @Override
-                public void onConnected(RouplexTcpClient rouplexTcpClient) {
+                public void onConnected(TcpClient tcpClient) {
                     try {
-                        new EchoResponder(request, RouplexWorkerServiceProvider.this, rouplexTcpClient);
+                        new EchoResponder(request, RouplexWorkerServiceProvider.this, tcpClient);
                     } catch (Exception e) {
                         //logExceptionTraceTemp(e);
                         benchmarkerMetrics.meter(MetricRegistry.name(
@@ -133,7 +130,7 @@ public class RouplexWorkerServiceProvider implements WorkerService, Closeable {
                 }
 
                 @Override
-                public void onConnectionFailed(RouplexTcpClient rouplexTcpClient, Exception reason) {
+                public void onConnectionFailed(TcpClient rouplexTcpClient, Exception reason) {
                     benchmarkerMetrics.meter(MetricRegistry.name("connection.failed")).mark();
                     benchmarkerMetrics.meter(MetricRegistry.name("connection.failed.EEE",
                         reason.getClass().getSimpleName(), reason.getMessage())).mark();
@@ -143,38 +140,41 @@ public class RouplexWorkerServiceProvider implements WorkerService, Closeable {
                 }
 
                 @Override
-                public void onDisconnected(RouplexTcpClient rouplexTcpClient,
-                                           Exception optionalReason, boolean drainedChannels) {
-                    EchoReporter echoReporter = ((EchoResponder) rouplexTcpClient.getAttachment()).echoReporter;
+                public void onDisconnected(TcpClient rouplexTcpClient, Exception optionalReason) {
+                    EchoResponder echoResponder = (EchoResponder) rouplexTcpClient.getAttachment();
+                    EchoReporter echoReporter = echoResponder.echoReporter;
                     if (echoReporter == null) {
                         logger.warning("Rouplex internal error: onDisconnected was fired before onConnected");
                     } else {
-                        echoReporter.liveConnections.mark(-1);
-                        (drainedChannels ? echoReporter.disconnectedOk : echoReporter.disconnectedKo).mark();
+                        echoReporter.clientConnectionLive.mark(-1);
+                        (optionalReason == null ? echoReporter.clientDisconnectedOk : echoReporter.clientDisconnectedKo).mark();
 
-                        logger.info(String.format("Disconnected %s. Drained: %s",
-                            rouplexTcpClient.getAttachment().getClass().getSimpleName(), drainedChannels));
+                        logger.info(String.format("Disconnected EchoResponder[%s]. Cause: %s",
+                            echoResponder.clientId, optionalReason));
                     }
                 }
             };
 
-            RouplexTcpServer rouplexTcpServer = rouplexTcpBroker.newRouplexTcpServerBuilder()
+            TcpServer tcpServer = tcpBroker.newTcpServerBuilder()
                     .withServerSocketChannel(serverSocketChannel)
                     .withLocalAddress(request.getHostname(), request.getPort())
                     .withSecure(request.isSsl(), null) // value ignored in current context since channel is provided
-                    .withRouplexTcpClientListener(rouplexTcpClientListener)
+                    .withTcpClientLifecycleListener(rouplexTcpClientListener)
                     .withBacklog(request.getBacklog())
-                    .withSendBufferSize(request.getSocketSendBufferSize())
-                    .withReceiveBufferSize(request.getSocketReceiveBufferSize())
                     .withAttachment(request)
                     .build();
 
-            InetSocketAddress isa = (InetSocketAddress) rouplexTcpServer.getLocalAddress();
+            if (request.getSocketReceiveBufferSize() > 0) {
+                tcpServer.getServerSocket().setReceiveBufferSize(request.getSocketReceiveBufferSize());
+            }
+            tcpServer.bind();
+
+            InetSocketAddress isa = (InetSocketAddress) tcpServer.getLocalAddress();
             logger.info(String.format("Created %sEchoServer using provider %s at %s:%s",
                 secure, request.getProvider(), isa.getAddress().getHostAddress().replace('.', '-'), isa.getPort()));
 
             String serverId = String.format("%s:%s", isa.getHostName().replace('.', '-'), isa.getPort());
-            tcpServers.put(serverId, rouplexTcpServer);
+            tcpServers.put(serverId, tcpServer);
 
             CreateTcpServerResponse response = new CreateTcpServerResponse();
             response.setServerId(serverId);
@@ -191,7 +191,7 @@ public class RouplexWorkerServiceProvider implements WorkerService, Closeable {
 
     @Override
     public void destroyTcpServer(String serverId) throws Exception {
-        RouplexTcpServer tcpServer = tcpServers.remove(serverId);
+        TcpServer tcpServer = tcpServers.remove(serverId);
 
         if (tcpServer == null) {
             throw new IOException("Could not find server [%s] " + serverId);
@@ -233,7 +233,7 @@ public class RouplexWorkerServiceProvider implements WorkerService, Closeable {
         logger.info(String.format("Creating %s %sEchoClients using provider %s for server at %s:%s",
                 request.getClientCount(), secure, request.getProvider(), request.getHostname(), request.getPort()));
 
-        final RouplexTcpBroker tcpBroker = createRouplexTcpBroker(request.getProvider());
+        final TcpBroker tcpBroker = createTcpBroker(request.getProvider());
 
         for (int cc = 0; cc < request.getClientCount(); cc++) {
             long startClientMillis = request.getMinDelayMillisBeforeCreatingClient() + random.nextInt(
@@ -283,7 +283,7 @@ public class RouplexWorkerServiceProvider implements WorkerService, Closeable {
         return response;
     }
 
-    private RouplexTcpBroker createRouplexTcpBroker(Provider provider) throws Exception {
+    private TcpBroker createTcpBroker(Provider provider) throws Exception {
         SelectorProvider selectorProvider;
 
         switch (provider) {
@@ -299,7 +299,7 @@ public class RouplexWorkerServiceProvider implements WorkerService, Closeable {
                 throw new Exception("Provider not found");
         }
 
-        return addCloseable(new RouplexTcpBroker(selectorProvider));
+        return addCloseable(new TcpBroker(selectorProvider));
     }
 
     protected <T extends Closeable> T addCloseable(T t) {

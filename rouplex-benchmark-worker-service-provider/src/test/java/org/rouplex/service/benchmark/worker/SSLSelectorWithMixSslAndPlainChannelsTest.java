@@ -193,9 +193,9 @@ public class SSLSelectorWithMixSslAndPlainChannelsTest {
                 connectionFailed.addAndGet(metric.getValue().getCount());
             } else if (metric.getKey().endsWith(".connection.established")) {
                 fetchValue(metric, requestersConnected, respondersConnected);
-            } else if (metric.getKey().endsWith(".disconnectedOk")) {
+            } else if (metric.getKey().endsWith(".clientDisconnectedOk")) {
                 fetchValue(metric, requestersDisconnectedOk, respondersDisconnectedOk);
-            } else if (metric.getKey().endsWith(".disconnectedKo")) {
+            } else if (metric.getKey().endsWith(".clientDisconnectedKo")) {
                 fetchValue(metric, requestersDisconnectedKo, respondersDisconnectedKo);
             } else if (metric.getKey().endsWith(".sentBytes")) {
                 fetchValue(metric, requestersSentBytes, respondersSentBytes);
@@ -265,7 +265,7 @@ public class SSLSelectorWithMixSslAndPlainChannelsTest {
 
             if (metric.getKey().equals("connection.failed")) {
                 connectionFailed.addAndGet(metric.getValue().getCount());
-            } else if (metric.getKey().endsWith(".connectionEstablished")) {
+            } else if (metric.getKey().endsWith(".clientConnectionEstablished")) {
                 fetchValue(metric, requestersConnected, respondersConnected);
             } else if (metric.getKey().endsWith(".disconnected")) {
                 fetchValue(metric, requestersDisconnected, respondersDisconnected);
