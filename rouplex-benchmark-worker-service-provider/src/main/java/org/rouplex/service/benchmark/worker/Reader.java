@@ -13,6 +13,7 @@ import java.util.logging.Logger;
  */
 public class Reader implements Runnable {
     private static final Logger logger = Logger.getLogger(Reader.class.getSimpleName());
+    private static final ByteBuffer sharedByteBuffer = ByteBuffer.allocate(100000);
 
     final TcpReadChannel readChannel;
     final ByteBuffer byteBuffer;
@@ -22,7 +23,7 @@ public class Reader implements Runnable {
 
     public Reader(TcpReadChannel readChannel, int bufferSize, EchoReporter echoReporter, Writer writer) {
         this.readChannel = readChannel;
-        this.byteBuffer = ByteBuffer.allocate(bufferSize);
+        this.byteBuffer = writer != null ? ByteBuffer.allocate(bufferSize) : sharedByteBuffer;
         this.echoReporter = echoReporter;
         this.writer = writer;
     }
@@ -59,9 +60,11 @@ public class Reader implements Runnable {
                     logger.info(String.format("Reader[%s] received %s bytes", clientId, read));
                 }
 
-                byteBuffer.flip();
                 if (writer != null) {
+                    byteBuffer.flip();
                     writer.write(byteBuffer);
+                } else {
+                    byteBuffer.clear();
                 }
             }
 
