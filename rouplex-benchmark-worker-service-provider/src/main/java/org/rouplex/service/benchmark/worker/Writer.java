@@ -111,14 +111,25 @@ public class Writer implements Runnable {
         int destRemaining;
 
         if ((srcRemaining = source.remaining()) > (destRemaining = destination.remaining())) {
+            // todo improve copy speed here as well
             int limit = source.limit();
             source.limit(source.position() + destRemaining);
             destination.put(source);
             source.limit(limit);
             return destRemaining;
         } else {
-            if (source.hasRemaining()) {
-                destination.put(source);
+            if (srcRemaining > 0) {
+                if (source.isDirect() || destination.isDirect()) {
+                    destination.put(source);
+                } else {
+                    System.arraycopy(
+                        source.array(), source.position(),
+                        destination.array(), destination.position(),
+                        srcRemaining);
+
+                    source.position(source.position() + srcRemaining);
+                    destination.position(destination.position() + srcRemaining);
+                }
             }
 
             return srcRemaining;
@@ -135,7 +146,7 @@ public class Writer implements Runnable {
             }
         } catch (IOException ioe) {
             logger.warning(String.format("TcpClient[%s] failed to close properly. Cause: %s %s",
-                ioe.getClass().getSimpleName(), ioe.getMessage()));
+                clientId, ioe.getClass().getSimpleName(), ioe.getMessage()));
         }
     }
 }
