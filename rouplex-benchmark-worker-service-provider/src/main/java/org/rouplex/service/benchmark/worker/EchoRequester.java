@@ -114,8 +114,10 @@ public class EchoRequester {
                                 optionalReason.getClass().getSimpleName(), optionalReason.getMessage())).mark();
                         }
 
-                        logger.info(String.format("Disconnected EchoRequester[%s]. OptionalReason: %s",
-                            clientId, optionalReason == null ? null : optionalReason.getMessage()));
+                        if (logger.isLoggable(Level.INFO)) {
+                            logger.info(String.format("Disconnected EchoRequester[%s]. OptionalReason: %s",
+                                clientId, optionalReason == null ? null : optionalReason.getMessage()));
+                        }
                     }
                 }
             };
