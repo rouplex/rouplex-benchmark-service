@@ -27,7 +27,7 @@ public class EchoRequester {
     final MetricRegistry metricRegistry;
     final ScheduledExecutorService scheduledExecutor;
     final long timeCreatedNano = System.nanoTime();
-    final ByteBuffer sendBuffer;
+    private final ByteBuffer sendBuffer;
 
     long closeTimestamp;
     Writer writer;
