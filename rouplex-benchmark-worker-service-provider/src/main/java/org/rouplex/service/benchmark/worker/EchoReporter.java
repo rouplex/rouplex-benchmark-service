@@ -25,12 +25,14 @@ class EchoReporter {
     final Meter clientDisconnectedKo;
 
     final Meter sentBytes;
+    final Meter sent0Bytes;
     final Meter sentEos;
     final Meter sendFailures;
     final Histogram sentSizes;
     final Meter sentBytesDiscarded;
 
     final Meter receivedBytes;
+    final Meter received0Bytes;
     final Meter receivedEos;
     final Meter receivedFailures;
     final Histogram receivedSizes;
@@ -86,19 +88,21 @@ class EchoReporter {
             clientDisconnectedKo = metricRegistry.meter(MetricRegistry.name(aggregatedId, "clientDisconnectedKo"));
 
             sentBytes = metricRegistry.meter(MetricRegistry.name(aggregatedId, "sentBytes"));
+            sent0Bytes = metricRegistry.meter(MetricRegistry.name(aggregatedId, "sent0Bytes"));
             sentEos = metricRegistry.meter(MetricRegistry.name(aggregatedId, "sentEos"));
             sendFailures = metricRegistry.meter(MetricRegistry.name(aggregatedId, "sendFailures"));
             sentSizes = metricRegistry.histogram(MetricRegistry.name(aggregatedId, "sentSizes"));
             sentBytesDiscarded = metricRegistry.meter(MetricRegistry.name(aggregatedId, "sentBytesDiscarded"));
 
             receivedBytes = metricRegistry.meter(MetricRegistry.name(aggregatedId, "receivedBytes"));
+            received0Bytes = metricRegistry.meter(MetricRegistry.name(aggregatedId, "received0Bytes"));
             receivedEos = metricRegistry.meter(MetricRegistry.name(aggregatedId, "receivedEos"));
             receivedFailures = metricRegistry.meter(MetricRegistry.name(aggregatedId, "receivedFailures"));
             receivedSizes = metricRegistry.histogram(MetricRegistry.name(aggregatedId, "receivedSizes"));
         } else {
             clientConnectionEstablished = clientConnectionFailed = clientConnectionLive = clientClosed =
-                clientDisconnectedOk = clientDisconnectedKo = sentBytes = sentEos = sendFailures = sentBytesDiscarded =
-            receivedBytes = receivedEos = receivedFailures = null;
+                clientDisconnectedOk = clientDisconnectedKo = sentBytes = sent0Bytes = sentEos = sendFailures = sentBytesDiscarded =
+            receivedBytes = received0Bytes = receivedEos = receivedFailures = null;
             receivedSizes = sentSizes = null;
             clientConnectionTime = null;
         }

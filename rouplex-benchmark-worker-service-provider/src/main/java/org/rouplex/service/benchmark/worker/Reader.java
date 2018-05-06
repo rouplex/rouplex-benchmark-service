@@ -5,6 +5,7 @@ import org.rouplex.platform.tcp.TcpReadChannel;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -13,7 +14,8 @@ import java.util.logging.Logger;
  */
 public class Reader implements Runnable {
     private static final Logger logger = Logger.getLogger(Reader.class.getSimpleName());
-    private static final ByteBuffer sharedByteBuffer = ByteBuffer.allocate(100000);
+    private static final AtomicInteger zeroReads = new AtomicInteger();
+    private static final AtomicInteger nzeroReads = new AtomicInteger();
 
     final TcpReadChannel readChannel;
     final ByteBuffer byteBuffer;
@@ -23,7 +25,7 @@ public class Reader implements Runnable {
 
     public Reader(TcpReadChannel readChannel, int bufferSize, EchoReporter echoReporter, Writer writer) {
         this.readChannel = readChannel;
-        this.byteBuffer = writer != null ? ByteBuffer.allocate(bufferSize) : sharedByteBuffer;
+        this.byteBuffer = ByteBuffer.allocate(bufferSize);
         this.echoReporter = echoReporter;
         this.writer = writer;
     }
@@ -44,12 +46,17 @@ public class Reader implements Runnable {
                     return;
                 }
 
-                echoReporter.receivedBytes.mark(read);
-                echoReporter.receivedSizes.update(read);
-
                 if (read == 0) {
+//                    System.out.println("R0:" + readChannel.getTcpClient().getDebugId()
+//                        + ": " + zeroReads.incrementAndGet() + " : " + nzeroReads.get());
+                    echoReporter.received0Bytes.mark();
                     break;
                 }
+
+//                System.out.println("R1:" + readChannel.getTcpClient().getDebugId()
+//                    + ": " + zeroReads.get() + " : " + nzeroReads.incrementAndGet());
+                echoReporter.receivedBytes.mark(read);
+                echoReporter.receivedSizes.update(read);
 
                 if (clientId == null) {
                     clientId = deserializeClientId(byteBuffer.array());
@@ -91,7 +98,7 @@ public class Reader implements Runnable {
             }
         } catch (IOException ioe) {
             logger.warning(String.format("TcpClient[%s] failed to close properly. Cause: %s %s",
-                ioe.getClass().getSimpleName(), ioe.getMessage()));
+                clientId, ioe.getClass().getSimpleName(), ioe.getMessage()));
         }
     }
 

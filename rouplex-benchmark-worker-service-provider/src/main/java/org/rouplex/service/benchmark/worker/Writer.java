@@ -6,6 +6,7 @@ import org.rouplex.platform.tcp.TcpWriteChannel;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -14,6 +15,8 @@ import java.util.logging.Logger;
  */
 public class Writer implements Runnable {
     private static final Logger logger = Logger.getLogger(Writer.class.getSimpleName());
+    private static final AtomicInteger zeroWrites = new AtomicInteger();
+    private static final AtomicInteger nzeroWrites = new AtomicInteger();
 
     final TcpWriteChannel writeChannel;
     final ByteBuffer byteBuffer;
@@ -49,7 +52,16 @@ public class Writer implements Runnable {
                         logger.info(String.format("Writer[%s] wrote %s bytes", clientId, written));
                     }
 
-                    echoReporter.sentBytes.mark(written);
+                    if (written == 0) {
+//                        System.out.println("W0:" + writeChannel.getTcpClient().getDebugId() + ": "
+//                            + zeroWrites.incrementAndGet() + " : " + nzeroWrites.get());
+                        echoReporter.sent0Bytes.mark();
+                    } else {
+//                        System.out.println("W1:" + writeChannel.getTcpClient().getDebugId() + ": " +
+//                            zeroWrites.get() + " : " + nzeroWrites.incrementAndGet());
+                        echoReporter.sentBytes.mark(written);
+                    }
+
                     echoReporter.sentSizes.update(written);
                 }
 

@@ -2,6 +2,7 @@ package org.rouplex.service.benchmark.worker;
 
 import com.codahale.metrics.*;
 import com.codahale.metrics.Timer;
+import com.google.gson.Gson;
 import org.rouplex.commons.configuration.Configuration;
 import org.rouplex.commons.configuration.ConfigurationManager;
 import org.rouplex.commons.utils.ValidationUtils;
@@ -337,5 +338,52 @@ public class RouplexWorkerServiceProvider implements WorkerService, Closeable {
         synchronized (scheduledExecutor) {
             return closeables == null;
         }
+    }
+
+    public static void main(String[] args) throws Exception {
+        CreateTcpServerRequest createTcpServerRequest = new Gson().fromJson("{\n" +
+            "  \"provider\": \"CLASSIC_NIO\",\n" +
+            "  \"port\": 3333,\n" +
+            "  \"socketSendBufferSize\": 0,\n" +
+            "  \"socketReceiveBufferSize\": 0,\n" +
+            "  \"metricsAggregation\": {\n" +
+            "    \"aggregateSslWithPlain\": true,\n" +
+            "    \"aggregateServerAddresses\": true,\n" +
+            "    \"aggregateServerPorts\": true,\n" +
+            "    \"aggregateClientAddresses\": true,\n" +
+            "    \"aggregateClientPorts\": true\n" +
+            "  },\n" +
+            "  \"backlog\": 0,\n" +
+            "  \"echoRatio\": \"string\"\n" +
+            "}", CreateTcpServerRequest.class);
+
+        RouplexWorkerServiceProvider.get().createTcpServer(createTcpServerRequest);
+
+        CreateTcpClientBatchRequest createTcpClientBatchRequest = new Gson().fromJson("{\n" +
+            "  \"provider\": \"CLASSIC_NIO\",\n" +
+            "  \"hostname\": \"127.0.0.1\",\n" +
+            "  \"port\": 3333,\n" +
+            "  \"socketSendBufferSize\": 0,\n" +
+            "  \"socketReceiveBufferSize\": 0,\n" +
+            "  \"metricsAggregation\": {\n" +
+            "    \"aggregateSslWithPlain\": true,\n" +
+            "    \"aggregateServerAddresses\": true,\n" +
+            "    \"aggregateServerPorts\": true,\n" +
+            "    \"aggregateClientAddresses\": true,\n" +
+            "    \"aggregateClientPorts\": true\n" +
+            "  },\n" +
+            "  \"clientCount\": 100000,\n" +
+            "  \"minPayloadSize\": 1000,\n" +
+            "  \"maxPayloadSize\": 1001,\n" +
+            "  \"minDelayMillisBetweenSends\": 100,\n" +
+            "  \"maxDelayMillisBetweenSends\": 101,\n" +
+            "  \"minDelayMillisBeforeCreatingClient\": 0,\n" +
+            "  \"maxDelayMillisBeforeCreatingClient\": 2000000,\n" +
+            "  \"minClientLifeMillis\": 60000,\n" +
+            "  \"maxClientLifeMillis\": 60001\n" +
+            "}\n", CreateTcpClientBatchRequest.class);
+
+        RouplexWorkerServiceProvider.get().createTcpClientBatch(createTcpClientBatchRequest);
+        Thread.sleep(1000000);
     }
 }
