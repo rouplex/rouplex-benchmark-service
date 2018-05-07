@@ -1,9 +1,7 @@
 package org.rouplex.service.benchmark.worker;
 
-import com.codahale.metrics.Histogram;
-import com.codahale.metrics.Meter;
-import com.codahale.metrics.MetricRegistry;
-import com.codahale.metrics.Timer;
+import com.codahale.metrics.*;
+import org.rouplex.platform.tcp.TcpSelector;
 import org.rouplex.service.benchmark.orchestrator.MetricsAggregation;
 
 import java.net.InetSocketAddress;
@@ -15,6 +13,8 @@ import java.net.SocketAddress;
 class EchoReporter {
     public static final String format = "%s.%s.%s.%s:%s::%s:%s";
     // [Provider].[S,P].[EchoRequester,EchoResponder].[Server]:[Port]::[Client]:[Port]
+
+    static Gauge selects;
 
     final Meter clientConnectionEstablished;
     final Meter clientConnectionFailed;
@@ -78,6 +78,15 @@ class EchoReporter {
         );
 
         if (metricRegistry != null) {
+            if (selects == null) {
+                selects = metricRegistry.register(MetricRegistry.name(aggregatedId, "selects"), new Gauge<Long>() {
+                    @Override
+                    public Long getValue() {
+                        return TcpSelector.selects.get();
+                    }
+                });
+            }
+
             clientConnectionEstablished = metricRegistry.meter(MetricRegistry.name(aggregatedId, "clientConnectionEstablished"));
             clientConnectionFailed = metricRegistry.meter(MetricRegistry.name(aggregatedId, "clientConnectionFailed"));
             clientConnectionLive = metricRegistry.meter(MetricRegistry.name(aggregatedId, "clientConnectionLive"));
@@ -100,6 +109,7 @@ class EchoReporter {
             receivedFailures = metricRegistry.meter(MetricRegistry.name(aggregatedId, "receivedFailures"));
             receivedSizes = metricRegistry.histogram(MetricRegistry.name(aggregatedId, "receivedSizes"));
         } else {
+            selects = null;
             clientConnectionEstablished = clientConnectionFailed = clientConnectionLive = clientClosed =
                 clientDisconnectedOk = clientDisconnectedKo = sentBytes = sent0Bytes = sentEos = sendFailures = sentBytesDiscarded =
             receivedBytes = received0Bytes = receivedEos = receivedFailures = null;
