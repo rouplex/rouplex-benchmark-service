@@ -5,7 +5,8 @@ import org.rouplex.platform.tcp.TcpReadChannel;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -14,31 +15,46 @@ import java.util.logging.Logger;
  */
 public class Reader implements Runnable {
     private static final Logger logger = Logger.getLogger(Reader.class.getSimpleName());
-    private static final AtomicInteger zeroReads = new AtomicInteger();
-    private static final AtomicInteger nzeroReads = new AtomicInteger();
+
+    // We can use a shared pool (since the BB used are only temporary containers between read and writes)
+    // Not creating a ThreadLocal b/c down't want to promote this pattern at all
+    private final static ConcurrentMap<Thread, ByteBuffer> byteBufferPool = new ConcurrentHashMap<>();
 
     final TcpReadChannel readChannel;
-    final ByteBuffer byteBuffer;
     final EchoReporter echoReporter;
     final Writer writer;
     Integer clientId;
 
-    public Reader(TcpReadChannel readChannel, int bufferSize, EchoReporter echoReporter, Writer writer) {
+    public Reader(TcpReadChannel readChannel, EchoReporter echoReporter, Writer writer) {
         this.readChannel = readChannel;
-        this.byteBuffer = ByteBuffer.allocate(bufferSize);
         this.echoReporter = echoReporter;
         this.writer = writer;
     }
 
+    ByteBuffer borrowByteBuffer() {
+        ByteBuffer result = byteBufferPool.get(Thread.currentThread());
+        if (result == null) {
+            byteBufferPool.put(Thread.currentThread(), result = ByteBuffer.allocateDirect(1_000_000));
+        } else {
+            result.clear();
+        }
+
+        return result;
+    }
+
     public void run() {
         try {
+            ByteBuffer byteBuffer = borrowByteBuffer();
+            int totalRead = 0;
+
             while (true) {
                 int read = readChannel.read(byteBuffer);
 
                 if (read == -1) {
-                    echoReporter.receivedEos.mark();
+                    echoReporter.rcReadByte.mark(totalRead);
+                    echoReporter.rcReadEos.mark();
                     if (writer != null) {
-                        writer.write(null);
+                        writer.shutdown();
                     } else {
                         // this is a sender, so close tcpClient now
                         closeTcpClient();
@@ -47,19 +63,13 @@ public class Reader implements Runnable {
                 }
 
                 if (read == 0) {
-//                    System.out.println("R0:" + readChannel.getTcpClient().getDebugId()
-//                        + ": " + zeroReads.incrementAndGet() + " : " + nzeroReads.get());
-                    echoReporter.received0Bytes.mark();
                     break;
                 }
 
-//                System.out.println("R1:" + readChannel.getTcpClient().getDebugId()
-//                    + ": " + zeroReads.get() + " : " + nzeroReads.incrementAndGet());
-                echoReporter.receivedBytes.mark(read);
-                echoReporter.receivedSizes.update(read);
+                totalRead += read;
 
                 if (clientId == null) {
-                    clientId = deserializeClientId(byteBuffer.array());
+                    clientId = deserializeClientId(byteBuffer);
                     //tcpClient.setDebugId("S" + clientId );
                 }
 
@@ -70,16 +80,23 @@ public class Reader implements Runnable {
                 if (writer != null) {
                     byteBuffer.flip();
                     writer.write(byteBuffer);
-                } else {
-                    byteBuffer.clear();
                 }
+
+                // normally we would do compact, but we discard all (and report)
+                byteBuffer.clear();
+            }
+
+            echoReporter.rcReadByte.mark(totalRead);
+            echoReporter.rcReadSizes.update(totalRead);
+            if (totalRead == 0) {
+                echoReporter.rcRead0Byte.mark();
             }
 
             readChannel.addChannelReadyCallback(this);
         } catch (IOException ioe) {
-            echoReporter.receivedFailures.mark();
+            echoReporter.rcReadFailure.mark();
             echoReporter.metricRegistry.meter(MetricRegistry.name(echoReporter.getAggregatedId(),
-                "receivedFailures", "EEE", ioe.getClass().getSimpleName(), ioe.getMessage())).mark();
+                "rcReadFailure", "EEE", ioe.getClass().getSimpleName(), ioe.getMessage())).mark();
 
             logger.warning(String.format("TcpClient[%s] failed receiving. Cause: %s: %s",
                 clientId, ioe.getClass().getSimpleName(), ioe.getMessage()));
@@ -102,7 +119,10 @@ public class Reader implements Runnable {
         }
     }
 
-    private static int deserializeClientId(byte[] buffer) {
+    private static int deserializeClientId(ByteBuffer byteBuffer) {
+        byte[] buffer = new byte[4];
+        byteBuffer.get(buffer);
+
         int clientId = 0;
         if (buffer.length > 3) {
             for (int i = 0; i < 4; i++) {

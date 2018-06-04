@@ -1,7 +1,9 @@
 package org.rouplex.service.benchmark.worker;
 
-import com.codahale.metrics.*;
-import org.rouplex.platform.tcp.TcpSelector;
+import com.codahale.metrics.Histogram;
+import com.codahale.metrics.Meter;
+import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.Timer;
 import org.rouplex.service.benchmark.orchestrator.MetricsAggregation;
 
 import java.net.InetSocketAddress;
@@ -14,35 +16,35 @@ class EchoReporter {
     public static final String format = "%s.%s.%s.%s:%s::%s:%s";
     // [Provider].[S,P].[EchoRequester,EchoResponder].[Server]:[Port]::[Client]:[Port]
 
-    static Gauge selects;
-
     final Meter clientConnectionEstablished;
     final Meter clientConnectionFailed;
     final Meter clientConnectionLive;
-    final Timer clientConnectionTime;
+    final Timer clientConnectionTimes;
     final Meter clientClosed;
     final Meter clientDisconnectedOk;
     final Meter clientDisconnectedKo;
 
-    final Meter sentBytes;
-    final Meter sent0Bytes;
-    final Meter sentEos;
-    final Meter sendFailures;
-    final Histogram sentSizes;
-    final Meter sentBytesDiscarded;
+    final Meter wcWrittenByte;
+    final Meter wcWritten0Byte;
+    final Meter wcWrittenEos;
+    final Meter wcWriteFailure;
+    final Meter wcDiscardedByteAtNic;
+    final Meter wcDiscardedByteAtCpu;
+    final Histogram wcWrittenSizes;
+    final Timer wcWriteTimes;
 
-    final Meter receivedBytes;
-    final Meter received0Bytes;
-    final Meter receivedEos;
-    final Meter receivedFailures;
-    final Histogram receivedSizes;
+    final Meter rcReadByte;
+    final Meter rcRead0Byte;
+    final Meter rcReadEos;
+    final Meter rcReadFailure;
+    final Histogram rcReadSizes;
 
     private final String aggregatedId;
 
     final MetricRegistry metricRegistry;
 
     public EchoReporter(CreateTcpEndPointRequest createTcpEndPointRequest, MetricRegistry metricRegistry,
-                        Class<?> clazz, SocketAddress localAddress, SocketAddress remoteAddress) {
+                        String className, SocketAddress localAddress, SocketAddress remoteAddress) {
 
         this.metricRegistry = metricRegistry;
 
@@ -70,7 +72,7 @@ class EchoReporter {
         aggregatedId = String.format(format,
             createTcpEndPointRequest.getProvider(),
             ma.isAggregateSslWithPlain() ? "A" : secureTag,
-            clazz.getSimpleName(),
+            className,
             ma.isAggregateServerAddresses() ? "A" : serverAddress,
             ma.isAggregateServerPorts() ? "A" : serverPort,
             ma.isAggregateClientAddresses() ? "A" : clientAddress,
@@ -78,43 +80,37 @@ class EchoReporter {
         );
 
         if (metricRegistry != null) {
-            if (selects == null) {
-                selects = metricRegistry.register(MetricRegistry.name(aggregatedId, "selects"), new Gauge<Long>() {
-                    @Override
-                    public Long getValue() {
-                        return TcpSelector.selects.get();
-                    }
-                });
-            }
-
             clientConnectionEstablished = metricRegistry.meter(MetricRegistry.name(aggregatedId, "clientConnectionEstablished"));
             clientConnectionFailed = metricRegistry.meter(MetricRegistry.name(aggregatedId, "clientConnectionFailed"));
             clientConnectionLive = metricRegistry.meter(MetricRegistry.name(aggregatedId, "clientConnectionLive"));
 
-            clientConnectionTime = metricRegistry.timer(MetricRegistry.name(aggregatedId, "clientConnectionTime"));
+            clientConnectionTimes = metricRegistry.timer(MetricRegistry.name(aggregatedId, "clientConnectionTimes"));
             clientClosed = metricRegistry.meter(MetricRegistry.name(aggregatedId, "clientClosed"));
             clientDisconnectedOk = metricRegistry.meter(MetricRegistry.name(aggregatedId, "clientDisconnectedOk"));
             clientDisconnectedKo = metricRegistry.meter(MetricRegistry.name(aggregatedId, "clientDisconnectedKo"));
 
-            sentBytes = metricRegistry.meter(MetricRegistry.name(aggregatedId, "sentBytes"));
-            sent0Bytes = metricRegistry.meter(MetricRegistry.name(aggregatedId, "sent0Bytes"));
-            sentEos = metricRegistry.meter(MetricRegistry.name(aggregatedId, "sentEos"));
-            sendFailures = metricRegistry.meter(MetricRegistry.name(aggregatedId, "sendFailures"));
-            sentSizes = metricRegistry.histogram(MetricRegistry.name(aggregatedId, "sentSizes"));
-            sentBytesDiscarded = metricRegistry.meter(MetricRegistry.name(aggregatedId, "sentBytesDiscarded"));
+            wcWrittenByte = metricRegistry.meter(MetricRegistry.name(aggregatedId, "wcWrittenByte"));
+            wcWritten0Byte = metricRegistry.meter(MetricRegistry.name(aggregatedId, "wcWritten0Byte"));
+            wcWrittenEos = metricRegistry.meter(MetricRegistry.name(aggregatedId, "wcWrittenEos"));
+            wcWriteFailure = metricRegistry.meter(MetricRegistry.name(aggregatedId, "wcWriteFailure"));
+            wcWrittenSizes = metricRegistry.histogram(MetricRegistry.name(aggregatedId, "wcWrittenSizes"));
+            wcDiscardedByteAtNic = metricRegistry.meter(MetricRegistry.name(aggregatedId, "wcDiscardedByteAtNic"));
+            wcWriteTimes = metricRegistry.timer(MetricRegistry.name(aggregatedId, "wcWriteTimes"));
+            wcDiscardedByteAtCpu = metricRegistry.meter(MetricRegistry.name(aggregatedId, "wcDiscardedByteAtCpu"));
 
-            receivedBytes = metricRegistry.meter(MetricRegistry.name(aggregatedId, "receivedBytes"));
-            received0Bytes = metricRegistry.meter(MetricRegistry.name(aggregatedId, "received0Bytes"));
-            receivedEos = metricRegistry.meter(MetricRegistry.name(aggregatedId, "receivedEos"));
-            receivedFailures = metricRegistry.meter(MetricRegistry.name(aggregatedId, "receivedFailures"));
-            receivedSizes = metricRegistry.histogram(MetricRegistry.name(aggregatedId, "receivedSizes"));
+            rcReadByte = metricRegistry.meter(MetricRegistry.name(aggregatedId, "rcReadByte"));
+            rcRead0Byte = metricRegistry.meter(MetricRegistry.name(aggregatedId, "rcRead0Byte"));
+            rcReadEos = metricRegistry.meter(MetricRegistry.name(aggregatedId, "rcReadEos"));
+            rcReadFailure = metricRegistry.meter(MetricRegistry.name(aggregatedId, "rcReadFailure"));
+            rcReadSizes = metricRegistry.histogram(MetricRegistry.name(aggregatedId, "rcReadSizes"));
         } else {
-            selects = null;
-            clientConnectionEstablished = clientConnectionFailed = clientConnectionLive = clientClosed =
-                clientDisconnectedOk = clientDisconnectedKo = sentBytes = sent0Bytes = sentEos = sendFailures = sentBytesDiscarded =
-            receivedBytes = received0Bytes = receivedEos = receivedFailures = null;
-            receivedSizes = sentSizes = null;
-            clientConnectionTime = null;
+            throw new IllegalArgumentException("metricRegistry is null");
+
+//            clientConnectionEstablished = clientConnectionFailed = clientConnectionLive = clientClosed =
+//                clientDisconnectedOk = clientDisconnectedKo = wcWrittenByte = wcWritten0Byte = wcWrittenEos = wcWriteFailure = wcDiscardedByteAtNic =
+//            rcReadByte = rcRead0Byte = rcReadEos = rcReadFailure = null;
+//            rcReadSizes = wcWrittenSizes = null;
+//            clientConnectionTimes = null;
         }
     }
 

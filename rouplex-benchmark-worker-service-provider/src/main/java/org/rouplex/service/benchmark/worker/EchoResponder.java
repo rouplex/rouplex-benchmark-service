@@ -11,24 +11,21 @@ import java.util.logging.Logger;
 public class EchoResponder {
     private static final Logger logger = Logger.getLogger(EchoResponder.class.getSimpleName());
 
-    final EchoReporter echoReporter;
-    Integer clientId;
-
     EchoResponder(CreateTcpServerRequest createTcpServerRequest, RouplexWorkerServiceProvider benchmarkServiceProvider,
-                  TcpClient connectedTcpClient) throws IOException {
+                  TcpClient tcpClient) throws IOException {
 
-        connectedTcpClient.setAttachment(this);
-
-        echoReporter = new EchoReporter(createTcpServerRequest, benchmarkServiceProvider.benchmarkerMetrics,
-            EchoResponder.class, connectedTcpClient.getLocalAddress(), connectedTcpClient.getRemoteAddress());
+        EchoReporter echoReporter = new EchoReporter(createTcpServerRequest, benchmarkServiceProvider.benchmarkerMetrics,
+            "EchoResponder", tcpClient.getLocalAddress(), tcpClient.getRemoteAddress());
 
         echoReporter.clientConnectionEstablished.mark();
         echoReporter.clientConnectionLive.mark();
 
-        new Reader(connectedTcpClient.getReadChannel(), 10000, echoReporter,
-            new Writer(connectedTcpClient.getWriteChannel(), 10000, echoReporter, true)).run();
+        Reader reader = new Reader(tcpClient.getReadChannel(), echoReporter,
+            new Writer(tcpClient.getWriteChannel(), echoReporter, true));
+
+        tcpClient.setAttachment(reader);
+        reader.run();
 
         logger.info("Created EchoResponder");
     }
-
 }

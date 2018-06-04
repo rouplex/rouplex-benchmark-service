@@ -51,12 +51,6 @@
     </build>
 
     <dependencies>
-        <dependency>
-            <groupId>org.rouplex</groupId>
-            <artifactId>rouplex-niossl-spi</artifactId>
-            <version>${jdk}.0-SNAPSHOT</version>
-        </dependency>
-
         <!-- Service provider always depends on the interface it is implementing -->
         <dependency>
             <groupId>org.rouplex</groupId>

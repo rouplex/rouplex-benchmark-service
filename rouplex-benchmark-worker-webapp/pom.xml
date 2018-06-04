@@ -14,11 +14,6 @@
     <version>1.0.0-SNAPSHOT</version>
     <packaging>war</packaging>
 
-    <properties>
-        <aspectj.version>1.8.9</aspectj.version>
-        <aspectj.bootclasspath>/Library/Java/JavaVirtualMachines/jdk1.8.0_121.jdk/Contents/Home/jre/lib/rt.jar:/Library/Java/JavaVirtualMachines/jdk1.8.0_121.jdk/Contents/Home/jre/lib/jsse.jar</aspectj.bootclasspath>
-    </properties>
-
     <profiles>
         <profile>
             <id>niossl-spi</id>
@@ -28,101 +23,6 @@
                     <artifactId>rouplex-niossl-spi</artifactId>
                     <version>${jdk}.0-SNAPSHOT</version>
                 </dependency>
-            </dependencies>
-        </profile>
-
-        <profile>
-            <id>debug</id>
-            <build>
-                <plugins>
-                    <!-- ASPECTJ for profiling/logging/debugging-->
-                    <plugin>
-                        <groupId>org.codehaus.mojo</groupId>
-                        <artifactId>aspectj-maven-plugin</artifactId>
-                        <version>1.10</version>
-
-                        <configuration>
-                            <bootclasspath>${aspectj.bootclasspath}</bootclasspath>
-                            <source>${jdk}</source>
-                            <target>${jdk}</target>
-                            <complianceLevel>${jdk}</complianceLevel>
-                            <showWeaveInfo>true</showWeaveInfo>
-
-                            <!-- Aspect libraries containing aspects already compiled via aspectj (aspectj-maven-plugin) -->
-                            <aspectLibraries>
-                                <!--<aspectLibrary>-->
-                                    <!--<groupId>org.rouplex</groupId>-->
-                                    <!--<artifactId>rouplex-niossl-debug-aspects</artifactId>-->
-                                <!--</aspectLibrary>-->
-                                <aspectLibrary>
-                                    <groupId>org.rouplex</groupId>
-                                    <artifactId>rouplex-platform-tcp-instrumentor</artifactId>
-                                </aspectLibrary>
-                            </aspectLibraries>
-
-                            <!-- Target libraries containing the instrumented classes already compiled via javac -->
-                            <weaveDependencies>
-                                <!--<weaveDependency>-->
-                                    <!--<groupId>org.rouplex</groupId>-->
-                                    <!--<artifactId>rouplex-niossl-spi</artifactId>-->
-                                <!--</weaveDependency>-->
-                                <weaveDependency>
-                                    <groupId>org.rouplex</groupId>
-                                    <artifactId>rouplex-platform-tcp</artifactId>
-                                </weaveDependency>
-                            </weaveDependencies>
-                        </configuration>
-
-                        <executions>
-                            <execution>
-                                <goals>
-                                    <goal>compile</goal>
-                                    <goal>test-compile</goal>
-                                </goals>
-                            </execution>
-                        </executions>
-
-                        <dependencies>
-                            <!--No need for tools when using the latest version of the plugin-->
-                            <!--<dependency>-->
-                                <!--<groupId>org.aspectj</groupId>-->
-                                <!--<artifactId>aspectjtools</artifactId>-->
-                                <!--<version>${aspectj.version}</version>-->
-                            <!--</dependency>-->
-                        </dependencies>
-                    </plugin>
-                </plugins>
-            </build>
-
-            <dependencies>
-                <dependency>
-                    <groupId>org.rouplex</groupId>
-                    <artifactId>rouplex-niossl-spi</artifactId>
-                    <version>${jdk}.0-SNAPSHOT</version>
-                </dependency>
-
-                <dependency>
-                    <groupId>org.aspectj</groupId>
-                    <artifactId>aspectjrt</artifactId>
-                    <version>${aspectj.version}</version>
-                </dependency>
-
-                <!--Use rouplex-niossl-instrumentor to get rouplex-niossl related metrics-->
-                <!--It should normally be inside debug profile, but the maven-war-plugin does not copy it in /lib folder-->
-                <!--<dependency>-->
-                    <!--<groupId>org.rouplex</groupId>-->
-                    <!--<artifactId>rouplex-niossl-debug-aspects</artifactId>-->
-                    <!--<version>1.8.0-SNAPSHOT</version>-->
-                <!--</dependency>-->
-
-                <!-- Use rouplex-platform-tcp-instrumentor to get rouplex-platform-tcp related metrics -->
-                <!-- It should normally be inside debug profile, but the maven-war-plugin does not copy it in /lib folder -->
-                <dependency>
-                    <groupId>org.rouplex</groupId>
-                    <artifactId>rouplex-platform-tcp-instrumentor</artifactId>
-                    <version>1.0.6-SNAPSHOT</version>
-                </dependency>
-
             </dependencies>
         </profile>
     </profiles>

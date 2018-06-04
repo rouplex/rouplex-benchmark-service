@@ -89,8 +89,8 @@ export default class StartBenchmark extends React.Component {
       throw "Maximum Payload Size must be greater than Minimum Payload Size"
     }
 
-    if (minDelayMillisBetweenSends <= 0) {
-      throw "Minimum Delay Between Sends must be positive"
+    if (minDelayMillisBetweenSends < 0) {
+      throw "Minimum Delay Between Sends must be non-negative"
     }
     if (maxDelayMillisBetweenSends <= minDelayMillisBetweenSends) {
       throw "Maximum Delay Between Sends must be greater than Minimum Delay Between Sends"

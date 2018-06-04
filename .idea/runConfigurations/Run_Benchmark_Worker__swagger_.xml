@@ -1,7 +1,7 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="Run Benchmark Worker (swagger)" type="#com.intellij.j2ee.web.tomcat.TomcatRunConfigurationFactory" factoryName="Local" APPLICATION_SERVER_NAME="Tomcat 8.5.12" ALTERNATIVE_JRE_ENABLED="false">
     <option name="OPEN_IN_BROWSER_URL" value="http://localhost:8180/webjars/swagger-ui/2.2.5/index.html?url=http://localhost:8180/rest/swagger.json" />
-    <option name="COMMON_VM_ARGUMENTS" value="-XX:+UnlockCommercialFeatures -XX:+FlightRecorder -DGoogleCloudClientId=$GoogleCloudClientId -DGoogleCloudClientPassword=$GoogleCloudClientPassword -Djavax.net.ssl.keyStore=$PROJECT_DIR$/rouplex-benchmark-worker-webapp/src/test/resources/server-keystore -Djavax.net.ssl.keyStorePassword=kotplot -Djava.util.logging.config.file=$PROJECT_DIR$/rouplex-benchmark-worker-service-provider/src/test/resources/logging.properties" />
+    <option name="COMMON_VM_ARGUMENTS" value="-XX:+UnlockCommercialFeatures -XX:+FlightRecorder -DGoogleCloudClientId=$GoogleCloudClientId -DGoogleCloudClientPassword=$GoogleCloudClientPassword -Djavax.net.ssl.keyStore=$PROJECT_DIR$/rouplex-benchmark-worker-service-provider/src/test/resources/server-keystore -Djavax.net.ssl.keyStorePassword=kotplot -Djava.util.logging.config.file=$PROJECT_DIR$/rouplex-benchmark-worker-service-provider/src/test/resources/logging.properties" />
     <option name="UPDATING_POLICY" value="restart-server" />
     <deployment>
       <artifact name="rouplex-benchmark-worker-webapp:war exploded">

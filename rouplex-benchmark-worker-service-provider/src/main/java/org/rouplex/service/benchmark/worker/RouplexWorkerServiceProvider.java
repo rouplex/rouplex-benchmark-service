@@ -35,6 +35,7 @@ public class RouplexWorkerServiceProvider implements WorkerService, Closeable {
     private static final Logger logger = Logger.getLogger(RouplexWorkerServiceProvider.class.getSimpleName());
 
     private static RouplexWorkerServiceProvider workerService;
+
     public static RouplexWorkerServiceProvider get() throws Exception {
         synchronized (RouplexWorkerServiceProvider.class) {
             if (workerService == null) {
@@ -94,7 +95,7 @@ public class RouplexWorkerServiceProvider implements WorkerService, Closeable {
             logger.info(String.format("Creating %sEchoServer using provider %s at %s:%s",
                 secure, request.getProvider(), request.getHostname(), request.getPort()));
 
-            TcpBroker tcpBroker = createTcpBroker(request.getProvider());
+            TcpReactor tcpReactor = createTcpReactor(request.getProvider());
             ServerSocketChannel serverSocketChannel;
 
             if (request.isSsl()) {
@@ -142,8 +143,8 @@ public class RouplexWorkerServiceProvider implements WorkerService, Closeable {
 
                 @Override
                 public void onDisconnected(TcpClient rouplexTcpClient, Exception optionalReason) {
-                    EchoResponder echoResponder = (EchoResponder) rouplexTcpClient.getAttachment();
-                    EchoReporter echoReporter = echoResponder.echoReporter;
+                    Reader reader = (Reader) rouplexTcpClient.getAttachment();
+                    EchoReporter echoReporter = reader.echoReporter;
                     if (echoReporter == null) {
                         logger.warning("Rouplex internal error: onDisconnected was fired before onConnected");
                     } else {
@@ -151,19 +152,19 @@ public class RouplexWorkerServiceProvider implements WorkerService, Closeable {
                         (optionalReason == null ? echoReporter.clientDisconnectedOk : echoReporter.clientDisconnectedKo).mark();
 
                         logger.info(String.format("Disconnected EchoResponder[%s]. Cause: %s",
-                            echoResponder.clientId, optionalReason));
+                            reader.clientId, optionalReason));
                     }
                 }
             };
 
-            TcpServer tcpServer = tcpBroker.newTcpServerBuilder()
-                    .withServerSocketChannel(serverSocketChannel)
-                    .withLocalAddress(request.getHostname(), request.getPort())
-                    .withSecure(request.isSsl(), null) // value ignored in current context since channel is provided
-                    .withTcpClientLifecycleListener(rouplexTcpClientListener)
-                    .withBacklog(request.getBacklog())
-                    .withAttachment(request)
-                    .build();
+            TcpServer tcpServer = tcpReactor.newTcpServerBuilder()
+                .withServerSocketChannel(serverSocketChannel)
+                .withLocalAddress(request.getHostname(), request.getPort())
+                .withSecure(request.isSsl(), null) // value ignored in current context since channel is provided
+                .withTcpClientLifecycleListener(rouplexTcpClientListener)
+                .withBacklog(request.getBacklog())
+                .withAttachment(request)
+                .build();
 
             if (request.getSocketReceiveBufferSize() > 0) {
                 tcpServer.getServerSocket().setReceiveBufferSize(request.getSocketReceiveBufferSize());
@@ -217,13 +218,13 @@ public class RouplexWorkerServiceProvider implements WorkerService, Closeable {
         ValidationUtils.checkNonNegativeArg(request.getMinPayloadSize(), "MinPayloadSize");
 
         ValidationUtils.checkPositiveArgDiff(request.getMaxClientLifeMillis() - request.getMinClientLifeMillis(),
-                "MinClientLifeMillis", "MaxClientLifeMillis");
+            "MinClientLifeMillis", "MaxClientLifeMillis");
         ValidationUtils.checkPositiveArgDiff(request.getMaxDelayMillisBeforeCreatingClient() - request.getMinDelayMillisBeforeCreatingClient(),
-                "MinDelayMillisBeforeCreatingClient", "MaxDelayMillisBeforeCreatingClient");
+            "MinDelayMillisBeforeCreatingClient", "MaxDelayMillisBeforeCreatingClient");
         ValidationUtils.checkPositiveArgDiff(request.getMaxDelayMillisBetweenSends() - request.getMinDelayMillisBetweenSends(),
-                "MinDelayMillisBetweenSends", "MaxDelayMillisBetweenSends");
+            "MinDelayMillisBetweenSends", "MaxDelayMillisBetweenSends");
         ValidationUtils.checkPositiveArgDiff(request.getMaxPayloadSize() - request.getMinPayloadSize(),
-                "MinPayloadSize", "MaxPayloadSize");
+            "MinPayloadSize", "MaxPayloadSize");
 
         InetSocketAddress inetSocketAddress = new InetSocketAddress(request.getHostname(), request.getPort());
         if (inetSocketAddress.isUnresolved()) {
@@ -232,19 +233,19 @@ public class RouplexWorkerServiceProvider implements WorkerService, Closeable {
 
         String secure = request.isSsl() ? "secure " : "";
         logger.info(String.format("Creating %s %sEchoClients using provider %s for server at %s:%s",
-                request.getClientCount(), secure, request.getProvider(), request.getHostname(), request.getPort()));
+            request.getClientCount(), secure, request.getProvider(), request.getHostname(), request.getPort()));
 
-        final TcpBroker tcpBroker = createTcpBroker(request.getProvider());
+        final TcpReactor tcpReactor = createTcpReactor(request.getProvider());
 
         for (int cc = 0; cc < request.getClientCount(); cc++) {
             long startClientMillis = request.getMinDelayMillisBeforeCreatingClient() + random.nextInt(
-                    request.getMaxDelayMillisBeforeCreatingClient() - request.getMinDelayMillisBeforeCreatingClient());
+                request.getMaxDelayMillisBeforeCreatingClient() - request.getMinDelayMillisBeforeCreatingClient());
             logger.info(String.format("Scheduled creation of EchoRequester in %s milliseconds.", startClientMillis));
 
             scheduledExecutor.schedule(new Runnable() {
                 @Override
                 public void run() {
-                    new EchoRequester(request, benchmarkerMetrics, scheduledExecutor, tcpBroker);
+                    new EchoRequester(request, benchmarkerMetrics, scheduledExecutor, tcpReactor);
                 }
             }, startClientMillis, TimeUnit.MILLISECONDS);
         }
@@ -284,7 +285,7 @@ public class RouplexWorkerServiceProvider implements WorkerService, Closeable {
         return response;
     }
 
-    private TcpBroker createTcpBroker(Provider provider) throws Exception {
+    private TcpReactor createTcpReactor(Provider provider) throws Exception {
         SelectorProvider selectorProvider;
 
         switch (provider) {
@@ -300,7 +301,7 @@ public class RouplexWorkerServiceProvider implements WorkerService, Closeable {
                 throw new Exception("Provider not found");
         }
 
-        return addCloseable(new TcpBroker(selectorProvider));
+        return addCloseable(new TcpReactor(selectorProvider));
     }
 
     protected <T extends Closeable> T addCloseable(T t) {
@@ -357,12 +358,12 @@ public class RouplexWorkerServiceProvider implements WorkerService, Closeable {
             "  \"echoRatio\": \"string\"\n" +
             "}", CreateTcpServerRequest.class);
 
-        RouplexWorkerServiceProvider.get().createTcpServer(createTcpServerRequest);
+        // RouplexWorkerServiceProvider.get().createTcpServer(createTcpServerRequest);
 
         CreateTcpClientBatchRequest createTcpClientBatchRequest = new Gson().fromJson("{\n" +
             "  \"provider\": \"CLASSIC_NIO\",\n" +
-            "  \"hostname\": \"127.0.0.1\",\n" +
-            "  \"port\": 3333,\n" +
+            "  \"hostname\": \"34.209.219.35\",\n" +
+            "  \"port\": 8888,\n" +
             "  \"socketSendBufferSize\": 0,\n" +
             "  \"socketReceiveBufferSize\": 0,\n" +
             "  \"metricsAggregation\": {\n" +
@@ -372,7 +373,7 @@ public class RouplexWorkerServiceProvider implements WorkerService, Closeable {
             "    \"aggregateClientAddresses\": true,\n" +
             "    \"aggregateClientPorts\": true\n" +
             "  },\n" +
-            "  \"clientCount\": 100000,\n" +
+            "  \"clientCount\": 10000,\n" +
             "  \"minPayloadSize\": 1000,\n" +
             "  \"maxPayloadSize\": 1001,\n" +
             "  \"minDelayMillisBetweenSends\": 100,\n" +

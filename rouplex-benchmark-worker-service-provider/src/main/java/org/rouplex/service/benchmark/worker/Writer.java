@@ -1,150 +1,94 @@
 package org.rouplex.service.benchmark.worker;
 
 import com.codahale.metrics.MetricRegistry;
-import org.rouplex.commons.annotations.GuardedBy;
 import org.rouplex.platform.tcp.TcpWriteChannel;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
  * @author Andi Mullaraj (andimullaraj at gmail.com)
  */
-public class Writer implements Runnable {
+public class Writer {
     private static final Logger logger = Logger.getLogger(Writer.class.getSimpleName());
-    private static final AtomicInteger zeroWrites = new AtomicInteger();
-    private static final AtomicInteger nzeroWrites = new AtomicInteger();
 
     final TcpWriteChannel writeChannel;
-    final ByteBuffer byteBuffer;
     final EchoReporter echoReporter;
     final boolean closeTcpClientWhenShutdown;
-
-    @GuardedBy("lock")
-    boolean shutdownRequested;
 
     // todo, protect this
     Integer clientId;
 
-    public Writer(TcpWriteChannel writeChannel, int bufferSize, EchoReporter echoReporter, boolean closeTcpClientWhenShutdown) {
-        this.writeChannel = writeChannel;
+    public Writer(TcpWriteChannel writeChannel, EchoReporter echoReporter, boolean closeTcpClientWhenShutdown) {
+        this.writeChannel = writeChannel; //new TcpBufferedWriteChannel(writeChannel, 1_000_000, false, true);
         this.closeTcpClientWhenShutdown = closeTcpClientWhenShutdown;
-        this.byteBuffer = ByteBuffer.allocate(bufferSize);
         this.echoReporter = echoReporter;
     }
 
-    public void run() {
+    void write(ByteBuffer bb) throws IOException {
         try {
-            synchronized (writeChannel) {
-                byteBuffer.flip();
+            long startTimeNano = System.nanoTime();
 
-                if (byteBuffer.hasRemaining()) {
-                    if (logger.isLoggable(Level.INFO)) {
-                        logger.info(String.format("Writer[%s] writing %s bytes", clientId, byteBuffer.remaining()));
-                    }
-
-                    int written = writeChannel.write(byteBuffer);
-                    byteBuffer.compact();
-                    if (logger.isLoggable(Level.INFO)) {
-                        logger.info(String.format("Writer[%s] wrote %s bytes", clientId, written));
-                    }
-
-                    if (written == 0) {
-//                        System.out.println("W0:" + writeChannel.getTcpClient().getDebugId() + ": "
-//                            + zeroWrites.incrementAndGet() + " : " + nzeroWrites.get());
-                        echoReporter.sent0Bytes.mark();
-                    } else {
-//                        System.out.println("W1:" + writeChannel.getTcpClient().getDebugId() + ": " +
-//                            zeroWrites.get() + " : " + nzeroWrites.incrementAndGet());
-                        echoReporter.sentBytes.mark(written);
-                    }
-
-                    echoReporter.sentSizes.update(written);
+            while (bb.hasRemaining()) {
+                if (logger.isLoggable(Level.INFO)) {
+                    logger.info(String.format("Writer[%s] writing %s bytes", clientId, bb.remaining()));
                 }
 
-                if (byteBuffer.position() > 0) {
-                    writeChannel.addChannelReadyCallback(this);
-                } else if (shutdownRequested) {
-                    writeChannel.shutdown();
-                    echoReporter.sentEos.mark();
+                int written = writeChannel.write(bb);
+                if (logger.isLoggable(Level.INFO)) {
+                    logger.info(String.format("Writer[%s] wrote %s bytes", clientId, written));
+                }
 
-                    if (logger.isLoggable(Level.INFO)) {
-                        logger.info(String.format("Writer[%s] shutdown", clientId));
-                    }
-
-                    if (closeTcpClientWhenShutdown) {
-                        closeTcpClient();
-                    }
+                if (written == 0) {
+                    break;
                 }
             }
+
+            echoReporter.wcWrittenByte.mark(bb.position());
+            echoReporter.wcWrittenSizes.update(bb.position());
+            echoReporter.wcDiscardedByteAtNic.mark(bb.remaining());
+            echoReporter.wcWriteTimes.update(System.nanoTime() - startTimeNano, TimeUnit.NANOSECONDS);
+
+            if (bb.position() == 0) {
+                echoReporter.wcWritten0Byte.mark();
+            }
         } catch (IOException ioe) {
-            echoReporter.sendFailures.mark();
+            echoReporter.wcWriteFailure.mark();
             echoReporter.metricRegistry.meter(MetricRegistry.name(echoReporter.getAggregatedId(),
-                "sendFailures", "EEE", ioe.getClass().getSimpleName(), ioe.getMessage())).mark();
+                "wcWriteFailure", "EEE", ioe.getClass().getSimpleName(), ioe.getMessage())).mark();
 
             logger.warning(String.format("TcpClient[%s] failed sending. Cause: %s: %s",
                 clientId, ioe.getClass().getSimpleName(), ioe.getMessage()));
 
             closeTcpClient();
+            throw ioe;
         }
     }
 
-    void write(ByteBuffer bb) throws IOException {
-        synchronized (writeChannel) {
-            if (!(shutdownRequested = bb == null)) {
-                transfer(bb, byteBuffer);
-            }
-        }
+    void shutdown() throws IOException {
+        try {
+            writeChannel.shutdown();
+            echoReporter.wcWrittenEos.mark();
 
-        run();
-
-        if (bb != null) {
-            if (bb.hasRemaining()) {
-                echoReporter.sentBytesDiscarded.mark(bb.remaining());
+            if (logger.isLoggable(Level.INFO)) {
+                logger.info(String.format("Writer[%s] shutdown", clientId));
             }
 
-            bb.clear();
-        }
-    }
-
-    /**
-     * Copy bytes from source to destination, adjusting their positions accordingly. This call does not fail if
-     * destination cannot accommodate all the bytes available in source, but copies as many as possible.
-     *
-     * @param source      source buffer
-     * @param destination destination buffer
-     * @return the number of bytes copied
-     */
-    private int transfer(ByteBuffer source, ByteBuffer destination) {
-        int srcRemaining;
-        int destRemaining;
-
-        if ((srcRemaining = source.remaining()) > (destRemaining = destination.remaining())) {
-            // todo improve copy speed here as well
-            int limit = source.limit();
-            source.limit(source.position() + destRemaining);
-            destination.put(source);
-            source.limit(limit);
-            return destRemaining;
-        } else {
-            if (srcRemaining > 0) {
-                if (source.isDirect() || destination.isDirect()) {
-                    destination.put(source);
-                } else {
-                    System.arraycopy(
-                        source.array(), source.position(),
-                        destination.array(), destination.position(),
-                        srcRemaining);
-
-                    source.position(source.position() + srcRemaining);
-                    destination.position(destination.position() + srcRemaining);
-                }
+            if (closeTcpClientWhenShutdown) {
+                closeTcpClient();
             }
+        } catch (Exception e) {
+            echoReporter.metricRegistry.meter(MetricRegistry.name(echoReporter.getAggregatedId(),
+                "wcShutdownFailure", "EEE", e.getClass().getSimpleName(), e.getMessage())).mark();
 
-            return srcRemaining;
+            logger.warning(String.format("TcpClient[%s] writeChannel failed shutting down. Cause: %s: %s",
+                clientId, e.getClass().getSimpleName(), e.getMessage()));
+
+            closeTcpClient();
+            throw e;
         }
     }
 
@@ -157,6 +101,9 @@ public class Writer implements Runnable {
                 logger.info(String.format("TcpClient[%s] closed", clientId));
             }
         } catch (IOException ioe) {
+            echoReporter.metricRegistry.meter(MetricRegistry.name(echoReporter.getAggregatedId(),
+                "tcpClientCloseFailure", "EEE", ioe.getClass().getSimpleName(), ioe.getMessage())).mark();
+
             logger.warning(String.format("TcpClient[%s] failed to close properly. Cause: %s %s",
                 clientId, ioe.getClass().getSimpleName(), ioe.getMessage()));
         }

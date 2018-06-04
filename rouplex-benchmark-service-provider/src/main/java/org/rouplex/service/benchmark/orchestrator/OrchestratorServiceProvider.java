@@ -64,7 +64,7 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
                     ConfigurationKey.AuthorizedPrincipals, "andimullaraj@gmail.com,jschulz907@gmail.com");
 
                 configurationManager.putConfigurationEntry(
-                    ConfigurationKey.WorkerImageId, "ami-a1931ad9");
+                    ConfigurationKey.WorkerImageId, "ami-a6a3e7de");
 
                 configurationManager.putConfigurationEntry(
                     ConfigurationKey.WorkerPlacementGroupId, "placement-group-1");
@@ -262,9 +262,13 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
 
                 createEc2ClusterRequest.setHostCount(1);
                 createEc2ClusterRequest.setIamRole(configuration.get(ConfigurationKey.WorkerInstanceProfileName));
-                createEc2ClusterRequest.setUserData(Base64.getEncoder().encodeToString(buildSystemTuningScript(
-                    benchmark.getTcpServerExpectation().getMaxSimultaneousConnections() * 2 + 1024,
-                    benchmark.getTcpMemoryAsPercentOfTotal()).getBytes(StandardCharsets.UTF_8)));
+
+                String bootstrapScript = buildSystemTuningScript(
+                    1_000_000, // benchmark.getTcpServerExpectation().getMaxSimultaneousConnections() * 2 + 1024,
+                    benchmark.getTcpMemoryAsPercentOfTotal());
+
+                createEc2ClusterRequest.setUserData(
+                    Base64.getEncoder().encodeToString(bootstrapScript.getBytes(StandardCharsets.UTF_8)));
 
                 createEc2ClusterRequest.setSubnetId(configuration.get(ConfigurationKey.WorkerSubnetId));
                 createEc2ClusterRequest.setSecurityGroupIds(Arrays.asList(
@@ -535,7 +539,7 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
     private void buildTcpClientsExpectation(TcpEchoBenchmark benchmark) {
         int durationMillis = benchmark.getMaxDelayMillisBeforeCreatingClient() + benchmark.getMaxClientLifeMillis();
         int connectionRampUpMillis = benchmark.getMaxDelayMillisBeforeCreatingClient() - benchmark.getMinDelayMillisBeforeCreatingClient();
-        int clientAvgLifetimeMillis = (benchmark.getMaxClientLifeMillis() + benchmark.getMinClientLifeMillis()) / 2;
+        int clientAvgLifetimeMillis = (benchmark.getMaxClientLifeMillis() - 1 + benchmark.getMinClientLifeMillis()) / 2;
         int rampUpAsMillis = Math.min(connectionRampUpMillis, clientAvgLifetimeMillis);
 
         TcpMetricsExpectation clientsExpectation = new TcpMetricsExpectation();
@@ -547,7 +551,8 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
 
         long avgPayloadSize = (benchmark.getMaxPayloadSize() - 1 + benchmark.getMinPayloadSize()) / 2;
         long avgPayloadPeriodMillis = (benchmark.getMaxDelayMillisBetweenSends() - 1 + benchmark.getMinDelayMillisBetweenSends()) / 2;
-        long transferSpeedBps = avgPayloadSize * clientsExpectation.getMaxSimultaneousConnections() / avgPayloadPeriodMillis * 8 * 1000;
+        long transferSpeedBps = avgPayloadPeriodMillis == 0 ? Long.MAX_VALUE :
+            avgPayloadSize * clientsExpectation.getMaxSimultaneousConnections() / avgPayloadPeriodMillis * 8 * 1000;
 
         clientsExpectation.setMaxUploadSpeedInBitsPerSecond(transferSpeedBps);
         clientsExpectation.setMaxDownloadSpeedInBitsPerSecond(transferSpeedBps); // todo handle echoRatio of type "x:y"

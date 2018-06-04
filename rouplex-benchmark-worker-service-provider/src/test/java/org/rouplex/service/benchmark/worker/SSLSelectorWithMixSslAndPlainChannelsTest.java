@@ -197,15 +197,15 @@ public class SSLSelectorWithMixSslAndPlainChannelsTest {
                 fetchValue(metric, requestersDisconnectedOk, respondersDisconnectedOk);
             } else if (metric.getKey().endsWith(".clientDisconnectedKo")) {
                 fetchValue(metric, requestersDisconnectedKo, respondersDisconnectedKo);
-            } else if (metric.getKey().endsWith(".sentBytes")) {
+            } else if (metric.getKey().endsWith(".wcWrittenByte")) {
                 fetchValue(metric, requestersSentBytes, respondersSentBytes);
-            } else if (metric.getKey().endsWith(".sendFailures")) {
+            } else if (metric.getKey().endsWith(".wcWriteFailure")) {
                 fetchValue(metric, requestersSentFailures, respondersSentFailures);
-            } else if (metric.getKey().endsWith(".sentEos")) {
+            } else if (metric.getKey().endsWith(".wcWrittenEos")) {
                 fetchValue(metric, requestersSentEos, respondersSentEos);
-            } else if (metric.getKey().endsWith(".receivedBytes")) {
+            } else if (metric.getKey().endsWith(".rcReadByte")) {
                 fetchValue(metric, requestersReceivedBytes, respondersReceivedBytes);
-            } else if (metric.getKey().endsWith(".receivedEos")) {
+            } else if (metric.getKey().endsWith(".rcReadEos")) {
                 fetchValue(metric, requestersReceivedEos, respondersReceivedEos);
             } else if (metric.getKey().endsWith(".receivedDisconnect")) {
                 fetchValue(metric, requestersReceivedDisconnect, respondersReceivedDisconnect);
@@ -269,15 +269,15 @@ public class SSLSelectorWithMixSslAndPlainChannelsTest {
                 fetchValue(metric, requestersConnected, respondersConnected);
             } else if (metric.getKey().endsWith(".disconnected")) {
                 fetchValue(metric, requestersDisconnected, respondersDisconnected);
-            } else if (metric.getKey().endsWith(".sentBytes")) {
+            } else if (metric.getKey().endsWith(".wcWrittenByte")) {
                 fetchValue(metric, requestersSentBytes, respondersSentBytes);
-            } else if (metric.getKey().endsWith(".sendFailures")) {
+            } else if (metric.getKey().endsWith(".wcWriteFailure")) {
                 fetchValue(metric, requestersSentFailures, respondersSentFailures);
-            } else if (metric.getKey().endsWith(".sentEos")) {
+            } else if (metric.getKey().endsWith(".wcWrittenEos")) {
                 fetchValue(metric, requestersSentEos, respondersSentEos);
-            } else if (metric.getKey().endsWith(".receivedBytes")) {
+            } else if (metric.getKey().endsWith(".rcReadByte")) {
                 fetchValue(metric, requestersReceivedBytes, respondersReceivedBytes);
-            } else if (metric.getKey().endsWith(".receivedEos")) {
+            } else if (metric.getKey().endsWith(".rcReadEos")) {
                 fetchValue(metric, requestersReceivedEos, respondersReceivedEos);
             } else if (metric.getKey().endsWith(".receivedDisconnect")) {
                 fetchValue(metric, requestersReceivedDisconnect, respondersReceivedDisconnect);

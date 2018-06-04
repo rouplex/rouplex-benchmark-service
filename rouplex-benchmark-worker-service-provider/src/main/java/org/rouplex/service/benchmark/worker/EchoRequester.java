@@ -1,16 +1,15 @@
 package org.rouplex.service.benchmark.worker;
 
 import com.codahale.metrics.MetricRegistry;
-import org.rouplex.platform.tcp.TcpBroker;
 import org.rouplex.platform.tcp.TcpClient;
 import org.rouplex.platform.tcp.TcpClientLifecycleListener;
+import org.rouplex.platform.tcp.TcpReactor;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
 import java.util.Random;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -23,11 +22,14 @@ public class EchoRequester {
     private static final AtomicInteger incrementalId = new AtomicInteger();
     private static final Random random = new Random();
 
+    // We can use a shared pool (since the BB used are only temporary containers between read and writes)
+    // Not creating a ThreadLocal b/c down't want to promote this pattern at all
+    private final static ConcurrentMap<Thread, ByteBuffer> byteBufferPool = new ConcurrentHashMap<>();
+
     final CreateTcpClientBatchRequest request;
     final MetricRegistry metricRegistry;
     final ScheduledExecutorService scheduledExecutor;
     final long timeCreatedNano = System.nanoTime();
-    private final ByteBuffer sendBuffer;
 
     long closeTimestamp;
     Writer writer;
@@ -35,12 +37,11 @@ public class EchoRequester {
     int clientId;
 
     EchoRequester(CreateTcpClientBatchRequest createTcpClientBatchRequest, MetricRegistry metricRegistry,
-                  ScheduledExecutorService scheduledExecutor, TcpBroker tcpBroker) {
+                  ScheduledExecutorService scheduledExecutor, TcpReactor tcpReactor) {
 
         this.request = createTcpClientBatchRequest;
         this.metricRegistry = metricRegistry;
         this.scheduledExecutor = scheduledExecutor;
-        this.sendBuffer = ByteBuffer.allocate(createTcpClientBatchRequest.getMaxPayloadSize() - 1);
 
         try {
             SocketChannel socketChannel;
@@ -66,16 +67,16 @@ public class EchoRequester {
                     try {
                         logger.info("Connected EchoRequester");
 
-                        echoReporter = new EchoReporter(request, metricRegistry, EchoRequester.class,
+                        echoReporter = new EchoReporter(request, metricRegistry, "EchoRequester",
                             tcpClient.getLocalAddress(), tcpClient.getRemoteAddress());
 
                         echoReporter.clientConnectionEstablished.mark();
                         echoReporter.clientConnectionLive.mark();
 
-                        writer = new Writer(tcpClient.getWriteChannel(), sendBuffer.capacity(), echoReporter, false);
-                        new Reader(tcpClient.getReadChannel(), 10000, echoReporter, null).run();
+                        writer = new Writer(tcpClient.getWriteChannel(), echoReporter, false);
+                        new Reader(tcpClient.getReadChannel(), echoReporter, null).run();
 
-                        startSendingThenClose(tcpClient);
+                        startSendingThenClose();
                     } catch (Exception e) {
                         //logExceptionTraceTemp(e);
                         metricRegistry.meter(MetricRegistry.name("internalError.clientConnection")).mark();
@@ -89,7 +90,7 @@ public class EchoRequester {
 
                 @Override
                 public void onConnectionFailed(TcpClient tcpClient, Exception reason) {
-                    echoReporter = new EchoReporter(request, metricRegistry, EchoRequester.class, null, null);
+                    echoReporter = new EchoReporter(request, metricRegistry, "EchoRequester", null, null);
                     echoReporter.clientConnectionFailed.mark();
                     metricRegistry.meter(MetricRegistry.name("clientConnectionFailed.EEE",
                         reason.getClass().getSimpleName(), reason.getMessage())).mark();
@@ -122,7 +123,7 @@ public class EchoRequester {
                 }
             };
 
-            TcpClient tcpClient = tcpBroker.newTcpClientBuilder()
+            TcpClient tcpClient = tcpReactor.newTcpClientBuilder()
                 .withSocketChannel(socketChannel)
                 .withRemoteAddress(createTcpClientBatchRequest.getHostname(), createTcpClientBatchRequest.getPort())
                 .withSecure(createTcpClientBatchRequest.isSsl(), null) // value ignored in current context since channel is provided
@@ -154,35 +155,54 @@ public class EchoRequester {
         logger.info("Created EchoRequester");
     }
 
-    void startSendingThenClose(TcpClient tcpClient) {
+    ByteBuffer borrowByteBuffer() {
+        ByteBuffer result = byteBufferPool.get(Thread.currentThread());
+        if (result == null) {
+            byteBufferPool.put(Thread.currentThread(), result = ByteBuffer.allocateDirect(1_000_000));
+        } else {
+            result.clear();
+        }
+
+        return result;
+    }
+
+    void startSendingThenClose() {
         long connectionNano = System.nanoTime() - timeCreatedNano;
         // poor man's implementation for bucketizing: just divide in buckets of power of 10 in millis (from nanos)
-        echoReporter.clientConnectionTime.update(connectionNano, TimeUnit.NANOSECONDS);
-
-        clientId = incrementalId.incrementAndGet();
-        tcpClient.setDebugId("C" + clientId);
-        serializeClientId(clientId, sendBuffer.array());
+        echoReporter.clientConnectionTimes.update(connectionNano, TimeUnit.NANOSECONDS);
 
         closeTimestamp = System.currentTimeMillis() + request.getMinClientLifeMillis() +
             random.nextInt(request.getMaxClientLifeMillis() - request.getMinClientLifeMillis());
 
+        nextWriteTimestamp = System.nanoTime();
         keepSendingThenClose();
     }
 
+    long nextWriteTimestamp;
+
     void keepSendingThenClose() {
+        ByteBuffer sendBuffer = borrowByteBuffer();
+
+        if (clientId == 0) {
+            clientId = incrementalId.incrementAndGet();
+            // tcpClient.setDebugId("C" + clientId);
+            serializeClientId(clientId, sendBuffer);
+        }
+
         try {
             if (System.currentTimeMillis() >= closeTimestamp) {
                 if (logger.isLoggable(Level.INFO)) {
-                    logger.info(String.format("EchoRequester[%s] shutting down", clientId));
+                    logger.info(String.format("EchoRequester[%s] shutting down as scheduled", clientId));
                 }
 
-                writer.write(null);
+                writer.shutdown();
                 return;
             }
 
-            sendBuffer.position(0);
             int payloadSize = request.getMinPayloadSize() + random.nextInt(request.getMaxPayloadSize() - request.getMinPayloadSize());
+            sendBuffer.position(0);
             sendBuffer.limit(payloadSize);
+
             if (logger.isLoggable(Level.INFO)) {
                 logger.info(String.format("EchoRequester[%s] sending %s bytes", clientId, payloadSize));
             }
@@ -193,28 +213,50 @@ public class EchoRequester {
                 logger.info(String.format("EchoRequester[%s] sent %s bytes", clientId, sendBuffer.position()));
             }
 
-            long delay = request.getMinDelayMillisBetweenSends() +
-                random.nextInt(request.getMaxDelayMillisBetweenSends() - request.getMinDelayMillisBetweenSends());
+            nextWriteTimestamp += 1000000 * (request.getMinDelayMillisBetweenSends() +
+                random.nextInt(request.getMaxDelayMillisBetweenSends() - request.getMinDelayMillisBetweenSends()));
 
-            delay = Math.max(0, Math.min(delay, closeTimestamp - System.currentTimeMillis()));
+            long delayNano;
+            while ((delayNano = nextWriteTimestamp - System.nanoTime()) < 0) {
+                nextWriteTimestamp += 1000000 * (request.getMinDelayMillisBetweenSends() +
+                    random.nextInt(request.getMaxDelayMillisBetweenSends() - request.getMinDelayMillisBetweenSends()));
+
+                payloadSize = request.getMinPayloadSize() + random.nextInt(request.getMaxPayloadSize() - request.getMinPayloadSize());
+                echoReporter.wcDiscardedByteAtCpu.mark(payloadSize);
+            }
 
             scheduledExecutor.schedule(new Runnable() {
                 @Override
                 public void run() {
                     keepSendingThenClose();
                 }
-            }, delay, TimeUnit.MILLISECONDS);
+            }, delayNano, TimeUnit.NANOSECONDS);
+
         } catch (IOException ioe) {
             // all reporting has happened inside writer already
+        } catch (RejectedExecutionException ree) { // Never seen it happen
+            if (logger.isLoggable(Level.INFO)) {
+                logger.info(String.format("EchoRequester[%s] shutting down (lack of system resources: RejectedExecutionException)", clientId));
+            }
+
+            try {
+                writer.shutdown();
+            } catch (IOException ioe) {
+                // all reporting has happened inside writer already
+            }
         }
     }
 
-    private static void serializeClientId(int clientId, byte[] buffer) {
+    private static void serializeClientId(int clientId, ByteBuffer byteBuffer) {
+        byte[] buffer = new byte[4];
+
         if (buffer.length > 3) {
             for (int i = 3; i >= 0; i--) {
                 buffer[i] = (byte) (clientId & 0xFF);
                 clientId >>>= 8;
             }
         }
+
+        byteBuffer.put(buffer);
     }
 }
