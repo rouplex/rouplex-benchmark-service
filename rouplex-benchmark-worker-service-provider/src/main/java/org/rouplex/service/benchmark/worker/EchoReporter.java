@@ -1,9 +1,6 @@
 package org.rouplex.service.benchmark.worker;
 
-import com.codahale.metrics.Histogram;
-import com.codahale.metrics.Meter;
-import com.codahale.metrics.MetricRegistry;
-import com.codahale.metrics.Timer;
+import com.codahale.metrics.*;
 import org.rouplex.service.benchmark.orchestrator.MetricsAggregation;
 
 import java.net.InetSocketAddress;
@@ -32,6 +29,8 @@ class EchoReporter {
     final Meter wcDiscardedByteAtCpu;
     final Histogram wcWrittenSizes;
     final Timer wcWriteTimes;
+    final Timer wcDelaysNegative;
+    final Timer wcDelaysPositive;
 
     final Meter rcReadByte;
     final Meter rcRead0Byte;
@@ -95,8 +94,10 @@ class EchoReporter {
             wcWriteFailure = metricRegistry.meter(MetricRegistry.name(aggregatedId, "wcWriteFailure"));
             wcWrittenSizes = metricRegistry.histogram(MetricRegistry.name(aggregatedId, "wcWrittenSizes"));
             wcDiscardedByteAtNic = metricRegistry.meter(MetricRegistry.name(aggregatedId, "wcDiscardedByteAtNic"));
-            wcWriteTimes = metricRegistry.timer(MetricRegistry.name(aggregatedId, "wcWriteTimes"));
             wcDiscardedByteAtCpu = metricRegistry.meter(MetricRegistry.name(aggregatedId, "wcDiscardedByteAtCpu"));
+            wcWriteTimes = metricRegistry.timer(MetricRegistry.name(aggregatedId, "wcWriteTimes"));
+            wcDelaysNegative = metricRegistry.timer(MetricRegistry.name(aggregatedId, "wcDelaysNegative"));
+            wcDelaysPositive = metricRegistry.timer(MetricRegistry.name(aggregatedId, "wcDelaysPositive"));
 
             rcReadByte = metricRegistry.meter(MetricRegistry.name(aggregatedId, "rcReadByte"));
             rcRead0Byte = metricRegistry.meter(MetricRegistry.name(aggregatedId, "rcRead0Byte"));

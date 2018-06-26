@@ -18,7 +18,7 @@
         <dependency>
             <groupId>org.rouplex</groupId>
             <artifactId>rouplex-deployment-service-api</artifactId>
-            <version>1.0.1</version>
+            <version>1.0.2-SNAPSHOT</version>
         </dependency>
 
         <!--Import jax-rs annotations-->

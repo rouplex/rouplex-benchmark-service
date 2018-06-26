@@ -31,6 +31,7 @@ config.ec2InstanceTypes = [
   {key: "M3Large", value: "EC2 M3 Large", cost: 0.1330},
   {key: "M3Xlarge", value: "EC2 M3 XLarge", cost: 0.2660},
   {key: "M32xlarge", value: "EC2 M3 2XLarge", cost: 0.5320},
+  {key: "C38xlarge", value: "EC2 C3 8XLarge", cost: 1.680},
 
   {key: "M4Large", value: "EC2 M4 Large", cost: 0.1000},
   {key: "M4Xlarge", value: "EC2 M4 XLarge", cost: 0.2000},
@@ -39,7 +40,7 @@ config.ec2InstanceTypes = [
   {key: "M410xlarge", value: "EC2 M4 10XLarge", cost: 2.0000},
   {key: "M416xlarge", value: "EC2 M4 16XLarge", cost: 3.2000},
 
-  {key: "C38xlarge", value: "EC2 C3 8XLarge", cost: 1.680}
+  {key: "C518xlarge", value: "EC2 C5 18XLarge", cost: 3.0600}
 ];
 
 config.ec2Regions = [

@@ -28,20 +28,26 @@ public class EchoRequester {
 
     final CreateTcpClientBatchRequest request;
     final MetricRegistry metricRegistry;
-    final ScheduledExecutorService scheduledExecutor;
+    final RouplexScheduledExecutorFixedThreads scheduledExecutor;
     final long timeCreatedNano = System.nanoTime();
 
+    final long avgDelayBetweenWritesNano;
+    final long avgWritePacketSize;
     long closeTimestamp;
     Writer writer;
     EchoReporter echoReporter;
     int clientId;
 
     EchoRequester(CreateTcpClientBatchRequest createTcpClientBatchRequest, MetricRegistry metricRegistry,
-                  ScheduledExecutorService scheduledExecutor, TcpReactor tcpReactor) {
+                  RouplexScheduledExecutorFixedThreads scheduledExecutor, TcpReactor tcpReactor) {
 
         this.request = createTcpClientBatchRequest;
         this.metricRegistry = metricRegistry;
         this.scheduledExecutor = scheduledExecutor;
+
+        avgDelayBetweenWritesNano = 1_000_000 *
+            (request.getMaxDelayMillisBetweenSends() - 1 + request.getMinDelayMillisBetweenSends()) / 2;
+        avgWritePacketSize = (request.getMaxPayloadSize() - 1 + request.getMinPayloadSize()) / 2;
 
         try {
             SocketChannel socketChannel;
@@ -183,11 +189,11 @@ public class EchoRequester {
     void keepSendingThenClose() {
         ByteBuffer sendBuffer = borrowByteBuffer();
 
-        if (clientId == 0) {
-            clientId = incrementalId.incrementAndGet();
-            // tcpClient.setDebugId("C" + clientId);
-            serializeClientId(clientId, sendBuffer);
-        }
+//        if (clientId == 0) {
+//            clientId = incrementalId.incrementAndGet();
+//            // tcpClient.setDebugId("C" + clientId);
+//            serializeClientId(clientId, sendBuffer);
+//        }
 
         try {
             if (System.currentTimeMillis() >= closeTimestamp) {
@@ -216,13 +222,15 @@ public class EchoRequester {
             nextWriteTimestamp += 1000000 * (request.getMinDelayMillisBetweenSends() +
                 random.nextInt(request.getMaxDelayMillisBetweenSends() - request.getMinDelayMillisBetweenSends()));
 
-            long delayNano;
-            while ((delayNano = nextWriteTimestamp - System.nanoTime()) < 0) {
-                nextWriteTimestamp += 1000000 * (request.getMinDelayMillisBetweenSends() +
-                    random.nextInt(request.getMaxDelayMillisBetweenSends() - request.getMinDelayMillisBetweenSends()));
-
-                payloadSize = request.getMinPayloadSize() + random.nextInt(request.getMaxPayloadSize() - request.getMinPayloadSize());
-                echoReporter.wcDiscardedByteAtCpu.mark(payloadSize);
+            long nowNano = System.nanoTime();
+            long delayNano = nextWriteTimestamp - nowNano;
+            if (delayNano < 0) {
+                echoReporter.wcDelaysNegative.update(-delayNano, TimeUnit.NANOSECONDS);
+                long skips = 1 - delayNano / avgDelayBetweenWritesNano;
+                echoReporter.wcDiscardedByteAtCpu.mark(avgWritePacketSize * skips);
+                nextWriteTimestamp = nowNano;
+            } else {
+                echoReporter.wcDelaysPositive.update(delayNano, TimeUnit.NANOSECONDS);
             }
 
             scheduledExecutor.schedule(new Runnable() {
@@ -230,7 +238,7 @@ public class EchoRequester {
                 public void run() {
                     keepSendingThenClose();
                 }
-            }, delayNano, TimeUnit.NANOSECONDS);
+            }, delayNano);
 
         } catch (IOException ioe) {
             // all reporting has happened inside writer already

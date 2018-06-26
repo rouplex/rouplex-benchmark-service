@@ -64,7 +64,7 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
                     ConfigurationKey.AuthorizedPrincipals, "andimullaraj@gmail.com,jschulz907@gmail.com");
 
                 configurationManager.putConfigurationEntry(
-                    ConfigurationKey.WorkerImageId, "ami-a6a3e7de");
+                    ConfigurationKey.WorkerImageId, "ami-6694dc1e");
 
                 configurationManager.putConfigurationEntry(
                     ConfigurationKey.WorkerPlacementGroupId, "placement-group-1");
@@ -241,8 +241,8 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
         try {
             CreateDeploymentRequest createDeploymentRequest = new CreateDeploymentRequest();
             DeploymentConfiguration deploymentConfiguration = new DeploymentConfiguration();
-            // granting the deployment an extra 10 minutes, plenty of extra time for bootstrapping the benchmark
-            long deploymentDuration = benchmark.getExpectedDurationMillis() + 10 * 60_000;
+            // granting the deployment an extra 5 minutes, plenty of extra time for bootstrapping the benchmark
+            long deploymentDuration = benchmark.getExpectedDurationMillis() + 5 * 60_000;
             String expirationDateTime = TimeUtils
                 .convertMillisToIsoInstant(System.currentTimeMillis() + deploymentDuration, 0);
             deploymentConfiguration.setLeaseExpirationDateTime(expirationDateTime);
@@ -506,7 +506,7 @@ public class OrchestratorServiceProvider implements OrchestratorService, Closeab
         request.setSocketSendBufferSize(benchmark.getSocketSendBufferSize());
         request.setBacklog(benchmark.getBacklog());
         request.setMetricsAggregation(benchmark.getMetricsAggregation());
-
+        request.setEchoRatio(benchmark.getEchoRatio());
         return request;
     }
 

@@ -83,14 +83,14 @@
         <dependency>
             <groupId>org.rouplex</groupId>
             <artifactId>rouplex-deployment-management-service-agent</artifactId>
-            <version>1.0.0</version>
+            <version>1.0.2-SNAPSHOT</version>
         </dependency>
 
         <!-- Get servlet, swagger dependencies transitively -->
         <dependency>
             <groupId>org.rouplex</groupId>
             <artifactId>rouplex-platform-jersey</artifactId>
-            <version>1.0.3</version>
+            <version>1.0.6-SNAPSHOT</version>
         </dependency>
 
         <!--The Jersey implementation, to run our application-->

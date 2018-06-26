@@ -37,6 +37,8 @@ public class Ec2Metadata {
         ec2HostTypes.put(HostType.M44xlarge, new Ec2HostTypeInfo().withRamMB(64 * 1024).withCost(.8000));
         ec2HostTypes.put(HostType.M410xlarge, new Ec2HostTypeInfo().withRamMB(160 * 1024).withCost(2.0000));
         ec2HostTypes.put(HostType.M416xlarge, new Ec2HostTypeInfo().withRamMB(256 * 1024).withCost(3.2000));
+
+        ec2HostTypes.put(HostType.C518xlarge, new Ec2HostTypeInfo().withRamMB(144 * 1024).withCost(3.0600));
     }
 
     public Map<HostType, Ec2HostTypeInfo> getEc2HostTypes() {

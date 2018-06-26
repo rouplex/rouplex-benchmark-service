@@ -6,7 +6,10 @@ import com.google.gson.Gson;
 import org.rouplex.commons.configuration.Configuration;
 import org.rouplex.commons.configuration.ConfigurationManager;
 import org.rouplex.commons.utils.ValidationUtils;
-import org.rouplex.platform.tcp.*;
+import org.rouplex.platform.tcp.TcpClient;
+import org.rouplex.platform.tcp.TcpClientLifecycleListener;
+import org.rouplex.platform.tcp.TcpReactor;
+import org.rouplex.platform.tcp.TcpServer;
 import org.rouplex.service.benchmark.orchestrator.Provider;
 
 import javax.net.ssl.SSLContext;
@@ -19,8 +22,6 @@ import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.spi.SelectorProvider;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
@@ -51,7 +52,8 @@ public class RouplexWorkerServiceProvider implements WorkerService, Closeable {
         }
     }
 
-    final ScheduledExecutorService scheduledExecutor = Executors.newScheduledThreadPool(Runtime.getRuntime().availableProcessors());
+    final RouplexScheduledExecutorFixedThreads scheduledExecutor =
+        new RouplexScheduledExecutorFixedThreads(Runtime.getRuntime().availableProcessors() * 2);
     final MetricRegistry benchmarkerMetrics = new MetricRegistry();
     final MetricsUtil metricsUtil = new MetricsUtil(TimeUnit.SECONDS);
     final Random random = new Random();
@@ -247,7 +249,7 @@ public class RouplexWorkerServiceProvider implements WorkerService, Closeable {
                 public void run() {
                     new EchoRequester(request, benchmarkerMetrics, scheduledExecutor, tcpReactor);
                 }
-            }, startClientMillis, TimeUnit.MILLISECONDS);
+            }, startClientMillis * 1_000_000);
         }
 
         CreateTcpClientBatchResponse response = new CreateTcpClientBatchResponse();
@@ -331,7 +333,7 @@ public class RouplexWorkerServiceProvider implements WorkerService, Closeable {
             }
 
             closeables = null;
-            scheduledExecutor.shutdownNow();
+            scheduledExecutor.close();
         }
     }
 
